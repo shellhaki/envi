@@ -1,0 +1,4 @@
+.local
+.env.example
+rules.txt
+query.sql
