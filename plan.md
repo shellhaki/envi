@@ -4,7 +4,7 @@
 
 Envi's primary user is not just a team — it's an **individual developer** first, who may later invite collaborators. The flow that has to feel effortless is:
 
-1. Solo dev builds something locally, runs `envi init` + `envi push`.
+1. Solo dev builds something locally, runs `envi init --project <name>` (or selects an existing project) + `envi push`.
 2. Deploys to their own server (VPS, droplet, whatever) and runs `envi pull` there to get the `.env` populated — no teammate, no org setup, no RBAC decisions required.
 3. Later, if someone joins the project, the owner shares access to that one project without needing to first stand up an "organization" with roles and seats.
 
@@ -12,7 +12,7 @@ This means **org/team structure must be optional scaffolding, not a mandatory fi
 - Every user gets an implicit **personal workspace** (a lightweight, auto-created "org of one") the moment they sign up — no "create your organization" screen blocking `envi init`.
 - A project can be created directly under a personal workspace. "Real" multi-person organizations become relevant only once someone shares a project or explicitly creates a team.
 - **Sharing a project = inviting a collaborator to that specific project**, not necessarily onboarding them into a full org hierarchy. Under the hood this can still be implemented as "invite user, create an access_grant scoped to that project" — the org/team machinery from §1.3 doesn't disappear, it just becomes invisible until it's needed.
-- **Authenticating a server** (as opposed to a developer's laptop) is a distinct flow from the interactive device-code auth in §1.5 — see §1.5.1 below. This is what makes "push locally, pull on my server" actually work unattended.
+- **Authenticating a server** (as opposed to a developer's laptop) is a distinct flow from interactive OTP login — see §1.5.1 below. This is what makes "push locally, pull on my server" actually work unattended.
 
 This reframing affects §1.4 (RBAC), §1.5 (auth), and the MVP scope — see the additions marked "(updated)" below.
 
@@ -57,15 +57,16 @@ Since you're planning to have an AI (e.g. Claude Code) actually build this, a fe
 Given the priority on speed, the plan now assumes **Go with the Gin framework for the API backend, and Go for the CLI** (rather than the Bun/Hono backend in the existing waitlist repo). This is a good fit for this specific product, not just a preference call:
 
 - **CLI**: Go was already the stronger recommendation in the original sketch (§ CLI responsibilities) — a single static binary with no runtime dependency is exactly what you want for `curl | install`-style distribution across macOS/Linux/Windows, and for the unattended-server use case in §1.5.1 (a Go binary drops onto a bare VPS with nothing else to install).
-- **API**: Gin is fast, has a small learning curve, and Go's standard library + ecosystem (`crypto/aes`, `golang.org/x/crypto`, official AWS/GCP SDKs) covers everything the encryption model in §1.2 needs without exotic dependencies.
-- **Shared code**: using Go for both API and CLI means the encryption/envelope-unwrapping logic, the `.env` parsing, and the API request/response types can live in shared internal packages — one implementation of "how do we decrypt a secret" instead of two (previously: TypeScript on the server, and either Go or TypeScript on the CLI, meaning error-prone reimplementation risk). This is a real correctness win, not just a speed one.
+- **API**: Gin is fast, has a small learning curve, and Go's standard library covers the initial Postgres-backed secret storage and OTP authentication without exotic dependencies.
+- **Shared code**: using Go for both API and CLI means encryption, `.env` parsing, and API request/response types can live in shared internal packages.
 - **Practical effect on Phase 0 below**: this means the existing Bun/Hono backend in the waitlist repo is not the foundation to build on — it gets replaced by a new Go/Gin service. The Next.js frontend and Postgres choice are unaffected and stay as-is. The existing Go `whatsapp` module in the repo suggests some Go tooling/CI may already be partially set up, which is worth reusing where it exists (Dockerfile patterns, CI config, etc.) even though the module itself isn't part of the product.
 
 ## 0. Guiding principles
 
 - **Never store or log plaintext secrets.** Not in the database, not in application logs, not in error reporting, not in client-side state longer than necessary to render/copy it.
-- **Optimize the MVP for trust and convenience, not maximal zero-knowledge purity.** The target user (a startup dev team) wants "safer than Slack," not "safer than a bank." Build the envelope-encryption foundation so a stricter client-side mode can be added later without a data-model rewrite.
+- **Optimize the MVP for trust and convenience, not maximal zero-knowledge purity.** The target user wants safer secret handling than ad hoc files and chat. Document that the MVP uses application-managed encryption keys and defer stronger key isolation.
 - **Treat CLI ergonomics as a product surface, not an afterthought.** `envi auth / init / pull / push` needs to feel as fast as `git`.
+- **Require explicit project context.** Project operations require a valid `envi.toml` and authentication (or a scoped service token).
 - **Every write to a secret is versioned and audited.** No exceptions, including admin actions.
 
 ---
@@ -75,21 +76,16 @@ Given the priority on speed, the plan now assumes **Go with the Gin framework fo
 These decisions have outsized long-term cost if reversed later. Each should be a short written ADR before implementation starts.
 
 ### 1.1 Where does decryption happen?
-**Recommendation: server-side decryption for MVP, using envelope encryption backed by a cloud KMS.**
+**MVP decision: server-side encryption with Postgres storage; cloud KMS is deferred.**
 
 - The API decrypts secret values on demand (for CLI pull, dashboard reveal) and re-encrypts on push.
 - Plaintext exists only in-memory on the API server for the duration of the request, and in-memory/on-disk (`.env`) on the developer's machine.
 - This keeps the CLI simple, allows the web dashboard to show/copy secrets, and makes key rotation and recovery tractable.
 - **Trade-off to be explicit with users about:** Envi's backend is technically capable of decrypting secrets. This is a trust-model decision, not just a technical one — it should be stated plainly in the security docs.
-- **Future path:** design the KMS/DEK layering (below) so a "zero-knowledge" project tier — where unwrapping happens client-side via WASM libsodium in the browser and CLI, and Envi's servers only ever handle ciphertext — can be added later without changing the storage schema.
+- **Future path:** introduce envelope encryption and a cloud KMS later, with a migration path that preserves the storage model. A zero-knowledge tier remains a longer-term option.
 
 ### 1.2 Envelope encryption model
-- **KMS master key** (AWS KMS or GCP Cloud KMS, one per deployment region) — never leaves the cloud HSM.
-- **Organization Key-Encryption-Key (KEK)**: generated per organization, encrypted ("wrapped") by the KMS master key, stored in DB as ciphertext only.
-- **Per-project Data-Encryption-Key (DEK)**: generated per project, wrapped by the org KEK, stored in DB as ciphertext only.
-- **Secret values**: encrypted with the project DEK (AES-256-GCM), stored as ciphertext + nonce + auth tag.
-- To decrypt a secret: KMS unwraps org KEK → org KEK unwraps project DEK → DEK decrypts secret value. Only the final step touches secret plaintext, and it happens in-process, never persisted.
-- **Key rotation**: rotating a DEK re-encrypts only that project's secrets; rotating a KEK re-wraps only DEKs under it. The KMS master key rotates independently via the cloud provider's native rotation. This layering is what makes rotation cheap — it's the main reason to do envelope encryption instead of encrypting directly with a single global key.
+For the MVP, secrets are stored in Postgres with application-level encryption using a deployment-managed encryption key. Keep plaintext only in memory during requests; never log it. Envelope encryption backed by AWS/GCP KMS, key rotation, and zero-knowledge options are deferred until a later hardening phase.
 
 ### 1.3 Org / team / project / environment modeling
 ```
@@ -115,17 +111,14 @@ Two layers, kept intentionally simple for MVP:
 - If the invitee doesn't have an account yet, sends an invitation tied to that project (not the org).
 - On acceptance, creates an `access_grant` scoped to that project/environment — it does **not** add them as a full member of the owner's personal org (a personal org stays single-member by definition; the system instead promotes the *project* to belong to a lightweight "shared org" transparently, or — simpler for MVP — access_grants are allowed to reference a project owned by another user's personal org directly, provided the grantor has `manage` permission). The simplest MVP-safe implementation: **access_grants can point at a project regardless of which org owns it**, as long as the grantor has `manage` rights on that project. This avoids needing an org-migration step entirely for the common "just add my one collaborator" case, and a full team org remains available for people who want the heavier structure (dashboard: "Convert to Team").
 
-### 1.5 Device authentication (CLI)
-Standard **OAuth 2.0 Device Authorization Grant (RFC 8628)**:
-1. `envi auth` → CLI calls `POST /device/code` → receives `device_code`, `user_code`, `verification_uri`.
-2. CLI displays the short `user_code` and opens the browser to `verification_uri`.
-3. User logs into the web dashboard (if needed) and approves the code, scoped to their account/org.
-4. CLI polls `POST /device/token` until approved, then receives a short-lived access token + refresh token.
-5. Tokens are stored in the OS keychain (macOS Keychain / Windows Credential Manager / libsecret on Linux), never in a plaintext file.
+### 1.5 Email OTP authentication (CLI)
+`envi auth` requests a short-lived one-time code by email, then exchanges the verified code for access and refresh tokens. OTPs are single-use, rate-limited, and never stored in plaintext. Tokens are stored in the OS keychain when available.
+
+Project context: `envi init --project <name>` writes validated `envi.toml` metadata. Bare `envi init` lists accessible projects for selection. Project operations require this file and authentication; missing, malformed, or mismatched config returns a concise actionable error and non-zero exit code.
 - Access tokens: short-lived (~15 min), refresh tokens: longer-lived, rotated on use, individually revocable from the dashboard ("Devices" list, like GitHub/Vercel CLI patterns).
 
 **1.5.1 (updated) Server / unattended authentication — "push locally, pull on my server":**
-Device-code auth assumes an interactive browser, which a headless VPS doesn't have. For the solo-dev deploy flow, Envi needs a **non-interactive credential** distinct from a personal login:
+Interactive OTP login assumes a human is present, which a headless VPS doesn't have. For the solo-dev deploy flow, Envi needs a **non-interactive credential** distinct from a personal login:
 - `envi token create --project foo --env production --permission read` (run locally, while already authenticated) mints a **service token**: a long-lived, scoped, revocable credential tied to a `service_identity` (§1.8), not a human device session.
 - On the server: `ENVI_TOKEN=<token> envi pull` (env var or `--token` flag, or a one-line `curl | sh` style installer that prompts once for the token) — no browser, no keychain interaction needed, no polling.
 - This is deliberately the **same mechanism** as the CI/CD service tokens in §1.8 — a personal deploy server and a CI runner are the same kind of actor from Envi's point of view (an unattended puller of secrets), so building one code path covers both the "indie dev's droplet" and the "team's GitHub Actions job" use cases.
@@ -156,14 +149,14 @@ Device-code auth assumes an interactive browser, which a headless VPS doesn't ha
 
 You've said data design is yours to own, so treat everything below as a starting shape to react to or discard, not something to hand an AI verbatim. The main things worth preserving from this sketch, whatever exact schema you land on:
 - Secret values live in an insert-only version table, never overwritten in place (this is what makes version history and conflict detection possible).
-- Key material (`kek_ciphertext`, `dek_ciphertext`) is always ciphertext at rest — never a column that could plausibly hold plaintext.
+- Secret ciphertext is stored at rest; the deployment encryption key is supplied out of band and is never stored in Postgres.
 - Access control is evaluated per environment, not just per project, so "production" can be gated independently.
 
 ```
-users                (id, email, name, password_hash?, created_at)
-organizations        (id, name, kek_ciphertext, created_at)
+users                (id, email, name, created_at)
+organizations        (id, name, created_at)
 memberships           (id, user_id, org_id, role, created_at)
-projects              (id, org_id, name, dek_ciphertext, created_at)
+projects              (id, org_id, name, created_at)
 environments          (id, project_id, name, is_production, created_at)
 secrets                (id, environment_id, key_name, current_version_id, created_at)
 secret_versions        (id, secret_id, ciphertext, nonce, auth_tag, version_number, created_by, created_at)
@@ -177,7 +170,7 @@ audit_events           (id, org_id, actor_id, action, target_type, target_id, me
 
 Key constraints worth calling out to engineering:
 - `secret_versions` is insert-only; `secrets.current_version_id` is the only mutable pointer.
-- `dek_ciphertext` / `kek_ciphertext` columns never hold plaintext key material — enforce this with code review checklist + a CI secret-scanner rule, not just convention.
+- The application encryption key must be injected through deployment configuration and excluded from logs, source control, and Postgres.
 
 ---
 
@@ -185,7 +178,7 @@ Key constraints worth calling out to engineering:
 
 | Area | Endpoints |
 |---|---|
-| Auth | `POST /auth/signup`, `/auth/login`, `/auth/magic-link`, `/auth/refresh` |
+| Auth | `POST /auth/request-otp`, `/auth/verify-otp`, `/auth/refresh` |
 | Device flow | `POST /device/code`, `POST /device/token`, `POST /device/approve` |
 | Orgs | `GET/POST /orgs`, `GET /orgs/:id/members`, `POST /orgs/:id/invitations` |
 | Projects | `GET/POST /projects`, `GET /projects/:id/environments` |
@@ -195,7 +188,7 @@ Key constraints worth calling out to engineering:
 | Audit | `GET /orgs/:id/audit-events` (paginated, filterable) |
 | Service identities | `POST /projects/:id/environments/:id/service-identities` |
 
-CLI and web dashboard consume the same API surface — no CLI-only backdoor endpoints, so authorization logic lives in exactly one place.
+CLI and web dashboard consume the same API surface — no CLI-only backdoor endpoints, so authorization logic lives in exactly one place. API errors use stable codes and safe messages; the CLI maps them to concise guidance and exit codes.
 
 ---
 
@@ -206,20 +199,20 @@ Each phase is broken into lettered sub-tasks. Check items off as you go; treat e
 ### Phase 0 — Foundation
 - [ ] **a. Project structure & tooling.** Go module layout for the API (`/cmd`, `/internal`, shared packages per §0.4), Gin skeleton, linting/formatting config, CI pipeline skeleton (build + test on push). Retire the Bun/Hono backend; keep the Next.js frontend and Postgres as-is.
 - [ ] **b. Database setup.** Local Postgres running (via the dev Compose file, see Phase 1-k below, pulled forward for local dev convenience), migration tool wired up (`golang-migrate` or `atlas`), first migration = empty schema. *Schema design itself is yours per your earlier note — this task is just plumbing.*
-- [ ] **c. Authentication.** Signup/login (email+password or magic link — decide per open question §7.2), session/token issuance, password hashing, basic email delivery for verification.
+- [ ] **c. Authentication.** Email OTP login (`request-otp` + `verify-otp`), session/token issuance, expiry and rate limiting, and email delivery.
 - [ ] **d. Personal workspace + project/environment CRUD.** Auto-provisioned personal org on signup (§0.1), project creation, environment creation (with `is_production` flag) — no secrets yet, just the empty structural objects.
-- [ ] **e. KMS + envelope encryption primitives, in isolation.** KEK/DEK generation and wrapping/unwrapping against AWS KMS or GCP Cloud KMS (§1.2), with unit tests, *before* wiring into any real feature. This is the highest-stakes code in the system — review it yourself line by line per §0.3.
+- [ ] **e. Postgres-backed encryption primitives.** Application-level authenticated encryption with a deployment-managed key, with unit tests and a documented migration path to KMS later.
 
 ### Phase 1 — MVP core
 - [ ] **a. Secret storage end-to-end.** Wire Phase 0-e's encryption primitives into real create/read/update endpoints for secrets; insert-only version table (§2).
-- [ ] **b. CLI: `auth`, `init`, `pull`, `push`.** Device-code flow (§1.5) for `auth`; `init` detects local `.env` and creates a project under the personal workspace; `pull`/`push` against the API.
+- [ ] **b. CLI: `auth`, `init`, `pull`, `push`.** Email OTP auth; `init --project <name>` writes validated `envi.toml`, while bare `init` lists projects; project commands require config and authentication.
 - [ ] **c. Service tokens for unattended pull.** `envi token create`, and server-side `ENVI_TOKEN=... envi pull` (§1.5.1) — this is core to the "push locally, pull on my server" promise, not deferrable.
 - [ ] **d. Project-level sharing.** `envi share <email> --project --env` (§1.4 updated) without requiring full org setup; invitation email flow.
 - [ ] **e. Access grants / environment-scoped RBAC.** Production environments require explicit grants; enforce at the API layer on every secret read/write.
 - [ ] **f. Secret version history (read-only view).**
 - [ ] **g. Basic audit log — logging *and* a dashboard viewer.** Append-only table, no hash-chain yet; covers secret CRUD, invites, access-grant changes. Include a simple (unfiltered, unpaginated-is-fine-for-now) audit log view on the dashboard in this same task — logging events nobody can see yet doesn't satisfy the "who accessed/changed this secret" user story. Filtering, pagination, and hash-chain verification are the Phase 2-b upgrade, not a prerequisite for basic visibility.
 - [ ] **h. Terms of Service & Privacy Policy drafted.** Blocking before any paid signup goes live (§8) — can be templated early and refined, doesn't need to wait for launch week.
-- [ ] **i. Documentation v1.** Install instructions (all three channels: Homebrew, npm/bun, raw binary), `envi init` quickstart, and a "why does Envi need a KMS" explainer — this is what determines whether anyone outside you can actually use the thing.
+- [ ] **i. Documentation v1.** Install instructions, `envi init` quickstart, and an explainer covering Postgres storage, application encryption, and its current key-custody limitations.
 - [ ] **j. Self-host Docker Compose stack, with TLS.** Full service set from §5.2 (api/postgres/web/migrate) *plus* a reverse-proxy service (Caddy, for automatic Let's Encrypt certs) — TLS is not a later add-on, it's required for `docker-compose.yml` to be a genuinely usable production artifact for self-hosters. `.env.example` with clear comments.
 
 ### Phase 2 — Team & trust hardening
@@ -232,7 +225,7 @@ Each phase is broken into lettered sub-tasks. Check items off as you go; treat e
 - [ ] **g. Documentation v2.** Self-hosting guide (Compose walkthrough end-to-end), API reference, sharing/collaboration guide.
 
 ### Phase 3 — Security & operational maturity
-- [ ] **a. Key rotation tooling** (rotate DEK/KEK on demand + scheduled reminders).
+- [ ] **a. Key rotation tooling**, followed by optional cloud KMS integration when operationally justified.
 - [ ] **b. Independent security review** of the encryption model and access-control logic specifically — before any public "secure by design" claim.
 - [ ] **c. Rate limiting + audit-log anomaly flagging** (e.g., mass secret reads).
 - [ ] **d. Billing integration.** Stripe Checkout/Billing for the $5/mo & $50/yr Pro tiers (§0.2); plan enforcement at the API layer, never client-side.
@@ -253,9 +246,9 @@ Each phase is broken into lettered sub-tasks. Check items off as you go; treat e
 
 ## 5. Deployment strategy
 
-- **API**: containerized Go/Gin service (single static binary in a minimal container image — Go makes this cheap) on Fly.io, Railway, or ECS Fargate — anything with easy horizontal scaling and secrets-at-the-platform-level for its *own* config (KMS credentials, DB URL).
+- **API**: containerized Go/Gin service (single static binary in a minimal container image) on Fly.io, Railway, or ECS Fargate, with deployment secrets for its own configuration.
 - **Database**: managed Postgres (RDS, Neon, or Supabase) with automated backups and point-in-time recovery — critical given `secret_versions` is the source of truth.
-- **KMS**: AWS KMS or GCP Cloud KMS, matched to whichever cloud hosts the DB, to keep IAM boundaries simple.
+- **Secret encryption**: application-level encryption key supplied through deployment secrets; KMS integration is deferred.
 - **Frontend**: Vercel (already the natural fit for the existing Next.js app).
 - **CLI distribution**: Go's cross-compilation makes this straightforward — build signed static binaries for macOS/Linux/Windows via GoReleaser, distribute via Homebrew tap + `go install` + signed GitHub releases; checksum/signature verification documented so users aren't just `curl | bash`-ing an unsigned script.
 
@@ -282,9 +275,9 @@ services:
   web:        # Next.js dashboard, built as a standalone/production image
   migrate:    # one-shot init container running DB migrations before api starts (depends_on with a healthcheck, not a fixed sleep)
 ```
-- **KMS stays external, deliberately.** Self-hosters still need *a* KMS — don't try to bundle a fake local one for "convenience," since that would silently weaken the encryption model in §1.2 for anyone who doesn't notice. Support both AWS KMS and GCP Cloud KMS via env-var config, and document that a real cloud KMS account is a hard requirement, not optional, even for self-hosting. (A local dev-only mode using a software-simulated KMS, clearly labeled as insecure and never for production, is reasonable for the `docker-compose.dev.yml` developer-experience path — just not the default.)
-- **Config via `.env` at the compose level** (ironic, but standard) for DB credentials, KMS provider/keys, SMTP for invitation emails, and the app's own signing secrets — ship a `.env.example` with clear comments, since this is the first thing a self-hoster edits.
-- **Two compose files**, following common practice: `docker-compose.yml` (production-shaped: no source mounts, built images, restart policies) and `docker-compose.dev.yml` (hot-reload volume mounts, exposed DB port for local inspection, the insecure local-KMS-simulator mentioned above).
+- **No external KMS is required for MVP.** Self-hosters configure the application encryption key via `.env`; clearly document key custody and rotation limitations. Add cloud KMS as a later option.
+- **Config via `.env` at the compose level** for DB credentials, application encryption key, SMTP, and signing secrets — ship a `.env.example` with clear comments.
+- **Two compose files**, following common practice: `docker-compose.yml` (production-shaped) and `docker-compose.dev.yml` (hot-reload mounts and an exposed DB port).
 - **Your own hosted instance** doesn't have to run via Compose at all — it can still use the Fargate/Fly.io/managed-Postgres setup from §5, since Compose here is about giving self-hosters a good single-machine experience, not dictating your own production topology.
 - **Migrations**: a single `migrate` service/job run via a standard tool (e.g. `golang-migrate` or `atlas`, both Go-native and a natural fit given the stack) keeps schema changes reproducible for self-hosters who `git pull` and re-run compose, not just for your own deploys.
 
@@ -293,7 +286,7 @@ services:
 ## 6. Testing strategy
 
 - **Encryption/decryption and RBAC evaluation**: the highest-value code in the system — target near-100% unit test coverage, including negative cases (wrong key, expired grant, cross-org access attempts).
-- **Integration tests**: full CLI ↔ API flows — device auth, pull, push, conflict scenarios — run against a real (test) Postgres and a KMS mock/local equivalent.
+- **Integration tests**: full CLI ↔ API flows — OTP auth, pull, push, conflict scenarios — run against a real (test) Postgres.
 - **Security-specific CI checks**: secret-scanning on the repo itself, dependency vulnerability scanning, and a lint rule that fails the build if plaintext secret material appears in a log statement.
 - **Load testing**: pull/push endpoints, since these are the CLI's hot path and will be called on every `envi pull` in a CI job.
 - **Pre-GA**: independent security review of the encryption model and access-control logic specifically (not a generic pen test) before making any "secure by design" marketing claims.
@@ -302,8 +295,8 @@ services:
 
 ## 7. Open questions to resolve before Phase 1 starts
 
-1. Confirm cloud provider (affects KMS choice and hosting).
-2. Email/password vs. magic-link vs. OAuth-only for initial user auth — affects Phase 0 scope.
+1. Confirm hosting provider (KMS choice is deferred).
+2. Define OTP email delivery provider, Redis storage/TTL, retry limits, and abuse controls.
 3. Exact definition of "production" environment protection — is it purely access-grant-based, or does it eventually need MFA-gated reveal, even in MVP?
 4. Pricing/seat model shape, since it affects whether `memberships` needs a "billing role" distinct from `access role` sooner than Phase 3.
 
@@ -317,7 +310,7 @@ Things the plan hasn't addressed that will matter in practice:
 - **Legal basics for the paid hosted tier.** Taking $5/mo payments means you need a Terms of Service and Privacy Policy before launch, and if any EU customers subscribe, VAT handling (Stripe Tax covers the calculation/remittance mechanics, but you still need the policy documents). This is boring but blocking — worth templating early rather than scrambling at first paying customer.
 - **GDPR/right-to-erasure vs. the append-only audit log.** §1.7 makes audit events tamper-evident and effectively permanent, which sits in tension with "delete my data" requests some jurisdictions require. Worth deciding now whether erasure requests scrub PII from audit metadata while preserving the hash chain's structural integrity, or whether audit retention has a hard TTL. Cheap to design in from day one, painful to retrofit.
 - **Self-hoster upgrade path.** Nothing yet defines how someone running Compose safely goes from `v1.2` to `v1.3` when the schema changes. Standard answer: semantic versioning on releases, migrations that only ever run forward (never destructive without an explicit flag), and release notes that call out breaking changes plainly. Worth a short `UPGRADING.md` convention from the first tagged release, not after v5.
-- **KMS dependency is a real barrier for the self-host audience specifically.** §1.2/§5.2 assume AWS KMS or GCP Cloud KMS — fine for your hosted instance, but an indie self-hoster on a bare VPS may not have either. Worth deciding whether to support a self-hostable alternative (e.g., a local encrypted keyfile + `age`, or integration with HashiCorp Vault's transit engine) as a documented, clearly-labeled-as-less-managed option, so "must have an AWS account" isn't an unstated requirement for the exact solo-dev audience you're targeting.
+- **Future key-management options.** Cloud KMS or Vault integration can be added later for deployments that need stronger key custody and rotation guarantees.
 - **Basic observability for your hosted instance.** No mention yet of error tracking (Sentry or similar), structured logging, or uptime/health checks. Doesn't need to be sophisticated for MVP, but "how do I find out my hosted API is down before a customer tells me" should have an answer before launch.
 - **Anonymous telemetry from self-hosted instances — decide explicitly, don't default silently.** Common in open-core products (opt-in ping with version + rough usage counts, to gauge self-host adoption) but it's a point of real community sensitivity if it ships opt-out or undocumented. Whatever you choose, state it plainly in the README.
 - **Documentation site.** Not part of the architecture per se, but adoption for an open-source CLI tool lives or dies on docs (install steps, `envi init` walkthrough, self-host guide, API reference). Worth budgeting for even a simple docs site (e.g. a `/docs` route on the Next.js app, or a static site generator) alongside Phase 1, not after.
