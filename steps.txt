@@ -76,41 +76,44 @@
 - [x] Add authorized and forbidden retrieval tests.
 
 ## 11. CLI foundation
-- [ ] Add command parsing, API client, configuration, output handling, stable API error mapping, and exit codes.
-- [ ] Add CLI tests.
+- [x] Add command parsing, API client, configuration, output handling, stable API error mapping, and exit codes.
+- [x] Add CLI tests for commands, bearer headers, responses, and API errors.
 
 ## 12. CLI authentication
-- [ ] Implement `envi auth` with email OTP.
-- [ ] Add keychain storage and `ENVI_TOKEN` support.
-- [ ] Add tests.
+- [x] Implement `envi auth` with email OTP.
+- [x] Add OS keychain storage and `ENVI_TOKEN` precedence.
+- [x] Select platform credential storage through Go build tags.
+- [x] Add interactive-flow, payload, persistence, and unattended-token tests.
 
 ## 13. CLI project workflow
-- [ ] Implement `envi init --project <name>` and interactive project selection.
-- [ ] Write and validate required `envi.toml` metadata.
-- [ ] Reject missing, malformed, mismatched, or unauthenticated project context.
-- [ ] Add project/environment linking and tests.
+- [x] Implement `envi init --project <name>` and interactive project selection.
+- [x] Write and validate required `envi.toml` metadata.
+- [x] Reject missing, malformed, mismatched, or unauthenticated project context.
+- [x] Add project/environment linking and tests.
 
 ## 14. CLI secret workflow
-- [ ] Implement `envi pull` and `envi push`.
-- [ ] Add end-to-end tests.
+- [x] Implement authenticated `envi pull` and `envi push` using required `envi.toml` context.
+- [x] Add strict `.env` parsing, restrictive file permissions, safe output, and workflow tests.
 
 ## 15. Service tokens
-- [ ] Create, hash, expire, revoke, and scope service tokens.
-- [ ] Add tests.
+- [x] Create, hash, expire, revoke, and scope service tokens.
+- [x] Add authenticated API creation/revocation endpoints.
+- [x] Add `envi token create` with one-time token output.
+- [x] Add live create/authenticate/scope/expiry/revocation tests.
 
 ## 16. Invitations and project sharing
-- [ ] Add project invitations and `envi share`.
-- [ ] Grant access after acceptance.
-- [ ] Add tests.
+- [x] Add project invitations and `envi share`.
+- [x] Grant access after acceptance.
+- [x] Add tests.
 
-## 17. Conflict detection
-- [ ] Reject stale pushes.
-- [ ] Implement `envi diff`.
-- [ ] Add concurrency tests.
+## 17. Conflict detection   
+- [x] Reject stale pushes with transactional environment revisions.
+- [x] Implement value-safe `envi diff` key summaries.
+- [x] Add CLI and live concurrent-push tests.
 
 ## 18. Dashboard integration
-- [ ] Add OTP auth, project/environment, secret, sharing, history, and audit views.
-- [ ] Add frontend tests.
+- [x] Add OTP auth, project/environment, secret, sharing, history, and audit views.
+- [x] Add frontend helper tests, linting, type checking, and production build verification.
 
 ## 19. Self-hosting deployment
 - [ ] Add API, web, Postgres, migration, and Caddy services.
@@ -121,4 +124,4 @@
 - [ ] Add formatting, race tests, integration tests, frontend tests, linting, vulnerability scanning, and secret scanning.
 
 ## 21. Hardening after MVP
-- [ ] Add audit hash chaining, pagination, filtering, key rotation, optional cloud KMS, anomaly detection, and observability.
+- [ ] Add audit hash chaining, pagination, filtering, key rotation, and observability.

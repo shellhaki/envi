@@ -1,0 +1,1 @@
+ALTER TABLE environments ADD COLUMN IF NOT EXISTS revision bigint NOT NULL DEFAULT 0;
