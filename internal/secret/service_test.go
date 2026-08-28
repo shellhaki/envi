@@ -8,6 +8,7 @@ import (
 	crypt "shellhaki/envi/internal/crypto"
 	"shellhaki/envi/internal/project"
 	"shellhaki/envi/internal/workspace"
+	"sync"
 	"testing"
 )
 
@@ -84,5 +85,59 @@ func TestSecretAccessAuditIntegration(t *testing.T) {
 	}
 	if _, e = (audit.Service{DB: db}).List(t.Context(), other.UserID, w.OrganizationID); e != audit.ErrForbidden {
 		t.Fatal("unauthorized audit access")
+	}
+}
+
+func TestConcurrentPushIntegration(t *testing.T) {
+	if os.Getenv("ENVI_INTEGRATION") != "1" {
+		t.Skip("set ENVI_INTEGRATION=1")
+	}
+	db, e := pgxpool.New(t.Context(), os.Getenv("DATABASE_URL"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer db.Close()
+	w, e := workspace.Service{DB: db}.Provision(t.Context(), "secret-conflict@example.com")
+	if e != nil {
+		t.Fatal(e)
+	}
+	p, e := project.Service{DB: db}.Create(t.Context(), w.UserID, w.OrganizationID, "secret-conflict")
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer db.Exec(t.Context(), `DELETE FROM projects WHERE id=$1`, p.ID)
+	env, e := (project.Service{DB: db}).CreateEnvironment(t.Context(), w.UserID, p.ID, "dev", false)
+	if e != nil {
+		t.Fatal(e)
+	}
+	cipher, _ := crypt.New([]byte("01234567890123456789012345678901"))
+	s := Service{DB: db, Access: access.Service{DB: db}, Cipher: cipher}
+	start := make(chan struct{})
+	errs := make(chan error, 2)
+	var wg sync.WaitGroup
+	for _, value := range []string{"one", "two"} {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			_, err := s.PutAll(t.Context(), w.UserID, env.ID, map[string]string{"KEY": value}, 0)
+			errs <- err
+		}()
+	}
+	close(start)
+	wg.Wait()
+	close(errs)
+	var succeeded, conflicted int
+	for err := range errs {
+		if err == nil {
+			succeeded++
+		} else if err == ErrConflict {
+			conflicted++
+		} else {
+			t.Fatal(err)
+		}
+	}
+	if succeeded != 1 || conflicted != 1 {
+		t.Fatalf("succeeded=%d conflicted=%d", succeeded, conflicted)
 	}
 }

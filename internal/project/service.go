@@ -26,7 +26,7 @@ func (s Service) Create(ctx context.Context, userID, orgID, name string) (Projec
 	return p, err
 }
 func (s Service) List(ctx context.Context, userID string) ([]Project, error) {
-	rows, err := s.DB.Query(ctx, `SELECT p.id,p.org_id,p.name FROM projects p JOIN memberships m ON m.org_id=p.org_id WHERE m.user_id=$1 ORDER BY p.name`, userID)
+	rows, err := s.DB.Query(ctx, `SELECT DISTINCT p.id,p.org_id,p.name FROM projects p LEFT JOIN memberships m ON m.org_id=p.org_id AND m.user_id=$1 LEFT JOIN access_grants g ON g.project_id=p.id AND g.subject_user_id=$1 WHERE m.id IS NOT NULL OR g.id IS NOT NULL ORDER BY p.name`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +49,7 @@ func (s Service) Delete(ctx context.Context, userID, id string) error {
 	return err
 }
 func (s Service) CreateEnvironment(ctx context.Context, userID, projectID, name string, production bool) (Environment, error) {
-	if !s.projectMember(ctx, userID, projectID) {
+	if !s.projectManager(ctx, userID, projectID) {
 		return Environment{}, ErrForbidden
 	}
 	var e Environment
@@ -57,10 +57,10 @@ func (s Service) CreateEnvironment(ctx context.Context, userID, projectID, name 
 	return e, err
 }
 func (s Service) ListEnvironments(ctx context.Context, userID, projectID string) ([]Environment, error) {
-	if !s.projectMember(ctx, userID, projectID) {
+	if !s.projectViewer(ctx, userID, projectID) {
 		return nil, ErrForbidden
 	}
-	rows, err := s.DB.Query(ctx, `SELECT id,project_id,name,is_production FROM environments WHERE project_id=$1 ORDER BY name`, projectID)
+	rows, err := s.DB.Query(ctx, `SELECT DISTINCT e.id,e.project_id,e.name,e.is_production FROM environments e JOIN projects p ON p.id=e.project_id LEFT JOIN memberships m ON m.org_id=p.org_id AND m.user_id=$2 LEFT JOIN access_grants g ON g.project_id=p.id AND g.subject_user_id=$2 AND (g.environment_id=e.id OR (g.environment_id IS NULL AND NOT e.is_production)) WHERE p.id=$1 AND (m.id IS NOT NULL OR g.id IS NOT NULL) ORDER BY e.name`, projectID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -98,5 +98,15 @@ func (s Service) member(ctx context.Context, u, o string) bool {
 func (s Service) projectMember(ctx context.Context, u, p string) bool {
 	var ok bool
 	_ = s.DB.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM projects p JOIN memberships m ON m.org_id=p.org_id WHERE p.id=$1 AND m.user_id=$2)`, p, u).Scan(&ok)
+	return ok
+}
+func (s Service) projectManager(ctx context.Context, u, p string) bool {
+	var ok bool
+	_ = s.DB.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM projects p LEFT JOIN memberships m ON m.org_id=p.org_id AND m.user_id=$2 AND m.role IN('owner','admin') LEFT JOIN access_grants g ON g.project_id=p.id AND g.subject_user_id=$2 AND g.permission='manage' WHERE p.id=$1 AND (m.id IS NOT NULL OR g.id IS NOT NULL))`, p, u).Scan(&ok)
+	return ok
+}
+func (s Service) projectViewer(ctx context.Context, u, p string) bool {
+	var ok bool
+	_ = s.DB.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM projects p LEFT JOIN memberships m ON m.org_id=p.org_id AND m.user_id=$2 LEFT JOIN access_grants g ON g.project_id=p.id AND g.subject_user_id=$2 WHERE p.id=$1 AND (m.id IS NOT NULL OR g.id IS NOT NULL))`, p, u).Scan(&ok)
 	return ok
 }

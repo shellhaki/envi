@@ -21,7 +21,8 @@ CREATE TABLE projects (
 );
 CREATE TABLE environments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(), project_id uuid NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  name text NOT NULL, is_production boolean NOT NULL DEFAULT false, created_at timestamptz NOT NULL DEFAULT now(),
+  name text NOT NULL, is_production boolean NOT NULL DEFAULT false, revision bigint NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (project_id, name)
 );
 CREATE TABLE secrets (
@@ -44,7 +45,9 @@ CREATE TABLE access_grants (
 );
 CREATE TABLE invitations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(), project_id uuid REFERENCES projects(id) ON DELETE CASCADE,
-  org_id uuid REFERENCES organizations(id) ON DELETE CASCADE, email text NOT NULL, role text NOT NULL DEFAULT 'member',
+  org_id uuid REFERENCES organizations(id) ON DELETE CASCADE, environment_id uuid REFERENCES environments(id) ON DELETE CASCADE,
+  email text NOT NULL, role text NOT NULL DEFAULT 'member', permission text NOT NULL DEFAULT 'read' CHECK (permission IN ('read','write','manage')),
+  token_hash bytea NOT NULL UNIQUE,
   invited_by uuid REFERENCES users(id) ON DELETE SET NULL, status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','accepted','expired','revoked')),
   expires_at timestamptz NOT NULL, created_at timestamptz NOT NULL DEFAULT now(), CHECK (project_id IS NOT NULL OR org_id IS NOT NULL)
 );
@@ -75,3 +78,4 @@ CREATE INDEX secret_versions_secret_idx ON secret_versions(secret_id);
 CREATE INDEX grants_project_env_idx ON access_grants(project_id, environment_id);
 CREATE INDEX audit_org_created_idx ON audit_events(org_id, created_at DESC);
 CREATE INDEX invitations_email_idx ON invitations(email);
+CREATE UNIQUE INDEX grants_project_wide_unique ON access_grants(subject_user_id,project_id,permission) WHERE environment_id IS NULL;
