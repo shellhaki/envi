@@ -31,7 +31,7 @@ func (s Service) List(ctx context.Context, userID string) ([]Project, error) {
 		return nil, err
 	}
 	defer rows.Close()
-	var out []Project
+	out := []Project{}
 	for rows.Next() {
 		var p Project
 		if err = rows.Scan(&p.ID, &p.OrgID, &p.Name); err != nil {
@@ -65,7 +65,7 @@ func (s Service) ListEnvironments(ctx context.Context, userID, projectID string)
 		return nil, err
 	}
 	defer rows.Close()
-	var out []Environment
+	out := []Environment{}
 	for rows.Next() {
 		var e Environment
 		if err = rows.Scan(&e.ID, &e.ProjectID, &e.Name, &e.Production); err != nil {

@@ -4,10 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node node_modules/next/dist/bin/next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "bun test"
+    "test": "bun test",
+    "ci": "bun test && bun run lint && bun run build --webpack"
   },
   "dependencies": {
     "lucide-react": "^1.35.0",

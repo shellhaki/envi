@@ -11,7 +11,7 @@ import (
 type InvitationHandler struct{ Service invitation.Service }
 
 func (h InvitationHandler) Routes(r *gin.Engine, m gin.HandlerFunc) {
-	r.POST("/projects/:project/invitations", m, h.create)
+	r.POST("/projects/:id/invitations", m, h.create)
 	r.POST("/invitations/accept", m, h.accept)
 }
 func (h InvitationHandler) create(c *gin.Context) {
@@ -28,7 +28,7 @@ func (h InvitationHandler) create(c *gin.Context) {
 	if in.Permission == "" {
 		in.Permission = "read"
 	}
-	i, err := h.Service.Create(c, c.GetString("user_id"), c.Param("project"), in.EnvironmentID, in.Email, in.Permission, time.Duration(in.TTL)*time.Second)
+	i, err := h.Service.Create(c, c.GetString("user_id"), c.Param("id"), in.EnvironmentID, in.Email, in.Permission, time.Duration(in.TTL)*time.Second)
 	if err == invitation.ErrForbidden {
 		c.JSON(403, gin.H{"code": "forbidden", "error": "access denied"})
 		return

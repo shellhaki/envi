@@ -53,7 +53,7 @@ CREATE TABLE invitations (
 );
 CREATE TABLE sessions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  refresh_token_hash bytea NOT NULL UNIQUE, access_token_hash bytea NOT NULL UNIQUE, expires_at timestamptz NOT NULL, revoked_at timestamptz, created_at timestamptz NOT NULL DEFAULT now()
+  refresh_token_hash bytea NOT NULL UNIQUE, access_token_hash bytea NOT NULL UNIQUE, access_expires_at timestamptz NOT NULL, expires_at timestamptz NOT NULL, revoked_at timestamptz, created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE TABLE service_identities (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(), project_id uuid NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
@@ -71,6 +71,12 @@ CREATE TABLE audit_events (
   actor_id uuid REFERENCES users(id) ON DELETE SET NULL, action text NOT NULL, target_type text NOT NULL,
   target_id uuid, metadata jsonb NOT NULL DEFAULT '{}', created_at timestamptz NOT NULL DEFAULT now()
 );
+CREATE TABLE device_authorizations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), device_code_hash bytea NOT NULL UNIQUE, user_code text NOT NULL UNIQUE,
+  user_id uuid REFERENCES users(id) ON DELETE CASCADE,
+  status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','denied','redeemed')),
+  expires_at timestamptz NOT NULL, approved_at timestamptz, created_at timestamptz NOT NULL DEFAULT now()
+);
 
 CREATE INDEX environments_project_idx ON environments(project_id);
 CREATE INDEX secrets_environment_idx ON secrets(environment_id);
@@ -78,4 +84,5 @@ CREATE INDEX secret_versions_secret_idx ON secret_versions(secret_id);
 CREATE INDEX grants_project_env_idx ON access_grants(project_id, environment_id);
 CREATE INDEX audit_org_created_idx ON audit_events(org_id, created_at DESC);
 CREATE INDEX invitations_email_idx ON invitations(email);
+CREATE INDEX device_authorizations_user_code_idx ON device_authorizations(user_code);
 CREATE UNIQUE INDEX grants_project_wide_unique ON access_grants(subject_user_id,project_id,permission) WHERE environment_id IS NULL;

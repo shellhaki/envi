@@ -1,12 +1,86 @@
 name: CI
+
 on: [push, pull_request]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  go:
+  backend:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
-        with: { go-version-file: go.mod }
-      - run: test -z "$(gofmt -l .)"
-      - run: go vet ./...
-      - run: go test -race ./...
+        with: { go-version-file: go.mod, cache: true }
+      - run: test -z "$(gofmt -l cmd internal)"
+      - run: go vet ./cmd/... ./internal/...
+      - run: go test -race ./cmd/... ./internal/...
+
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_DB: envi, POSTGRES_USER: envi, POSTGRES_PASSWORD: envi }
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U envi -d envi" --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+        options: --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      ENVI_INTEGRATION: "1"
+      DATABASE_URL: postgres://envi:envi@127.0.0.1:5432/envi
+      REDIS_URL: redis://127.0.0.1:6379/0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version-file: go.mod, cache: true }
+      - name: Apply schema and migrations
+        env: { PGPASSWORD: envi }
+        run: |
+          psql -h 127.0.0.1 -U envi -d envi -v ON_ERROR_STOP=1 -f schema.sql
+          for migration in migrations/*.sql; do
+            psql -h 127.0.0.1 -U envi -d envi -v ON_ERROR_STOP=1 -f "$migration"
+          done
+      - run: go test -race ./internal/auth ./internal/invitation ./internal/otp ./internal/project ./internal/secret ./internal/service_token ./internal/workspace
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run: { working-directory: ui }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - uses: oven-sh/setup-bun@v2
+        with: { bun-version: 1.4.0 }
+      - run: bun install --frozen-lockfile
+      - run: bun test
+      - run: bun run lint
+      - run: bun run build --webpack
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-go@v5
+        with: { go-version-file: go.mod, cache: true }
+      - uses: oven-sh/setup-bun@v2
+        with: { bun-version: 1.4.0 }
+      - name: Go vulnerability scan
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./cmd/... ./internal/...
+      - name: Frontend dependency audit
+        working-directory: ui
+        run: |
+          bun install --frozen-lockfile
+          bun audit --audit-level high
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@v2

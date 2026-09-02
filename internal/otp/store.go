@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -15,14 +16,16 @@ import (
 
 type Store interface {
 	Set(context.Context, string, string, time.Duration) error
-	GetDel(context.Context, string) (string, error)
+	Get(context.Context, string) (string, error)
+	Del(context.Context, string) error
 	Increment(context.Context, string, time.Duration) (int64, error)
 }
 
 type Service struct {
-	Store       Store
-	TTL         time.Duration
-	MaxAttempts int
+	Store        Store
+	TTL          time.Duration
+	MaxAttempts  int
+	RequestLimit int
 }
 
 func (s Service) Issue(ctx context.Context, email string) (string, error) {
@@ -33,9 +36,12 @@ func (s Service) Issue(ctx context.Context, email string) (string, error) {
 		s.TTL = 10 * time.Minute
 	}
 	if s.MaxAttempts <= 0 {
-		s.MaxAttempts = 5
+		s.MaxAttempts = 10
 	}
-	if n, err := s.Store.Increment(ctx, "otp:req:"+normalize(email), time.Hour); err != nil || n > 5 {
+	if s.RequestLimit <= 0 {
+		s.RequestLimit = 20
+	}
+	if n, err := s.Store.Increment(ctx, "otp:req:"+normalize(email), time.Hour); err != nil || n > int64(s.RequestLimit) {
 		return "", errors.New("too many OTP requests")
 	}
 	code, err := randomCode()
@@ -51,15 +57,19 @@ func (s Service) Issue(ctx context.Context, email string) (string, error) {
 
 func (s Service) Verify(ctx context.Context, email, code string) error {
 	if s.MaxAttempts <= 0 {
-		s.MaxAttempts = 5
+		s.MaxAttempts = 10
 	}
+	key := "otp:" + normalize(email)
 	if n, err := s.Store.Increment(ctx, "otp:try:"+normalize(email), s.TTL); err != nil || n > int64(s.MaxAttempts) {
 		return errors.New("too many attempts")
 	}
-	v, err := s.Store.GetDel(ctx, "otp:"+strings.ToLower(strings.TrimSpace(email)))
-	if err != nil || v != hash(code) {
+	// Read the stored hash without consuming it, so a mistyped attempt does not
+	// destroy a still-valid code. The code is only invalidated once it matches.
+	v, err := s.Store.Get(ctx, key)
+	if err != nil || subtle.ConstantTimeCompare([]byte(v), []byte(hash(strings.TrimSpace(code)))) != 1 {
 		return errors.New("invalid or expired OTP")
 	}
+	_ = s.Store.Del(ctx, key)
 	return nil
 }
 
@@ -90,15 +100,21 @@ func (m *Memory) Set(_ context.Context, key, value string, ttl time.Duration) er
 	m.values[key] = entry{value, time.Now().Add(ttl)}
 	return nil
 }
-func (m *Memory) GetDel(_ context.Context, key string) (string, error) {
+func (m *Memory) Get(_ context.Context, key string) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	e, ok := m.values[key]
-	delete(m.values, key)
 	if !ok || time.Now().After(e.expires) {
+		delete(m.values, key)
 		return "", errors.New("missing OTP")
 	}
 	return e.value, nil
+}
+func (m *Memory) Del(_ context.Context, key string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.values, key)
+	return nil
 }
 func (m *Memory) Increment(_ context.Context, key string, ttl time.Duration) (int64, error) {
 	m.mu.Lock()

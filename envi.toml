@@ -1,0 +1,10 @@
+version = 1
+
+[project]
+id = 'ff108abc-4ebd-4254-a149-1f74fcc80de5'
+name = 'envi'
+
+[environment]
+id = '7ba3d129-7d9a-402f-aad9-b52490204222'
+name = 'default'
+revision = 2

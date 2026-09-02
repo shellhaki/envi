@@ -24,7 +24,7 @@ func TestRedisIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = c.FlushDB(ctx).Err()
-	s := Service{Store: Redis{Client: c}, TTL: time.Minute, MaxAttempts: 2}
+	s := Service{Store: Redis{Client: c}, TTL: time.Minute, MaxAttempts: 2, RequestLimit: 5}
 	code, err := s.Issue(ctx, "live@example.com")
 	if err != nil {
 		t.Fatal(err)

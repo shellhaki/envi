@@ -11,7 +11,7 @@ import (
 type ServiceTokenHandler struct{ Service service_token.Service }
 
 func (h ServiceTokenHandler) Routes(r *gin.Engine, m gin.HandlerFunc) {
-	r.POST("/projects/:project/environments/:env/service-tokens", m, h.create)
+	r.POST("/projects/:id/environments/:env/service-tokens", m, h.create)
 	r.DELETE("/service-tokens", m, h.revoke)
 }
 func (h ServiceTokenHandler) create(c *gin.Context) {
@@ -27,7 +27,7 @@ func (h ServiceTokenHandler) create(c *gin.Context) {
 	if in.Permission == "" {
 		in.Permission = "read"
 	}
-	t, e := h.Service.Create(c, c.GetString("user_id"), c.Param("project"), c.Param("env"), in.Name, in.Permission, time.Duration(in.TTL)*time.Second)
+	t, e := h.Service.Create(c, c.GetString("user_id"), c.Param("id"), c.Param("env"), in.Name, in.Permission, time.Duration(in.TTL)*time.Second)
 	if e == service_token.ErrForbidden {
 		c.JSON(403, gin.H{"code": "forbidden", "error": "access denied"})
 		return
