@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/redis/go-redis/v9"
 	"log"
 	"net/http"
 	"os"
@@ -22,9 +20,17 @@ import (
 	"shellhaki/envi/internal/workspace"
 	"syscall"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/joho/godotenv"
+	"github.com/redis/go-redis/v9"
 )
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal(err)
+	}
 	c, e := config.Read()
 	if e != nil {
 		log.Fatal(e)
@@ -48,14 +54,19 @@ func main() {
 		log.Fatal(e)
 	}
 	w := workspace.Service{DB: db}
-	tokens := &auth.PostgresTokens{DB: db, RefreshTTL: 30 * 24 * time.Hour}
-	a := auth.Service{OTP: otp.Service{Store: otp.Redis{Client: rc}, TTL: 10 * time.Minute, MaxAttempts: 5}, Mailer: otp.Gmail{Email: c.SMTPEmail, Password: c.SMTPPassword}, Provision: w.Identity}
+	const (
+		accessTTL  = 15 * time.Minute
+		refreshTTL = 30 * 24 * time.Hour
+	)
+	tokens := &auth.PostgresTokens{DB: db, AccessTTL: accessTTL, RefreshTTL: refreshTTL}
+	a := auth.Service{OTP: otp.Service{Store: otp.Redis{Client: rc}, TTL: 10 * time.Minute, MaxAttempts: 10, RequestLimit: 20}, Mailer: otp.Gmail{Email: c.SMTPEmail, Password: c.SMTPPassword}, Provision: w.Identity, AccessTTL: accessTTL, RefreshTTL: refreshTTL}
+	deviceSvc := auth.DeviceService{Store: &auth.PostgresDeviceStore{DB: db}, Tokens: tokens, TTL: 10 * time.Minute, Interval: 5 * time.Second}
 	cipher, e := crypt.New([]byte(c.EncryptionKey))
 	if e != nil {
 		log.Fatal(e)
 	}
 	ac := access.Service{DB: db}
-	s := &http.Server{Addr: c.Address, Handler: api.Build(a, tokens, project.Service{DB: db}, secret.Service{DB: db, Access: ac, Cipher: cipher}, audit.Service{DB: db}, service_token.Service{DB: db}, invitation.Service{DB: db}, db), ReadHeaderTimeout: 5 * time.Second}
+	s := &http.Server{Addr: c.Address, Handler: api.Build(a, tokens, project.Service{DB: db}, secret.Service{DB: db, Access: ac, Cipher: cipher}, audit.Service{DB: db}, service_token.Service{DB: db}, invitation.Service{DB: db}, db, deviceSvc, c.WebURL, accessTTL), ReadHeaderTimeout: 5 * time.Second}
 	go func() {
 		log.Printf("API listening on %s", c.Address)
 		if e := s.ListenAndServe(); e != nil && e != http.ErrServerClosed {

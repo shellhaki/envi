@@ -18,18 +18,28 @@ type Service struct {
 	Provision             func(context.Context, string) (string, error)
 	AccessTTL, RefreshTTL time.Duration
 }
+
+// TokenStore persists sessions. Take validates a refresh token and revokes the
+// session it belongs to, returning the owning user; minting replacements is the
+// caller's job, so every implementation rotates identically.
 type TokenStore interface {
-	Save(string, string, string) error
-	Take(string) (string, string, error)
-	Revoke(string) error
-	Authenticate(string) (string, error)
+	Save(userID, refresh, access string) error
+	Take(refresh string) (string, error)
+	Revoke(refresh string) error
+	Authenticate(access string) (string, error)
 }
 
+// Refresh consumes a refresh token and issues a new access/refresh pair. The
+// previous pair is revoked, so a token may only be redeemed once.
 func (s Service) Refresh(refresh string, store TokenStore) (string, string, error) {
 	if store == nil {
 		return "", "", errors.New("token store is required")
 	}
-	userID, access, err := store.Take(refresh)
+	userID, err := store.Take(refresh)
+	if err != nil {
+		return "", "", err
+	}
+	access, err := token()
 	if err != nil {
 		return "", "", err
 	}

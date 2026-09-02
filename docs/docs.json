@@ -1,0 +1,44 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Envi",
+  "description": "A lightweight, security-first environment secret manager for developers.",
+  "colors": {
+    "primary": "#4f46e5",
+    "light": "#818cf8",
+    "dark": "#4338ca"
+  },
+  "favicon": "/favicon.svg",
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg"
+  },
+  "navigation": {
+    "groups": [
+      {
+        "group": "Getting Started",
+        "pages": ["introduction", "quickstart", "concepts"]
+      },
+      {
+        "group": "Guides",
+        "pages": ["cli", "web-dashboard", "ci-service-tokens"]
+      },
+      {
+        "group": "Operations",
+        "pages": ["self-hosting"]
+      }
+    ]
+  },
+  "navbar": {
+    "primary": {
+      "type": "button",
+      "label": "GitHub",
+      "href": "https://github.com/shellhaki/envi"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/shellhaki/envi"
+    }
+  }
+}

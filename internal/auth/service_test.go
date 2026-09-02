@@ -32,8 +32,18 @@ func TestRefreshRotationAndLogout(t *testing.T) {
 	_ = tokens.Save("user", "old", "access")
 	s := Service{}
 	access, next, err := s.Refresh("old", tokens)
-	if err != nil || access != "access" || next == "old" {
+	if err != nil {
 		t.Fatal(err)
+	}
+	// Refreshing must mint a new access token, not recycle the previous one.
+	if access == "access" || access == "" || next == "old" || next == "" {
+		t.Fatalf("tokens not rotated: access=%q refresh=%q", access, next)
+	}
+	if _, err = tokens.Authenticate("access"); err == nil {
+		t.Fatal("access token survived rotation")
+	}
+	if u, err := tokens.Authenticate(access); err != nil || u != "user" {
+		t.Fatalf("rotated access token rejected: %q %v", u, err)
 	}
 	if _, _, err = s.Refresh("old", tokens); err == nil {
 		t.Fatal("old refresh token accepted")
@@ -43,5 +53,19 @@ func TestRefreshRotationAndLogout(t *testing.T) {
 	}
 	if _, _, err = s.Refresh(next, tokens); err == nil {
 		t.Fatal("revoked refresh token accepted")
+	}
+	if _, err = tokens.Authenticate(access); err == nil {
+		t.Fatal("logout left the access token usable")
+	}
+}
+
+func TestAccessTokenExpires(t *testing.T) {
+	tokens := NewMemoryTokens()
+	tokens.AccessTTL = -time.Second
+	if err := tokens.Save("user", "refresh", "access"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tokens.Authenticate("access"); err == nil {
+		t.Fatal("expired access token accepted")
 	}
 }

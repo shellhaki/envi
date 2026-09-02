@@ -26,9 +26,30 @@ func (e *APIError) Error() string {
 type Client struct {
 	BaseURL, Token string
 	HTTP           *http.Client
+	// Refresh, when set, is called once after an unauthorized response to obtain a
+	// fresh access token. Returning an error surfaces the original 401.
+	Refresh func() (string, error)
 }
 
 func (c Client) Do(ctx context.Context, method, path string, in, out any) error {
+	err := c.do(ctx, method, path, in, out)
+	if c.Refresh == nil {
+		return err
+	}
+	var api *APIError
+	if !errors.As(err, &api) || api.Status != http.StatusUnauthorized {
+		return err
+	}
+	token, refreshErr := c.Refresh()
+	if refreshErr != nil {
+		return refreshErr
+	}
+	c.Token = token
+	c.Refresh = nil // One attempt only; a second 401 is a genuine failure.
+	return c.do(ctx, method, path, in, out)
+}
+
+func (c Client) do(ctx context.Context, method, path string, in, out any) error {
 	var body io.Reader
 	if in != nil {
 		b, e := json.Marshal(in)
