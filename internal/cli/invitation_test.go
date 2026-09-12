@@ -35,7 +35,7 @@ func TestShareAndAcceptInvitation(t *testing.T) {
 	if err := Share(context.Background(), c, dir, "guest@example.com", "demo", "dev", "write", &out); err != nil {
 		t.Fatal(err)
 	}
-	if strings.TrimSpace(out.String()) != "invite-token" {
+	if !strings.Contains(out.String(), "invite-token") || !strings.Contains(out.String(), "guest@example.com") {
 		t.Fatal(out.String())
 	}
 	if err := AcceptInvitation(context.Background(), c, "invite-token"); err != nil || !accepted {

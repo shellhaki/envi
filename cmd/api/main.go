@@ -13,6 +13,7 @@ import (
 	"shellhaki/envi/internal/config"
 	crypt "shellhaki/envi/internal/crypto"
 	"shellhaki/envi/internal/invitation"
+	"shellhaki/envi/internal/mailer"
 	"shellhaki/envi/internal/otp"
 	"shellhaki/envi/internal/project"
 	"shellhaki/envi/internal/secret"
@@ -58,15 +59,17 @@ func main() {
 		accessTTL  = 15 * time.Minute
 		refreshTTL = 30 * 24 * time.Hour
 	)
+	mail := mailer.Resend{APIKey: c.ResendAPIKey, From: c.ResendFrom}
 	tokens := &auth.PostgresTokens{DB: db, AccessTTL: accessTTL, RefreshTTL: refreshTTL}
-	a := auth.Service{OTP: otp.Service{Store: otp.Redis{Client: rc}, TTL: 10 * time.Minute, MaxAttempts: 10, RequestLimit: 20}, Mailer: otp.Gmail{Email: c.SMTPEmail, Password: c.SMTPPassword}, Provision: w.Identity, AccessTTL: accessTTL, RefreshTTL: refreshTTL}
+	a := auth.Service{OTP: otp.Service{Store: otp.Redis{Client: rc}, TTL: 10 * time.Minute, MaxAttempts: 10, RequestLimit: 20}, Mailer: otp.Resend{Client: mail}, Provision: w.Identity, AccessTTL: accessTTL, RefreshTTL: refreshTTL}
 	deviceSvc := auth.DeviceService{Store: &auth.PostgresDeviceStore{DB: db}, Tokens: tokens, TTL: 10 * time.Minute, Interval: 5 * time.Second}
 	cipher, e := crypt.New([]byte(c.EncryptionKey))
 	if e != nil {
 		log.Fatal(e)
 	}
 	ac := access.Service{DB: db}
-	s := &http.Server{Addr: c.Address, Handler: api.Build(a, tokens, project.Service{DB: db}, secret.Service{DB: db, Access: ac, Cipher: cipher}, audit.Service{DB: db}, service_token.Service{DB: db}, invitation.Service{DB: db}, db, deviceSvc, c.WebURL, accessTTL), ReadHeaderTimeout: 5 * time.Second}
+	invitations := invitation.Service{DB: db, Mailer: mail, WebURL: c.WebURL}
+	s := &http.Server{Addr: c.Address, Handler: api.Build(a, tokens, project.Service{DB: db}, secret.Service{DB: db, Access: ac, Cipher: cipher}, audit.Service{DB: db}, service_token.Service{DB: db}, invitations, db, deviceSvc, c.WebURL, accessTTL), ReadHeaderTimeout: 5 * time.Second}
 	go func() {
 		log.Printf("API listening on %s", c.Address)
 		if e := s.ListenAndServe(); e != nil && e != http.ErrServerClosed {

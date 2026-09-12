@@ -6,7 +6,7 @@ import (
 )
 
 type Config struct {
-	DatabaseURL, RedisURL, EncryptionKey, SMTPEmail, SMTPPassword, Address, WebURL string
+	DatabaseURL, RedisURL, EncryptionKey, ResendAPIKey, ResendFrom, Address, WebURL string
 }
 
 func Load() Config {
@@ -18,7 +18,7 @@ func Load() Config {
 	if web == "" {
 		web = "http://localhost:3000"
 	}
-	return Config{os.Getenv("DATABASE_URL"), os.Getenv("REDIS_URL"), os.Getenv("ENVI_ENCRYPTION_KEY"), os.Getenv("SMTP_EMAIL"), os.Getenv("SMTP_PASSWORD"), a, web}
+	return Config{os.Getenv("DATABASE_URL"), os.Getenv("REDIS_URL"), os.Getenv("ENVI_ENCRYPTION_KEY"), os.Getenv("RESEND_API_KEY"), os.Getenv("RESEND_FROM"), a, web}
 }
 
 func Read() (Config, error) {
@@ -29,8 +29,8 @@ func Read() (Config, error) {
 	if c.RedisURL == "" {
 		return Config{}, errors.New("REDIS_URL is required")
 	}
-	if c.SMTPEmail == "" || c.SMTPPassword == "" {
-		return Config{}, errors.New("SMTP_EMAIL and SMTP_PASSWORD are required")
+	if c.ResendAPIKey == "" || c.ResendFrom == "" {
+		return Config{}, errors.New("RESEND_API_KEY and RESEND_FROM are required")
 	}
 	if len(c.EncryptionKey) != 32 {
 		return Config{}, errors.New("ENVI_ENCRYPTION_KEY must be exactly 32 bytes")

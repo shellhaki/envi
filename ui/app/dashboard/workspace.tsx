@@ -96,8 +96,8 @@ export default function Workspace({ page }: { page: Page }) {
       setNotice(`Saved ${data.key}.`);
     }
     if (type === "share" && project && env) {
-      const x = await api<{ Token: string }>(`/projects/${project.ID}/invitations`, { method: "POST", body: JSON.stringify({ email: data.email, environment_id: env.ID, permission: data.permission }) });
-      setNotice(`Invite token for ${data.email}: ${x.Token}`);
+      await api<{ Token: string }>(`/projects/${project.ID}/invitations`, { method: "POST", body: JSON.stringify({ email: data.email, environment_id: env.ID, permission: data.permission }) });
+      setNotice(`Invitation sent to ${data.email}. They can accept it even without an existing account.`);
     }
     setModal(undefined);
   }
@@ -151,7 +151,7 @@ export default function Workspace({ page }: { page: Page }) {
     </div>}
 
     {error && <div className="alert error"><button className="alert-dismiss" onClick={() => setError("")}>×</button>{error}</div>}
-    {notice && <div className="alert notice"><button className="alert-dismiss" onClick={() => setNotice("")}>×</button><code>{notice}</code></div>}
+    {notice && <div className="alert notice"><button className="alert-dismiss" onClick={() => setNotice("")}>×</button>{notice}</div>}
 
     {page === "overview" && <>
       <div className="stat-cards">
@@ -196,7 +196,7 @@ export default function Workspace({ page }: { page: Page }) {
 
     {page === "projects" && <div className="project-grid">
       {projects.map((p) => <button key={p.ID} className={"project-card" + (p.ID === project?.ID ? " active" : "")} onClick={() => setProject(p)}>
-        <div className="proj-top"><div className="proj-icon"><Folder /></div>{p.ID === project?.ID && <span className="badge success">Selected</span>}</div>
+        <div className="proj-top"><div className="proj-icon"><Folder /></div>{p.ID === project?.ID && <span className="badge selected">Selected</span>}</div>
         <strong>{p.Name}</strong><small>{p.ID.slice(0, 8)}</small>
       </button>)}
       <button className="project-card new" onClick={() => setModal("project")}><FolderPlus /><strong>New project</strong></button>
@@ -204,13 +204,12 @@ export default function Workspace({ page }: { page: Page }) {
 
     {page === "sharing" && <section className="plain-section">
       <h2>Invite collaborators to a project</h2>
-      <p>Pick a project above, then grant a collaborator scoped permission to its secrets.</p>
+      <p>Pick a project above, then grant a collaborator scoped permission to its secrets. They&rsquo;ll get an email with a link to accept — signing up first if they don&rsquo;t have an account yet.</p>
       <ul className="perm-list">
         <li><Eye />Read — view and pull secrets</li>
         <li><Pencil />Write — push and change secrets</li>
         <li><Shield />Manage — invite others and manage access</li>
       </ul>
-      <button className="button primary" onClick={() => setModal("share")} disabled={!project}><UserPlus />Invite collaborator</button>
     </section>}
 
     {page === "activity" && <section className="panel">
@@ -242,7 +241,7 @@ function Empty({ icon, title, text }: { icon: React.ReactNode; title: string; te
 const DIALOG_META: Record<string, { title: string; sub?: string }> = {
   project: { title: "New project" },
   secret: { title: "Add secret" },
-  share: { title: "Invite collaborator", sub: "They receive a token to accept the invitation." },
+  share: { title: "Invite collaborator", sub: "They'll get an email with a link to accept — signing up first if they don't have an account yet." },
 };
 function Dialog({ type, close, submit }: { type: "project" | "secret" | "share"; close: () => void; submit: (d: Record<string, string>) => Promise<void> }) {
   const [error, setError] = useState("");

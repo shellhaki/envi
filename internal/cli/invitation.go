@@ -28,7 +28,7 @@ func Share(ctx context.Context, c Client, dir, email, project, env, permission s
 	if invite.Token == "" {
 		return errors.New("invalid invitation response")
 	}
-	fmt.Fprintln(out, invite.Token)
+	fmt.Fprintf(out, "Invitation sent to %s. Token (fallback, if the email doesn't land): %s\n", email, invite.Token)
 	return nil
 }
 

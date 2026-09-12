@@ -45,9 +45,14 @@ html[data-theme=dark] {
   --text-2: #b6bdca;
   --muted: #8b93a3;
   --faint: #5f6775;
-  --accent: #818cf8;
-  --accent-text: #a5b4fc;
-  --accent-weak: rgba(99, 102, 241, .16);
+  /* Dark mode is deliberately monochrome — no blue/indigo tint on the accent
+     role, just neutral near-white highlights against near-black. Semantic
+     colors (success/warning/danger/info below) are untouched by this: they
+     carry real meaning, not brand-accent styling. Light mode keeps the
+     indigo accent in :root above. */
+  --accent: #e4e7ec;
+  --accent-text: #f5f7fa;
+  --accent-weak: rgba(255, 255, 255, .08);
   --primary: #f5f7fa;
   --primary-text: #0c111d;
   --success: #47cd89;
@@ -127,6 +132,9 @@ html[data-theme=dark] .brand-logo-dark { display: block; }
 .badge.prod { border-color: color-mix(in srgb, var(--danger) 40%, transparent); background: var(--danger-weak); color: var(--danger); }
 .badge.dev { border-color: color-mix(in srgb, var(--info) 40%, transparent); background: color-mix(in srgb, var(--info) 12%, transparent); color: var(--info); }
 .badge.success { border-color: color-mix(in srgb, var(--success) 40%, transparent); background: var(--success-weak); color: var(--success); }
+/* "currently selected" isn't a success state — keep that token for genuine
+   success/confirmation and give selection its own accent-tinted badge. */
+.badge.selected { border-color: color-mix(in srgb, var(--accent) 45%, transparent); background: var(--accent-weak); color: var(--accent-text); }
 
 .avatar {
   width: 34px; height: 34px; flex: none; display: grid; place-items: center; border-radius: 50%;
@@ -201,6 +209,12 @@ footer { min-height: 100px; padding: 0 24px; display: flex; align-items: center;
 .link-button:hover, .text-link:hover { color: var(--text); }
 .auth-box > .button { width: 100%; margin-top: 20px; }
 .auth-box > .text-link { display: block; margin-top: 18px; text-align: center; }
+.auth-box > p.invite-summary {
+  display: inline-flex; align-items: center; gap: 8px; width: fit-content; margin: -6px 0 18px;
+  padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface-2);
+  font-size: 12px; font-weight: 600; color: var(--text-2);
+}
+.invite-summary svg { width: 14px; color: var(--accent); }
 
 /* ============================================================================
    App shell (dashboard)
@@ -250,11 +264,12 @@ footer { min-height: 100px; padding: 0 24px; display: flex; align-items: center;
 
 .alert { margin-bottom: 16px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--r); font-size: 13px; }
 .alert.error { border-color: color-mix(in srgb, var(--danger) 45%, transparent); background: var(--danger-weak); color: var(--danger); }
-.alert.notice { border-color: color-mix(in srgb, var(--success) 45%, transparent); background: var(--success-weak); color: var(--success); }
-.alert.notice code { overflow-wrap: anywhere; color: var(--text); }
+.alert.notice { border-color: color-mix(in srgb, var(--success) 45%, transparent); background: var(--success-weak); color: var(--success); overflow-wrap: anywhere; }
 .alert-dismiss { float: right; border: 0; background: transparent; color: inherit; font-size: 16px; line-height: 1; cursor: pointer; opacity: .7; }
 
-.stat-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+/* auto-fill (not a fixed column count) so 2 cards sit at their natural width
+   instead of stretching to fill a 3-column row with an empty gap. */
+.stat-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 260px)); gap: 16px; margin-bottom: 24px; }
 .stat-card { padding: 20px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); box-shadow: var(--shadow-sm); }
 .stat-card .stat-icon { width: 36px; height: 36px; display: grid; place-items: center; border-radius: var(--r); background: var(--accent-weak); color: var(--accent-text); margin-bottom: 14px; }
 .stat-card .stat-icon svg { width: 18px; }

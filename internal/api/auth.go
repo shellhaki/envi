@@ -49,6 +49,7 @@ func (h AuthHandler) verify(c *gin.Context) {
 	}
 	u, a, r, err := h.Service.Verify(c, in.Email, in.Code)
 	if err != nil {
+		log.Printf("otp verify failed: %v", err)
 		c.JSON(401, gin.H{"error": "invalid or expired OTP"})
 		return
 	}
