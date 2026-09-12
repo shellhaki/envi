@@ -1,0 +1,65 @@
+version: 2
+
+project_name: envi
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: envi
+    main: ./cmd/envi
+    binary: envi
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+      - arm
+    goarm:
+      - "7"
+    ignore:
+      # Windows on 32-bit ARM and darwin/arm (32-bit) are not real targets.
+      - goos: windows
+        goarch: arm
+      - goos: darwin
+        goarch: arm
+
+archives:
+  - id: envi
+    ids: [envi]
+    formats: [tar.gz]
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+
+release:
+  github:
+    owner: shellhaki
+    name: envi
+  footer: >-
+    Termux (Android) users: grab the `linux_arm64` archive for a modern phone,
+    or `linux_armv7` for an older 32-bit device — Termux runs on Android's
+    Linux kernel, so the regular Linux binary works as-is.
