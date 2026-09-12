@@ -1,13 +1,13 @@
 # Envi development helpers.
 #
-# Postgres is expected to be running natively (not via docker-compose — that
-# setup is on hold for now; see docker-compose.yml if you bring it back) with
-# DATABASE_URL in .env pointing at it. There is no migration runner, so the
-# schema is applied from here: schema.sql is the full current schema (use on a
-# fresh database), and migrations/*.sql are the incremental catch-up scripts
-# for an existing database (idempotent).
+# Postgres is expected to be running natively (no docker-compose right now)
+# with DATABASE_URL in .env pointing at it. There is no migration runner, so
+# the schema is applied from here: migrations/schema.sql is the full current
+# schema (use on a fresh database), and the numbered migrations/NNN_*.sql
+# files are the incremental catch-up scripts for an existing database
+# (idempotent).
 #
-# Quick start:  make db-init  # apply schema.sql, or bring migrations up to date
+# Quick start:  make db-init  # apply the schema, or bring migrations up to date
 # Run `make help` to list every target.
 
 DATABASE_URL ?= $(shell grep -E '^DATABASE_URL=' .env 2>/dev/null | cut -d= -f2-)
@@ -29,17 +29,17 @@ db-init: ## Apply schema.sql on a fresh DB (DATABASE_URL from .env), else bring 
 		$(MAKE) --no-print-directory db-migrate; \
 	else \
 		echo "fresh database -> applying schema.sql"; \
-		$(PSQL) < schema.sql && echo "schema applied"; \
+		$(PSQL) < migrations/schema.sql && echo "schema applied"; \
 	fi
 
 db-schema: ## Apply schema.sql — the full current schema (fresh DB only)
 	@if [ -z "$(DATABASE_URL)" ]; then echo "DATABASE_URL is not set (check .env)"; exit 1; fi
-	$(PSQL) < schema.sql
+	$(PSQL) < migrations/schema.sql
 	@echo "schema applied"
 
 db-migrate: ## Apply migrations/*.sql against DATABASE_URL (idempotent)
 	@if [ -z "$(DATABASE_URL)" ]; then echo "DATABASE_URL is not set (check .env)"; exit 1; fi
-	@for f in migrations/*.sql; do \
+	@for f in migrations/[0-9]*.sql; do \
 		echo "applying $$f"; \
 		$(PSQL) < $$f || exit 1; \
 	done
