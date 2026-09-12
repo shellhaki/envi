@@ -18,8 +18,12 @@ func New() *gin.Engine {
 	r.GET("/health", func(c *gin.Context) { c.JSON(200, gin.H{"status": "ok"}) })
 	return r
 }
-func Build(a auth.Service, t auth.TokenStore, p project.Service, s secret.Service, au audit.Service, st service_token.Service, i invitation.Service, db *pgxpool.Pool, dev auth.DeviceService, webURL string, accessTTL time.Duration) *gin.Engine {
+func Build(a auth.Service, t auth.TokenStore, p project.Service, s secret.Service, au audit.Service, st service_token.Service, i invitation.Service, db *pgxpool.Pool, dev auth.DeviceService, webURL string, accessTTL time.Duration, beta bool) *gin.Engine {
 	r := New()
+	// Public, unauthenticated: the web app checks this before a user has
+	// signed in, to show "private beta" messaging rather than a bare
+	// rejected-login error.
+	r.GET("/config", func(c *gin.Context) { c.JSON(200, gin.H{"beta": beta}) })
 	AuthHandler{Service: a, Tokens: t}.Routes(r)
 	m := RequireAuth(t, st)
 	DeviceHandler{Service: dev, WebURL: webURL, AccessTTL: accessTTL}.Routes(r, m)

@@ -6,19 +6,28 @@ import (
 )
 
 type Config struct {
-	DatabaseURL, RedisURL, EncryptionKey, ResendAPIKey, ResendFrom, Address, WebURL string
+	DatabaseURL, RedisURL, EncryptionKey, ResendAPIKey, ResendFrom, Address, WebURL, Environment string
 }
 
 func Load() Config {
-	a := os.Getenv("ENVI_ADDRESS")
-	if a == "" {
-		a = ":8080"
+	port := os.Getenv("ENVI_API_PORT")
+	if port == "" {
+		port = "8080"
 	}
 	web := os.Getenv("ENVI_WEB_URL")
 	if web == "" {
 		web = "http://localhost:3000"
 	}
-	return Config{os.Getenv("DATABASE_URL"), os.Getenv("REDIS_URL"), os.Getenv("ENVI_ENCRYPTION_KEY"), os.Getenv("RESEND_API_KEY"), os.Getenv("RESEND_FROM"), a, web}
+	return Config{
+		DatabaseURL:   os.Getenv("DATABASE_URL"),
+		RedisURL:      os.Getenv("REDIS_URL"),
+		EncryptionKey: os.Getenv("ENVI_ENCRYPTION_KEY"),
+		ResendAPIKey:  os.Getenv("RESEND_API_KEY"),
+		ResendFrom:    os.Getenv("RESEND_FROM"),
+		Address:       ":" + port,
+		WebURL:        web,
+		Environment:   os.Getenv("ENVIRONMENT"),
+	}
 }
 
 func Read() (Config, error) {

@@ -10,6 +10,7 @@ import (
 	"shellhaki/envi/internal/api"
 	"shellhaki/envi/internal/audit"
 	"shellhaki/envi/internal/auth"
+	"shellhaki/envi/internal/beta"
 	"shellhaki/envi/internal/config"
 	crypt "shellhaki/envi/internal/crypto"
 	"shellhaki/envi/internal/invitation"
@@ -61,7 +62,16 @@ func main() {
 	)
 	mail := mailer.Resend{APIKey: c.ResendAPIKey, From: c.ResendFrom}
 	tokens := &auth.PostgresTokens{DB: db, AccessTTL: accessTTL, RefreshTTL: refreshTTL}
+	isBeta := c.Environment == "beta"
 	a := auth.Service{OTP: otp.Service{Store: otp.Redis{Client: rc}, TTL: 10 * time.Minute, MaxAttempts: 10, RequestLimit: 20}, Mailer: otp.Resend{Client: mail}, Provision: w.Identity, AccessTTL: accessTTL, RefreshTTL: refreshTTL}
+	if isBeta {
+		allowlist, e := beta.Load("beta_testers.json")
+		if e != nil {
+			log.Fatal(e)
+		}
+		a.AllowEmail = allowlist.Allowed
+		log.Printf("beta mode: sign-in restricted to beta_testers.json")
+	}
 	deviceSvc := auth.DeviceService{Store: &auth.PostgresDeviceStore{DB: db}, Tokens: tokens, TTL: 10 * time.Minute, Interval: 5 * time.Second}
 	cipher, e := crypt.New([]byte(c.EncryptionKey))
 	if e != nil {
@@ -69,7 +79,7 @@ func main() {
 	}
 	ac := access.Service{DB: db}
 	invitations := invitation.Service{DB: db, Mailer: mail, WebURL: c.WebURL}
-	s := &http.Server{Addr: c.Address, Handler: api.Build(a, tokens, project.Service{DB: db}, secret.Service{DB: db, Access: ac, Cipher: cipher}, audit.Service{DB: db}, service_token.Service{DB: db}, invitations, db, deviceSvc, c.WebURL, accessTTL), ReadHeaderTimeout: 5 * time.Second}
+	s := &http.Server{Addr: c.Address, Handler: api.Build(a, tokens, project.Service{DB: db}, secret.Service{DB: db, Access: ac, Cipher: cipher}, audit.Service{DB: db}, service_token.Service{DB: db}, invitations, db, deviceSvc, c.WebURL, accessTTL, isBeta), ReadHeaderTimeout: 5 * time.Second}
 	go func() {
 		log.Printf("API listening on %s", c.Address)
 		if e := s.ListenAndServe(); e != nil && e != http.ErrServerClosed {

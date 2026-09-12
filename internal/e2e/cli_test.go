@@ -171,6 +171,7 @@ func TestCLIEndToEndIntegration(t *testing.T) {
 		invitation.Service{DB: db},
 		db,
 		deviceSvc, "http://web.test", accessTTL,
+		false,
 	)
 	ts := httptest.NewServer(router)
 	defer ts.Close()

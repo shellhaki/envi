@@ -5,6 +5,9 @@ module.exports = {
       script: "./bin/envi-api",
       interpreter: "none",
       cwd: __dirname,
+      env: {
+        ENVI_API_PORT: "8080",
+      },
       autorestart: true,
       max_restarts: 10,
       restart_delay: 3000,
@@ -18,7 +21,7 @@ module.exports = {
       interpreter: "none",
       cwd: __dirname,
       env: {
-        INSTALL_ADDRESS: ":8081",
+        ENVI_SERVER_PORT: "8081",
       },
       autorestart: true,
       max_restarts: 10,

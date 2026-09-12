@@ -43,10 +43,11 @@ func main() {
 	mux.HandleFunc("GET /install.sh", serveScript(sh, "text/x-sh; charset=utf-8"))
 	mux.HandleFunc("GET /install.ps1", serveScript(ps1, "text/plain; charset=utf-8"))
 
-	addr := os.Getenv("INSTALL_ADDRESS")
-	if addr == "" {
-		addr = ":8081"
+	port := os.Getenv("ENVI_SERVER_PORT")
+	if port == "" {
+		port = "8081"
 	}
+	addr := ":" + port
 	log.Printf("install-script server listening on %s", addr)
 	log.Fatal(http.ListenAndServe(addr, mux))
 }

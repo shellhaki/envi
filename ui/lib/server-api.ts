@@ -14,3 +14,12 @@ export async function account() {
   return response.ok ? response.json() as Promise<{ ID: string; Email: string; OrganizationID: string }> : null;
 }
 export function firstName(email: string) { return email.split("@", 1)[0]; }
+export async function publicConfig(): Promise<{ beta: boolean }> {
+  try {
+    const response = await upstream("/config");
+    if (!response.ok) return { beta: false };
+    return await response.json();
+  } catch {
+    return { beta: false };
+  }
+}

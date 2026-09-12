@@ -5,3 +5,4 @@ query.sql
 dist/
 bin/
 logs/
+beta_testers.json

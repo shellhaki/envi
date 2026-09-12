@@ -12,11 +12,19 @@ import (
 	"shellhaki/envi/internal/otp"
 )
 
+// ErrNotInvited is returned by Request and Verify when AllowEmail rejects the
+// address — a private-beta gate, not a credential failure.
+var ErrNotInvited = errors.New("not on the beta access list")
+
 type Service struct {
 	OTP                   otp.Service
 	Mailer                otp.Mailer
 	Provision             func(context.Context, string) (string, error)
 	AccessTTL, RefreshTTL time.Duration
+	// AllowEmail, when set, gates Request and Verify to only emails it
+	// approves — used to restrict sign-in to a private beta list. Nil means
+	// everyone may sign in.
+	AllowEmail func(email string) bool
 }
 
 // TokenStore persists sessions. Take validates a refresh token and revokes the
@@ -60,6 +68,9 @@ func (s Service) Logout(refresh string, store TokenStore) error {
 }
 
 func (s Service) Request(ctx context.Context, email string) error {
+	if s.AllowEmail != nil && !s.AllowEmail(email) {
+		return ErrNotInvited
+	}
 	code, err := s.OTP.Issue(ctx, email)
 	if err != nil {
 		return err
@@ -70,6 +81,9 @@ func (s Service) Request(ctx context.Context, email string) error {
 	return s.Mailer.Send(strings.TrimSpace(email), code)
 }
 func (s Service) Verify(ctx context.Context, email, code string) (string, string, string, error) {
+	if s.AllowEmail != nil && !s.AllowEmail(email) {
+		return "", "", "", ErrNotInvited
+	}
 	if err := s.OTP.Verify(ctx, email, code); err != nil {
 		return "", "", "", err
 	}

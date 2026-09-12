@@ -28,6 +28,10 @@ func (h AuthHandler) request(c *gin.Context) {
 		return
 	}
 	if err := h.Service.Request(c, in.Email); err != nil {
+		if err == auth.ErrNotInvited {
+			c.JSON(http.StatusForbidden, gin.H{"code": "not_invited", "error": "this email isn't on the beta list yet"})
+			return
+		}
 		log.Printf("otp delivery failed: %v", err)
 		if strings.Contains(err.Error(), "too many OTP requests") {
 			c.JSON(http.StatusTooManyRequests, gin.H{"code": "rate_limited", "error": "too many OTP requests"})
@@ -49,6 +53,10 @@ func (h AuthHandler) verify(c *gin.Context) {
 	}
 	u, a, r, err := h.Service.Verify(c, in.Email, in.Code)
 	if err != nil {
+		if err == auth.ErrNotInvited {
+			c.JSON(http.StatusForbidden, gin.H{"code": "not_invited", "error": "this email isn't on the beta list yet"})
+			return
+		}
 		log.Printf("otp verify failed: %v", err)
 		c.JSON(401, gin.H{"error": "invalid or expired OTP"})
 		return
