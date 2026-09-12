@@ -1,0 +1,39 @@
+---
+title: "Overview"
+description: "What running your own instance actually involves."
+---
+
+Envi is offered as a hosted product, and this is the same stack behind it — nothing is held back for a separate self-hosted build. Running your own instance means running four things:
+
+<CardGroup cols={2}>
+  <Card title="Postgres" icon="database">
+    The source of truth for everything: projects, environments, encrypted secrets, access grants, audit events.
+  </Card>
+  <Card title="Redis" icon="bolt">
+    Short-lived state only — OTP codes and rate-limit counters. Nothing here needs to survive a restart.
+  </Card>
+  <Card title="The API" icon="server">
+    A single stateless Go binary (`cmd/api`), talking to both. This is the entire backend.
+  </Card>
+  <Card title="The install-script server" icon="download">
+    A tiny, dependency-free Go binary (`cmd/install`) serving `curl | sh` install scripts. No database, no auth — it doesn't need to be up for the product to work, only for new installs of the CLI.
+  </Card>
+</CardGroup>
+
+## The web dashboard is optional infrastructure
+
+The Next.js dashboard (`ui/`) is a separate deployable — it's a client of the API, exactly like the CLI is, and doesn't need to live on the same machine or even be self-hosted at all. Deploying it to Vercel (or anywhere else that runs Next.js) and pointing `ENVI_API_URL` at your self-hosted API works fine.
+
+## Encryption key ownership
+
+`ENVI_ENCRYPTION_KEY` decrypts every secret in your database. It lives only in the API process's environment — never in Postgres, never in a request, never logged. Losing it means losing access to every secret ever stored; there is deliberately no recovery path around the encryption key, because a recovery path is also a bypass.
+
+## Outbound email
+
+OTP codes and invitations go out through [Resend](https://resend.com) — bring your own API key and a verified sending domain. Without a verified domain, Resend restricts sending to the address your own account is registered with, which is enough to test the flow but not to invite real users.
+
+## Next
+
+<Card title="Deployment walkthrough" icon="server" href="/self-hosting/deployment">
+  A concrete, first-deploy guide: system dependencies, the database, process management, and TLS.
+</Card>

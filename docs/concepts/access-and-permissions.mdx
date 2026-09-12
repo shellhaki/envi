@@ -1,0 +1,42 @@
+---
+title: "Access & Permissions"
+description: "Read, write, manage — and why production is different."
+---
+
+Access is granted per environment, at one of three levels:
+
+| Permission | Can do |
+|---|---|
+| `read` | View and pull secrets |
+| `write` | Everything `read` can, plus push and change secrets |
+| `manage` | Everything `write` can, plus invite others and manage access |
+
+Each level includes the ones before it — `write` implies `read`, `manage` implies both.
+
+## Who gets access, and why
+
+<AccordionGroup>
+  <Accordion title="Organization owners and admins" icon="crown">
+    Always have full access to every project and environment in the organization. This can't be scoped away — it's the account-recovery path.
+  </Accordion>
+  <Accordion title="Any org member, on non-production environments" icon="users">
+    Development and staging environments are open to anyone in the organization by default, no explicit grant required. The idea is that day-to-day environments shouldn't need a manage-level person to hand-provision access for every teammate.
+  </Accordion>
+  <Accordion title="Explicit grants, for everything else" icon="key">
+    Production environments require a real, explicit grant — from an invitation ([`envi share`](/invitations)) or a direct grant by someone with `manage` access. There's no ambient access to production through organization membership alone.
+  </Accordion>
+</AccordionGroup>
+
+This is the practical meaning of "production stays explicit": being on the team gets you into `development` immediately; getting into `production` is always a deliberate, visible act — either accepting an invitation or being granted access directly, both of which show up in the audit log.
+
+## Service tokens
+
+A [service token](/ci-service-tokens) is scoped exactly like a human grant — one environment, one permission level — but it isn't tied to any person's session. Revoking it doesn't sign anyone out; it just stops that one credential from working.
+
+## Checking what's granted
+
+```bash
+envi activity
+```
+
+shows recent reads and writes across the org, including which identity — human or service token — touched what.

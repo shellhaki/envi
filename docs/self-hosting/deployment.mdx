@@ -1,0 +1,164 @@
+---
+title: "Deployment"
+description: "A first deploy to a plain VPS, no Docker required."
+---
+
+This assumes a standard Ubuntu/Debian VPS with SSH access. Every command here is meant to be run on that server, not on your own machine.
+
+<Steps>
+
+<Step title="Generate production secrets">
+  Don't reuse local development values. Generate fresh ones:
+
+  ```bash
+  openssl rand -hex 16
+  ```
+
+  Run this once for `ENVI_ENCRYPTION_KEY` (needs to be exactly 32 characters — this produces exactly that) and, if you're also deploying the web dashboard, once more for `ENVI_SESSION_SECRET`.
+</Step>
+
+<Step title="Install system dependencies">
+  ```bash
+  sudo apt update && sudo apt upgrade -y
+  sudo apt install -y postgresql postgresql-contrib redis-server nodejs npm git ufw
+  ```
+
+  Go isn't in Ubuntu's apt repos at a current version — install it from the official tarball:
+
+  ```bash
+  curl -fsSL https://go.dev/dl/go1.25.12.linux-amd64.tar.gz -o go.tar.gz
+  sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go.tar.gz
+  echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc && source ~/.bashrc
+  go version
+  ```
+
+  Swap `amd64` for `arm64` if this VPS is ARM (`uname -m` shows `aarch64`).
+
+  PM2, via npm (not a bun shim — cleaner for a process you want running unattended):
+
+  ```bash
+  sudo npm install -g pm2
+  ```
+</Step>
+
+<Step title="Set up Postgres and Redis">
+  Redis needs no config for localhost-only use — it's bound to `127.0.0.1` by default. Postgres needs a role and database:
+
+  ```bash
+  sudo -u postgres psql -c "CREATE ROLE envi WITH LOGIN PASSWORD 'a-real-password';"
+  sudo -u postgres psql -c "CREATE DATABASE envi OWNER envi;"
+  ```
+</Step>
+
+<Step title="Clone and configure">
+  ```bash
+  git clone git@github.com:shellhaki/envi.git
+  cd envi
+  ```
+
+  Create `.env` here — it's gitignored, so it only ever exists on this server:
+
+  ```bash Server .env
+  DATABASE_URL=postgresql://envi:a-real-password@localhost:5432/envi
+  REDIS_URL=redis://localhost:6379
+  ENVI_ENCRYPTION_KEY=<generated above>
+  RESEND_API_KEY=<your production Resend key>
+  RESEND_FROM="Envi <noreply@envisecrets.com>"
+  ENVI_WEB_URL=https://app.envisecrets.com
+  ENVI_API_PORT=8080
+  ENVI_SERVER_PORT=8081
+  ENVIRONMENT=production
+  ```
+
+  `ENVI_API_PORT` and `ENVI_SERVER_PORT` are the ports the two binaries listen on locally — they only need to differ from the 8080/8081 defaults if something else on the box already uses them. Neither is exposed directly to the internet; see the Traefik step below.
+</Step>
+
+<Step title="Apply the schema and build">
+  ```bash
+  make db-init
+  make build-api build-install
+  ```
+
+  `db-init` detects a fresh database and applies `migrations/schema.sql`. The two `build-*` targets produce `bin/envi-api` and `bin/envi-install`, matching what `ecosystem.config.js` expects.
+</Step>
+
+<Step title="Start under PM2, and survive reboots">
+  ```bash
+  pm2 start ecosystem.config.js
+  pm2 save
+  pm2 startup
+  ```
+
+  `pm2 startup` prints a `sudo env PATH=... pm2 startup systemd -u ...` command specific to this machine — copy and run exactly that line. That's what brings PM2 (and both processes) back automatically after a reboot. `pm2 save` snapshots the current process list right after starting them, so the systemd unit knows what to resurrect.
+
+  Confirm both are actually serving traffic, not just "online" in PM2's table:
+
+  ```bash
+  pm2 status
+  curl -s http://localhost:8080/health
+  curl -s http://localhost:8081/health
+  ```
+</Step>
+
+<Step title="Put Traefik in front, for TLS">
+  Don't expose `:8080`/`:8081` directly. The repo ships a ready-to-use Traefik config under `traefik/` — copy it into place:
+
+  ```bash
+  sudo mkdir -p /etc/traefik/dynamic
+  sudo cp traefik/traefik.yml /etc/traefik/traefik.yml
+  sudo cp traefik/dynamic/envi.yml /etc/traefik/dynamic/envi.yml
+  sudo cp traefik/traefik.service /etc/systemd/system/traefik.service
+  ```
+
+  Install the Traefik binary itself if it isn't already there:
+
+  ```bash
+  curl -fsSL https://github.com/traefik/traefik/releases/download/v3.5.3/traefik_v3.5.3_linux_amd64.tar.gz -o traefik.tar.gz
+  tar -xzf traefik.tar.gz traefik
+  sudo mv traefik /usr/local/bin/
+  ```
+
+  Point DNS `A` records for `api.envisecrets.com` and `install.envisecrets.com` at this VPS *before* starting Traefik — it needs to complete an HTTP challenge against them to issue certificates.
+
+  ```bash
+  sudo touch /etc/traefik/acme.json && sudo chmod 600 /etc/traefik/acme.json
+  sudo systemctl enable --now traefik
+  ```
+
+  That `chmod 600` isn't optional — Traefik refuses to store certificates in a file with looser permissions and just logs an error instead of getting you HTTPS.
+
+  `traefik/dynamic/envi.yml` is watched for changes (`providers.file.watch: true` in the static config), so adding more routes later — the web dashboard, if you self-host that too — is a file edit and nothing else.
+</Step>
+
+<Step title="Lock down the firewall">
+  ```bash
+  sudo ufw allow OpenSSH
+  sudo ufw allow 80,443/tcp
+  sudo ufw enable
+  ```
+
+  This leaves Postgres, Redis, and the raw app ports reachable only from `localhost` — never exposed publicly. That matters more here than in most apps, given what this one stores.
+</Step>
+
+<Step title="Verify for real">
+  ```bash
+  curl https://api.envisecrets.com/health
+  curl https://install.envisecrets.com/
+  ```
+
+  The second one should print the actual `install.sh` contents — at that point `curl -fsSL https://install.envisecrets.com | sh` works for anyone.
+</Step>
+
+</Steps>
+
+## Updating a deployment
+
+There's no CI/CD workflow shipped for this yet — for now, a redeploy is:
+
+```bash
+cd envi && git pull
+make build-api build-install
+pm2 reload ecosystem.config.js
+```
+
+`pm2 reload` (not `restart`) does a zero-downtime reload where possible.

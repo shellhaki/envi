@@ -1,0 +1,167 @@
+---
+title: "CLI Reference"
+description: "Every envi command."
+---
+
+```
+envi <command> [flags]
+```
+
+Every command that touches your account first checks for a stored session (`envi auth`), then talks to the API directly — the CLI never needs the web dashboard running.
+
+## Authentication
+
+### `envi auth`
+
+Signs in. By default this is the browser device flow: it prints a code, opens your browser, and waits for you to approve it there.
+
+```bash
+envi auth
+```
+
+<ParamField query="--email" type="string">
+  Skip the browser and sign in with an emailed one-time code instead. Prompts for the code interactively.
+</ParamField>
+<ParamField query="--no-browser" type="boolean">
+  With the device flow, print the approval URL instead of trying to open a browser — useful over SSH.
+</ParamField>
+
+```bash
+envi auth --email you@company.com
+```
+
+### `envi logout`
+
+Revokes the current device's session.
+
+```bash
+envi logout
+```
+
+## Project setup
+
+### `envi init`
+
+Links the current directory to a project and environment, writing `envi.toml`. Interactive if run with no flags.
+
+<ParamField query="--project" type="string">Project name</ParamField>
+<ParamField query="--env" type="string">Environment name</ParamField>
+
+```bash
+envi init --project acme-api --env production
+```
+
+### `envi project create <name>`
+
+```bash
+envi project create acme-api
+```
+
+### `envi env create <name>`
+
+Creates an environment under the current directory's project (from `envi.toml`).
+
+<ParamField query="--project" type="string">Project name, if not using the current directory's `envi.toml`</ParamField>
+<ParamField query="--production" type="boolean">Mark this environment as production — see <a href="/concepts/access-and-permissions">Access & Permissions</a></ParamField>
+
+```bash
+envi env create staging
+envi env create production --production
+```
+
+## Working with secrets
+
+These three all operate on the environment linked by `envi init` in the current directory.
+
+### `envi pull`
+
+Writes the environment's current secrets to `.env`, at `0600` permissions.
+
+```bash
+envi pull
+```
+
+### `envi push`
+
+Sends local `.env` changes up. Fails with a conflict if the remote has changed since your last pull or push — see [revisions](/concepts/projects-and-environments#revisions-and-conflict-detection).
+
+```bash
+envi push
+```
+
+### `envi diff`
+
+Compares local `.env` against remote without changing either side. Prints `added`, `removed`, and `changed` keys.
+
+```bash
+envi diff
+```
+
+## Collaboration
+
+### `envi share <email>`
+
+Invites a collaborator. They receive an email with a link — see [Invitations](/invitations) for what happens next, including for people who don't have an account yet.
+
+<ParamField query="--project" type="string">Project name</ParamField>
+<ParamField query="--env" type="string">Environment name</ParamField>
+<ParamField query="--permission" type="string" default="read">`read`, `write`, or `manage`</ParamField>
+
+```bash
+envi share teammate@company.com --permission write
+```
+
+### `envi invite accept <token>`
+
+Accepts an invitation using the token from an invitation link. You must already be signed in as the invited address — normally you'd just click the link instead, which handles this for you.
+
+```bash
+envi invite accept <token>
+```
+
+## CI/CD
+
+### `envi token create --name <name>`
+
+Mints a scoped [service token](/ci-service-tokens) for the current directory's environment.
+
+<ParamField query="--name" type="string" required>Token name</ParamField>
+<ParamField query="--permission" type="string" default="read">`read`, `write`, or `manage`</ParamField>
+<ParamField query="--ttl" type="int" default="0">Lifetime in seconds. `0` means no expiry.</ParamField>
+
+```bash
+envi token create --name github-actions --permission read --ttl 2592000
+```
+
+## Everything else
+
+### `envi activity`
+
+Recent reads and writes across your organization.
+
+<ParamField query="--limit" type="int" default="20">Number of recent events to show</ParamField>
+
+```bash
+envi activity --limit 50
+```
+
+### `envi version`
+
+Prints the installed version.
+
+### `envi help`
+
+Shows the command list.
+
+## Exit codes
+
+Scripts checking `envi`'s exit status can distinguish failure kinds without parsing output:
+
+| Code | Meaning |
+|---|---|
+| `0` | Success |
+| `2` | Usage error — bad flags or arguments |
+| `3` | Not authenticated |
+| `4` | Forbidden — authenticated, but not permitted |
+| `5` | Configuration error — e.g. not initialized, run `envi init` |
+| `6` | API error |

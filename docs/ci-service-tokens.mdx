@@ -1,0 +1,72 @@
+---
+title: "Service Tokens & CI/CD"
+description: "Pull secrets in a pipeline without a human's session."
+---
+
+A service token is a long-lived credential scoped to exactly one environment and one permission level — `read`, `write`, or `manage` — independent of any person's account. Revoking it doesn't sign anyone out; it just stops that one credential from working.
+
+## Create one
+
+From a directory linked with `envi init`:
+
+```bash
+envi token create --name github-actions --permission read --ttl 2592000
+```
+
+<ParamField query="--ttl" type="int" default="0">
+  Lifetime in seconds. `0` means no expiry — reasonable for a token you'll rotate manually, risky for one you'll forget about. `2592000` above is 30 days.
+</ParamField>
+
+This prints the token value once. It isn't retrievable again — store it in your CI provider's secret store immediately.
+
+## Use it
+
+The CLI picks up a service token from `ENVI_TOKEN` and uses it instead of a stored login session — no `envi auth` needed:
+
+<CodeGroup>
+
+```yaml GitHub Actions
+- name: Install envi
+  run: curl -fsSL https://install.envisecrets.com | sh
+
+- name: Pull secrets
+  env:
+    ENVI_TOKEN: ${{ secrets.ENVI_TOKEN }}
+    ENVI_API_URL: https://api.envisecrets.com
+  run: |
+    export PATH="$HOME/.local/bin:$PATH"
+    envi init --project acme-api --env production
+    envi pull
+```
+
+```bash Any shell
+export ENVI_TOKEN=<your service token>
+export ENVI_API_URL=https://api.envisecrets.com
+envi init --project acme-api --env production
+envi pull
+```
+
+</CodeGroup>
+
+<Note>
+  A service token is scoped to one project's environment already — `envi init` still needs to run once (there's nothing to authenticate, it's just writing the local `envi.toml` link), but it won't prompt for login when `ENVI_TOKEN` is set.
+</Note>
+
+## Direct API access
+
+Skip the CLI entirely and hit the API with the token as a bearer credential — useful for a deploy step in a language other than what the CLI ships for, or a build system that shells out to `curl` more naturally than it installs a new binary:
+
+```bash
+curl -H "Authorization: Bearer $ENVI_TOKEN" \
+  https://api.envisecrets.com/environments/<environment-id>/secrets/snapshot
+```
+
+Returns the current secrets and revision as JSON:
+
+```json
+{ "values": { "DATABASE_URL": "...", "STRIPE_KEY": "..." }, "revision": 4 }
+```
+
+## Revoking
+
+Rotate by creating a new token and revoking the old one — there's no "renew" operation, since a token that can renew itself is a token that never really expires.

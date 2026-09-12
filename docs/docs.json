@@ -2,43 +2,59 @@
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
   "name": "Envi",
-  "description": "A lightweight, security-first environment secret manager for developers.",
+  "description": "Environment secrets, encrypted, scoped, and audited.",
   "colors": {
-    "primary": "#4f46e5",
-    "light": "#818cf8",
-    "dark": "#4338ca"
+    "primary": "#0c111d",
+    "light": "#f5f7fa",
+    "dark": "#1a1e26"
   },
-  "favicon": "/favicon.svg",
+  "favicon": "/favicon.png",
   "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
+    "light": "/logo/light.png",
+    "dark": "/logo/dark.png",
+    "href": "https://envisecrets.com"
   },
   "navigation": {
     "groups": [
       {
-        "group": "Getting Started",
-        "pages": ["introduction", "quickstart", "concepts"]
+        "group": "Get Started",
+        "pages": ["introduction", "installation", "quickstart"]
+      },
+      {
+        "group": "Concepts",
+        "pages": [
+          "concepts/projects-and-environments",
+          "concepts/secrets-and-encryption",
+          "concepts/access-and-permissions"
+        ]
       },
       {
         "group": "Guides",
-        "pages": ["cli", "web-dashboard", "ci-service-tokens"]
+        "pages": ["cli", "web-dashboard", "ci-service-tokens", "invitations"]
       },
       {
-        "group": "Operations",
-        "pages": ["self-hosting"]
+        "group": "Self-Hosting",
+        "pages": ["self-hosting/overview", "self-hosting/deployment"]
       }
     ]
   },
   "navbar": {
+    "links": [
+      {
+        "label": "GitHub",
+        "href": "https://github.com/shellhaki/envi"
+      }
+    ],
     "primary": {
       "type": "button",
-      "label": "GitHub",
-      "href": "https://github.com/shellhaki/envi"
+      "label": "Dashboard",
+      "href": "https://envisecrets.com/dashboard"
     }
   },
   "footer": {
     "socials": {
-      "github": "https://github.com/shellhaki/envi"
+      "github": "https://github.com/shellhaki/envi",
+      "website": "https://envisecrets.com"
     }
   }
 }

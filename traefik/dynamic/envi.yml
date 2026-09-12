@@ -1,0 +1,28 @@
+http:
+  routers:
+    envi-api:
+      rule: "Host(`api.envisecrets.com`)"
+      entryPoints:
+        - websecure
+      service: envi-api
+      tls:
+        certResolver: letsencrypt
+
+    envi-install:
+      rule: "Host(`install.envisecrets.com`)"
+      entryPoints:
+        - websecure
+      service: envi-install
+      tls:
+        certResolver: letsencrypt
+
+  services:
+    envi-api:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8080"
+
+    envi-install:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8081"

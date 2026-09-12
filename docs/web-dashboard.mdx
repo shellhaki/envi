@@ -1,0 +1,38 @@
+---
+title: "Web Dashboard"
+description: "Manage projects and secrets visually."
+---
+
+The dashboard talks to the same API the CLI does — nothing you do here is a special code path, and nothing here is out of sync with what `envi pull` would show you.
+
+Sign in at your Envi instance's web address with the same passwordless flow as the CLI: a one-time email code, no password to manage.
+
+## Overview
+
+A workspace-level summary: how many projects you have, how many secrets are in the currently selected one, and quick actions for the things you'll do most — new project, add a secret, import a `.env` file, invite a collaborator.
+
+## Secrets
+
+The full key/value table for the selected project's environment. Values are masked by default; reveal one at a time, or copy a value directly without ever displaying it on screen.
+
+<Tip>
+  Drag a `.env` file anywhere onto this panel to import it — existing keys with the same name are overwritten, everything else is merged in.
+</Tip>
+
+The revision badge (`REV n`) in the toolbar matches what `envi diff` and `envi push` reason about — if you and a teammate are both looking at the same environment, you're looking at the same number.
+
+## Projects
+
+A grid of every project you have access to. Selecting one here changes which project's secrets and activity you're viewing everywhere else in the dashboard.
+
+## Sharing
+
+Invite a collaborator to the selected project by email, choosing `read`, `write`, or `manage`. See [Invitations](/invitations) for what the recipient experiences, including if they don't have an account yet.
+
+## Activity
+
+A live feed of reads, writes, and deletes across your organization — the same data `envi activity` prints, in the dashboard. Each entry shows who (or which service token) touched what, and when.
+
+## Settings
+
+Your account email, a sign-out button for the current device, and light/dark theme — the theme choice is stored per-device, not per-account.

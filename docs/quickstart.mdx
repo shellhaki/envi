@@ -1,0 +1,83 @@
+---
+title: "Quickstart"
+description: "Authenticate, create a project, and push your first .env."
+---
+
+<Steps>
+  <Step title="Sign in">
+    ```bash
+    envi auth
+    ```
+
+    This opens your browser to approve the device — no password, ever. Prefer email codes instead? Use `envi auth --email you@company.com`.
+  </Step>
+  <Step title="Initialize a project">
+    From the root of the repo you want to manage secrets for:
+
+    ```bash
+    envi init
+    ```
+
+    You'll be prompted to pick or create a project and an environment. This writes an `envi.toml` linking the current directory to that project — commit it, it holds no secrets, just IDs.
+  </Step>
+  <Step title="Push your existing .env">
+    Already have a `.env` file here? Send it up:
+
+    ```bash
+    envi push
+    ```
+
+    Envi encrypts every value before it's stored. Pushing again later only succeeds if your local copy is still based on the latest remote revision — see [conflict handling](#keeping-things-in-sync) below.
+  </Step>
+  <Step title="Pull it somewhere else">
+    On another machine, or a fresh clone:
+
+    ```bash
+    envi init
+    envi pull
+    ```
+
+    `pull` writes the environment's current secrets straight to `.env`, at `0600` permissions.
+  </Step>
+</Steps>
+
+## Keeping things in sync
+
+Two people editing the same environment is the normal case, not an edge case. Before pushing, check what's actually changed:
+
+```bash
+envi diff
+```
+
+This compares your local `.env` against the remote without changing either side — it prints `added`, `removed`, and `changed` keys. If someone else pushed since you last pulled, `envi push` fails with a conflict rather than silently overwriting their changes:
+
+```
+stale_revision: remote secrets changed; run envi diff or envi pull
+```
+
+Run `envi pull` to catch up, resolve any overlap by hand, then push again.
+
+## Inviting a collaborator
+
+```bash
+envi share teammate@company.com --permission write
+```
+
+They get an email with a link. If they don't have an Envi account yet, that link creates one — see [Invitations](/invitations) for the full flow.
+
+## What's next
+
+<CardGroup cols={2}>
+  <Card title="Projects & Environments" icon="folder-tree" href="/concepts/projects-and-environments">
+    How the pieces are organized.
+  </Card>
+  <Card title="Access & Permissions" icon="key" href="/concepts/access-and-permissions">
+    Read, write, manage — and why production is different.
+  </Card>
+  <Card title="Service tokens for CI/CD" icon="robot" href="/ci-service-tokens">
+    Pull secrets in a pipeline without a human's session.
+  </Card>
+  <Card title="Full CLI reference" icon="square-terminal" href="/cli">
+    Every command, every flag.
+  </Card>
+</CardGroup>

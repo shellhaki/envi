@@ -1,0 +1,72 @@
+---
+title: "Installation"
+description: "Install the envi CLI on macOS, Linux, Termux, or Windows."
+---
+
+The install script detects your OS and CPU architecture at runtime and grabs the right build from the [latest release](https://github.com/shellhaki/envi/releases/latest) — there's nothing to configure.
+
+<Tabs>
+  <Tab title="macOS / Linux / Termux">
+    ```bash
+    curl -fsSL https://install.envisecrets.com | sh
+    ```
+
+    Termux runs on Android's Linux kernel, so this is the same Linux build everyone else gets — it installs to Termux's own `$PREFIX/bin` automatically instead of `~/.local/bin`, since that's already on `PATH` there.
+  </Tab>
+  <Tab title="Windows">
+    ```powershell
+    irm https://install.envisecrets.com/install.ps1 | iex
+    ```
+
+    Installs to `%LOCALAPPDATA%\envi\bin` and adds it to your user `PATH`. Restart your terminal afterward for the `PATH` change to take effect.
+  </Tab>
+</Tabs>
+
+Every download is checked against a SHA-256 checksum before anything is installed — if it doesn't match, the script fails loudly rather than installing a corrupted or tampered binary.
+
+## Verify it
+
+```bash
+envi version
+```
+
+## Installing a specific version
+
+Both scripts accept a version instead of defaulting to latest:
+
+```bash
+curl -fsSL https://install.envisecrets.com | sh -s v0.2.0
+```
+
+```powershell
+irm https://install.envisecrets.com/install.ps1 -OutFile install.ps1; ./install.ps1 v0.2.0
+```
+
+## Choosing the install location
+
+Set `ENVI_INSTALL_DIR` before running the script to install somewhere other than the default:
+
+```bash
+export ENVI_INSTALL_DIR=/usr/local/bin
+curl -fsSL https://install.envisecrets.com | sh
+```
+
+<Warning>
+  Export the variable first, then pipe the script — `ENVI_INSTALL_DIR=/path curl ... | sh` only sets it for `curl`, not for the `sh` process reading the piped script, since they're separate processes in the pipeline.
+</Warning>
+
+## Manual install
+
+Prefer not to run a piped script? Grab a binary directly from the [releases page](https://github.com/shellhaki/envi/releases/latest) — archives are provided for `darwin` (amd64/arm64), `linux` (amd64/arm64/armv7), and `windows` (amd64/arm64), each alongside a `checksums.txt`.
+
+```bash
+curl -LO https://github.com/shellhaki/envi/releases/latest/download/envi_<version>_linux_amd64.tar.gz
+tar -xzf envi_<version>_linux_amd64.tar.gz
+sudo mv envi /usr/local/bin/
+```
+
+## Next step
+
+<Card title="Quickstart" icon="rocket" href="/quickstart">
+  Authenticate and push your first `.env` file.
+</Card>

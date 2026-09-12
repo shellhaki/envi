@@ -1,0 +1,46 @@
+---
+title: "Invitations"
+description: "Invite a collaborator, even if they don't have an account yet."
+---
+
+Invite someone with the CLI or the dashboard:
+
+```bash
+envi share teammate@company.com --permission write
+```
+
+They get an email with a link. What happens when they open it depends on where they're starting from — all three cases are handled by the same page, automatically.
+
+<Steps>
+  <Step title="Already signed in with that address">
+    Access is granted immediately. No further action.
+  </Step>
+  <Step title="No Envi account yet">
+    They're walked through the same one-time-code sign-in used everywhere else — except the email address is already filled in and locked to the invited address. Verifying the code both creates their account and grants the access from the invitation, in one step.
+  </Step>
+  <Step title="Signed in as a different account">
+    They're told plainly which address the invite is for, with a one-click "sign out and continue" — no silent failure, no generic "access denied."
+  </Step>
+</Steps>
+
+## What the email contains
+
+A link, the project name, the permission level being granted, and an expiry date (7 days by default). The email is sent as proper HTML with a plain-text fallback — not because it looks nicer, but because a text-only automated email is itself a signal spam filters weigh against a sender.
+
+## Expiry and reuse
+
+An invitation is single-use: accepting it marks it `accepted`, and the same link won't work again. Past its expiry, the link stops working entirely — ask for a new one rather than trying to extend an old one.
+
+## Rate limits
+
+Sending invitations is capped per inviter (20 per hour). This isn't about any one legitimate use hitting the limit — it's there so a compromised account, or a script gone wrong, can't be used to mass-invite addresses and damage the sending domain's reputation for everyone.
+
+## Accepting from the CLI
+
+If you already have the raw token (e.g. from `envi share`'s output, as a fallback if the email didn't land) rather than clicking the link:
+
+```bash
+envi invite accept <token>
+```
+
+You need to already be signed in as the invited address for this to succeed — it doesn't walk you through sign-in the way the web link does.
