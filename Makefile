@@ -13,7 +13,7 @@
 DATABASE_URL ?= $(shell grep -E '^DATABASE_URL=' .env 2>/dev/null | cut -d= -f2-)
 PSQL         := psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1
 
-.PHONY: help build-envi db-init db-schema db-migrate db-psql
+.PHONY: help build-envi build-api build-install db-init db-schema db-migrate db-psql
 
 help: ## List available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | \
@@ -21,6 +21,12 @@ help: ## List available targets
 
 build-envi: ## Build the envi CLI into ~/.local/bin
 	cd cmd/envi && go build -o ~/.local/bin/envi
+
+build-api: ## Build the API server into bin/envi-api (for pm2, see ecosystem.config.js)
+	go build -o bin/envi-api ./cmd/api
+
+build-install: ## Build the install-script server into bin/envi-install (for pm2, see ecosystem.config.js)
+	go build -o bin/envi-install ./cmd/install
 
 db-init: ## Apply schema.sql on a fresh DB (DATABASE_URL from .env), else bring migrations up to date
 	@if [ -z "$(DATABASE_URL)" ]; then echo "DATABASE_URL is not set (check .env)"; exit 1; fi

@@ -2,3 +2,6 @@
 rules.txt
 query.sql
 .env
+dist/
+bin/
+logs/
