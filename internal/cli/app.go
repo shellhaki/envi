@@ -188,6 +188,49 @@ func (a App) Run(args []string) int {
 			return ExitUsage
 		}
 		return a.authenticated(func(c Client) error { return AcceptInvitation(context.Background(), c, args[2]) })
+	case "update":
+		ui := NewUI(a.Out)
+		sub := ""
+		if len(args) > 1 {
+			sub = args[1]
+		}
+		fs := flag.NewFlagSet("update", flag.ContinueOnError)
+		fs.SetOutput(a.Err)
+		force := fs.Bool("force", false, "update even when already current, or when running a development build")
+		if len(args) > 2 {
+			if e := fs.Parse(args[2:]); e != nil {
+				return ExitUsage
+			}
+		}
+		var e error
+		switch sub {
+		case "check":
+			e = UpdateCheck(context.Background(), ui, a.Version)
+		case "now":
+			e = UpdateNow(context.Background(), ui, a.Version, *force)
+		default:
+			fmt.Fprintln(a.Err, "usage: envi update check | envi update now [--force]")
+			return ExitUsage
+		}
+		if e != nil {
+			ui := NewUI(a.Err)
+			ui.Fail("%v", e)
+			return ExitAPI
+		}
+		return ExitOK
+	case "uninstall":
+		fs := flag.NewFlagSet("uninstall", flag.ContinueOnError)
+		fs.SetOutput(a.Err)
+		keep := fs.Bool("keep-config", false, "leave the saved session in place")
+		yes := fs.Bool("yes", false, "skip the confirmation prompt")
+		if e := fs.Parse(args[1:]); e != nil {
+			return ExitUsage
+		}
+		if e := Uninstall(NewUI(a.Out), a.input(), *keep, *yes); e != nil {
+			NewUI(a.Err).Fail("%v", e)
+			return ExitConfig
+		}
+		return ExitOK
 	case "help", "--help", "-h":
 		a.help()
 		return ExitOK
@@ -201,7 +244,7 @@ func (a App) Run(args []string) int {
 	}
 }
 func (a App) help() {
-	fmt.Fprintln(a.Out, "Usage: envi <command> [flags]\n\nCommands:\n  auth      Authenticate this device in the browser (--email for email OTP)\n  logout    Revoke this device's session\n  project   Create a project (project create <name>)\n  env       Create an environment (env create <name> [--project <name>] [--production])\n  init      Initialize project context\n  pull      Write remote secrets to .env\n  push      Send .env secrets to Envi\n  diff      Compare local and remote keys\n  activity  Show recent activity for your organization\n  share     Invite a project collaborator\n  invite    Accept an invitation\n  token     Manage service tokens\n  version   Print version\n  help      Show help")
+	fmt.Fprintln(a.Out, "Usage: envi <command> [flags]\n\nCommands:\n  auth       Authenticate this device in the browser (--email for email OTP)\n  logout     Revoke this device's session\n  project    Create a project (project create <name>)\n  env        Create an environment (env create <name> [--project <name>] [--production])\n  init       Initialize project context\n  pull       Write remote secrets to .env\n  push       Send .env secrets to Envi\n  diff       Compare local and remote keys\n  activity   Show recent activity for your organization\n  share      Invite a project collaborator\n  invite     Accept an invitation\n  token      Manage service tokens\n  update     Check for or install a new version (update check | update now)\n  uninstall  Remove envi from this machine\n  version    Print version\n  help       Show help")
 }
 
 // tokenStore resolves the session store, reporting the exit code to use when it
