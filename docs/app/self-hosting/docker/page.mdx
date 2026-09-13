@@ -1,0 +1,148 @@
+The repository ships a single `docker-compose.yml` that brings up the whole product — Postgres, Redis, the API, the install-script server, and the web dashboard — with no other setup.
+
+<Steps>
+
+<Step title="Clone and configure">
+  ```bash
+  git clone https://github.com/shellhaki/envi.git
+  cd envi
+  cp .env.example .env
+  ```
+
+  Fill in `.env`. Two of the values are secrets you generate yourself:
+
+  ```bash
+  openssl rand -hex 16   # ENVI_ENCRYPTION_KEY  (exactly 32 characters)
+  openssl rand -hex 16   # ENVI_SESSION_SECRET
+  ```
+
+  The other required values are `RESEND_API_KEY` and `RESEND_FROM`, used for
+  one-time sign-in codes and invitations. `DATABASE_URL` and `REDIS_URL` are
+  deliberately absent — compose points those at the internal services, so
+  anything you set would be ignored.
+</Step>
+
+<Step title="Bring it up">
+  ```bash
+  docker compose up -d
+  ```
+
+  The first run builds three images and initialises the database. Postgres
+  applies `migrations/schema.sql` automatically the first time it creates its
+  data volume, so there is no migration step to run by hand.
+</Step>
+
+<Step title="Check it">
+  ```bash
+  docker compose ps
+  curl http://localhost:8080/health
+  curl http://localhost:8081/health
+  ```
+
+  The dashboard is on [localhost:3000](http://localhost:3000). Sign in with
+  your email — the one-time code arrives through Resend, so email has to be
+  configured before you can get in.
+</Step>
+
+</Steps>
+
+## What's in the stack
+
+| Service | Port | What it is |
+|---|---|---|
+| `web` | 3000 | The Next.js dashboard |
+| `api` | 8080 | The Go API — the entire backend |
+| `install` | 8081 | Serves the `curl \| sh` install scripts |
+| `postgres` | — | Source of truth, on a named volume |
+| `redis` | — | One-time codes and rate-limit counters |
+
+Only `web`, `api`, and `install` publish ports. Postgres and Redis are
+reachable only from inside the compose network, which is where you want them.
+
+<Note>
+  The browser never talks to the API directly — it calls the dashboard's own
+  routes, which proxy to `http://api:8080` over the internal network. That's
+  why there's no CORS configuration anywhere in this stack.
+</Note>
+
+## Putting it behind a domain
+
+The compose file publishes plain HTTP on localhost. For anything public, put a
+reverse proxy in front and terminate TLS there — map your dashboard domain to
+port 3000, `api.` to 8080, and `install.` to 8081. Any of Caddy, nginx, or
+Traefik will do; the repo includes a ready-made Traefik config under
+`traefik/` if you want a starting point.
+
+Then set `ENVI_WEB_URL` in `.env` to the public dashboard URL and restart:
+
+```bash
+docker compose up -d
+```
+
+<Warning>
+  `ENVI_WEB_URL` is what invitation emails are built from. Leave it as
+  `localhost` and every invite link you send will be unreachable for the
+  person receiving it.
+</Warning>
+
+## Restricting who can sign in
+
+By default anyone who can reach the dashboard can request a sign-in code. To
+run a closed instance, set `ENVIRONMENT=beta` and point `ENVI_BETA_ALLOWLIST`
+at a JSON file of permitted addresses:
+
+```json
+[
+  "you@yourdomain.com",
+  "teammate@yourdomain.com"
+]
+```
+
+```bash
+docker compose restart api
+```
+
+The file is mounted read-only, not baked into the image, so adding someone is
+an edit and a restart — no rebuild.
+
+<Note>
+  The allowlist gates sign-in only. Someone already signed in keeps their
+  session until it expires, so removing an address is not a way to revoke
+  access — remove their access grants for that.
+</Note>
+
+## Updating
+
+```bash
+git pull
+docker compose up -d --build
+```
+
+Your data lives in the `postgres-data` volume and survives rebuilds. Schema
+changes for an existing database come from the numbered files in
+`migrations/`, which are idempotent:
+
+```bash
+for f in migrations/[0-9]*.sql; do
+  docker compose exec -T postgres psql -U envi -d envi -v ON_ERROR_STOP=1 < "$f"
+done
+```
+
+## Backups
+
+Everything that matters is in Postgres, and every secret in it is encrypted
+with `ENVI_ENCRYPTION_KEY`:
+
+```bash
+docker compose exec -T postgres pg_dump -U envi envi > envi-backup.sql
+```
+
+<Warning>
+  A database dump is useless without the encryption key, and the key is
+  useless without a dump. Back up both, and don't store them together.
+</Warning>
+
+## Without Docker
+
+Prefer to run the binaries directly under a process manager? See the
+[deployment walkthrough](/self-hosting/deployment).

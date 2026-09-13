@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net/http"
 	"os"
@@ -29,8 +30,10 @@ import (
 )
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
+	// A .env file is a local-development convenience. Under Docker, systemd or
+	// a process manager the environment is already populated, so a missing
+	// file is not an error — a malformed one still is.
+	if err := godotenv.Load(); err != nil && !errors.Is(err, os.ErrNotExist) {
 		log.Fatal(err)
 	}
 	c, e := config.Read()

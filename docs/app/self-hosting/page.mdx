@@ -27,8 +27,13 @@ The Next.js dashboard is a separate deployable — it's a client of the API, exa
 
 OTP codes and invitations go out through [Resend](https://resend.com) — bring your own API key and a verified sending domain. Without a verified domain, Resend restricts sending to the address your own account is registered with, which is enough to test the flow but not to invite real users.
 
-## Next
+## Two ways to run it
 
-<Card title="Deployment walkthrough" href="/self-hosting/deployment">
-  A concrete, first-deploy guide: system dependencies, the database, process management, and TLS.
-</Card>
+<CardGroup cols={2}>
+  <Card title="Docker Compose" href="/self-hosting/docker">
+    The whole stack — database, cache, API, install server, dashboard — in one command. Start here.
+  </Card>
+  <Card title="Directly on a VPS" href="/self-hosting/deployment">
+    Binaries under a process manager, no containers: system dependencies, the database, TLS.
+  </Card>
+</CardGroup>

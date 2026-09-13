@@ -1,0 +1,14 @@
+.git
+.github
+.env
+*.md
+docs
+traefik
+bin
+dist
+logs
+ui/node_modules
+ui/.next
+docs/node_modules
+docs/.next
+beta_testers.json

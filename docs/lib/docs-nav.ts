@@ -40,6 +40,7 @@ export const docsNav: DocGroup[] = [
     group: "Self-Hosting",
     pages: [
       { slug: "/self-hosting", title: "Overview", description: "What running your own instance actually involves." },
+      { slug: "/self-hosting/docker", title: "Docker Compose", description: "The whole stack in one command." },
       { slug: "/self-hosting/deployment", title: "Deployment", description: "A first deploy to a plain VPS, no Docker required." },
     ],
   },

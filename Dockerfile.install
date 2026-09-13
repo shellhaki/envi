@@ -1,0 +1,16 @@
+# The install-script server (cmd/install).
+FROM golang:1.25-alpine AS build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /envi-install ./cmd/install
+
+FROM alpine:3.22
+WORKDIR /app
+COPY --from=build /envi-install /usr/local/bin/envi-install
+# The server reads these from ./scripts at startup, relative to its working
+# directory — they are the payload it serves, not build-time assets.
+COPY scripts/install.sh scripts/install.ps1 ./scripts/
+EXPOSE 8081
+ENTRYPOINT ["envi-install"]

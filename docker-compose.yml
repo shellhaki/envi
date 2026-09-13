@@ -1,0 +1,91 @@
+name: envi
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: envi
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-envi}
+      POSTGRES_DB: envi
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # Postgres runs everything in this directory the first time it
+      # initialises a data volume, so a fresh stack comes up with the schema
+      # already applied. It is skipped on every later start.
+      - ./migrations/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U envi -d envi"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      # Set explicitly rather than from .env: inside the network these resolve
+      # to service names, not localhost.
+      DATABASE_URL: "postgres://envi:${POSTGRES_PASSWORD:-envi}@postgres:5432/envi?sslmode=disable"
+      REDIS_URL: "redis://redis:6379"
+      ENVI_API_PORT: "8080"
+      ENVI_ENCRYPTION_KEY: "${ENVI_ENCRYPTION_KEY:?must be exactly 32 characters, generate with openssl rand -hex 16}"
+      RESEND_API_KEY: "${RESEND_API_KEY:?get one at resend.com/api-keys}"
+      RESEND_FROM: "${RESEND_FROM:?for example Envi <noreply@yourdomain.com>}"
+      ENVI_WEB_URL: "${ENVI_WEB_URL:-http://localhost:3000}"
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+    volumes:
+      # Only read when ENVIRONMENT=beta. Mounted rather than baked in so the
+      # allowlist can be edited and applied with `docker compose restart api`.
+      # Point ENVI_BETA_ALLOWLIST at your own file; the default is a tracked
+      # placeholder, so a fresh clone always has something to mount.
+      - "${ENVI_BETA_ALLOWLIST:-./beta_testers.example.json}:/app/beta_testers.json:ro"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "${ENVI_API_PORT:-8080}:8080"
+    restart: unless-stopped
+
+  install:
+    build:
+      context: .
+      dockerfile: Dockerfile.install
+    environment:
+      ENVI_SERVER_PORT: "8081"
+    ports:
+      - "${ENVI_SERVER_PORT:-8081}:8081"
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./ui
+      dockerfile: Dockerfile
+    environment:
+      # Server-side calls stay on the internal network; the browser only ever
+      # talks to this app, never to the API directly.
+      ENVI_API_URL: "http://api:8080"
+      ENVI_SESSION_SECRET: "${ENVI_SESSION_SECRET:?at least 32 characters, generate with openssl rand -hex 16}"
+    depends_on:
+      - api
+    ports:
+      - "${ENVI_WEB_PORT:-3000}:3000"
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:
