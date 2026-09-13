@@ -13,8 +13,23 @@ type Page = "overview" | "secrets" | "projects" | "sharing" | "activity";
 
 const PERM_ICON: Record<string, React.ReactNode> = { read: <Eye />, write: <Pencil />, manage: <Shield /> };
 
+// One rotation per expiry, no matter how many requests notice at once. The
+// page fires several fetches in parallel, so without this they each redeem the
+// same single-use refresh token and all but one come back "authentication
+// required" — a session that looks broken until you reload.
+let rotating: Promise<boolean> | null = null;
+function ensureSession() {
+  rotating ??= fetch("/api/auth/refresh", { method: "POST" })
+    .then((r) => r.ok)
+    .catch(() => false)
+    .finally(() => { rotating = null; });
+  return rotating;
+}
+
 async function api<T>(path: string, init: RequestInit = {}) {
-  const r = await fetch("/api/envi" + path, { ...init, headers: { "Content-Type": "application/json", ...init.headers } });
+  const send = () => fetch("/api/envi" + path, { ...init, headers: { "Content-Type": "application/json", ...init.headers } });
+  let r = await send();
+  if (r.status === 401 && await ensureSession()) r = await send();
   const b = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(b.error || "Request failed");
   return b as T;

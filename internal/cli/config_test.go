@@ -1,6 +1,9 @@
 package cli
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestLoadConfig(t *testing.T) {
 	t.Setenv("ENVI_API_URL", "https://api.example.com")
@@ -12,5 +15,17 @@ func TestLoadConfig(t *testing.T) {
 	}
 	if d, err := ConfigDir(); err != nil || d == "" {
 		t.Fatal(err)
+	}
+}
+
+// An unset ENVI_API_URL is the case every installed binary hits, and the one
+// that shipped pointing at localhost.
+func TestLoadConfigDefaultsToHostedAPI(t *testing.T) {
+	t.Setenv("ENVI_API_URL", "")
+	if got := LoadConfig().APIURL; got != DefaultAPIURL {
+		t.Fatalf("default API URL = %q, want %q", got, DefaultAPIURL)
+	}
+	if strings.Contains(DefaultAPIURL, "localhost") || strings.Contains(DefaultAPIURL, "127.0.0.1") {
+		t.Fatalf("released CLI would default to a local address: %q", DefaultAPIURL)
 	}
 }

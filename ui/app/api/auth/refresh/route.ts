@@ -33,3 +33,25 @@ export async function GET(request: Request) {
   response.cookies.set(sessionCookie, createSession(tokens.access_token, tokens.refresh_token, tokens.expires_in), sessionOptions);
   return response;
 }
+
+// The same rotation, for fetch() callers, which cannot follow a 303 to an HTML
+// page. The browser calls this once on a 401 and retries — the point being that
+// a page's parallel fetches coordinate in the browser, where there is exactly
+// one of them, rather than racing to redeem one single-use refresh token from
+// however many server instances happen to be handling them.
+export async function POST() {
+  const store = await cookies();
+  const session = readSession(store.get(sessionCookie)?.value);
+  if (!session) return new NextResponse(null, { status: 401 });
+  // Already rotated by whoever got here first: report success without
+  // redeeming again, so the caller just retries against the fresh cookie.
+  if (!accessExpired(session)) return new NextResponse(null, { status: 204 });
+
+  const rotated = await upstream("/auth/refresh", { method: "POST", body: JSON.stringify({ refresh_token: session.refresh }) });
+  if (!rotated.ok) return new NextResponse(null, { status: 401 });
+  const tokens = await rotated.json().catch(() => ({}));
+  if (!tokens.access_token || !tokens.refresh_token) return new NextResponse(null, { status: 401 });
+  const response = new NextResponse(null, { status: 204 });
+  response.cookies.set(sessionCookie, createSession(tokens.access_token, tokens.refresh_token, tokens.expires_in), sessionOptions);
+  return response;
+}
