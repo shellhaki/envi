@@ -1,0 +1,103 @@
+name: Deploy API
+
+on:
+  push:
+    branches: [main]
+    # UI and docs deploy separately (Vercel), so a change to either should not
+    # rebuild and restart the API.
+    paths:
+      - "cmd/api/**"
+      - "cmd/install/**"
+      - "internal/**"
+      - "migrations/**"
+      - "go.mod"
+      - "go.sum"
+      - "Makefile"
+      - "ecosystem.config.js"
+      - ".github/workflows/deploy-api.yml"
+  workflow_dispatch:
+
+# A second push while a deploy is mid-flight would race the build and the
+# restart on the box. Queue instead, and never cancel a deploy already running.
+concurrency:
+  group: deploy-api
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: go build ./...
+      - run: go vet ./...
+      # Integration tests skip themselves unless ENVI_INTEGRATION=1, so this
+      # runs the unit suite without needing a database on the runner.
+      - run: go test ./...
+
+  deploy:
+    name: Build and restart on the VPS
+    needs: ci
+    runs-on: ubuntu-latest
+    steps:
+      - name: Open an SSH session and deploy
+        env:
+          SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+          HOST: ${{ secrets.VPS_HOST }}
+          USER: ${{ secrets.VPS_USER }}
+          APP_DIR: ${{ secrets.VPS_APP_DIR }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          # Pinned from a secret rather than ssh-keyscan at run time: keyscan
+          # trusts whatever answers, which is the whole attack it should stop.
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes "$USER@$HOST" \
+            APP_DIR="$APP_DIR" 'bash -eus' <<'REMOTE'
+          cd "${APP_DIR:-$HOME/envi}"
+
+          # --ff-only so a dirty or diverged checkout fails loudly here rather
+          # than producing a merge commit nobody asked for on a production box.
+          git fetch --prune origin main
+          git checkout main
+          git merge --ff-only origin/main
+
+          # PATH is not inherited from an interactive profile over a
+          # non-interactive ssh command, so Go and pm2 may not be on it.
+          export PATH="$PATH:/usr/local/go/bin:$HOME/go/bin:$HOME/.npm-global/bin:/usr/local/bin"
+
+          make build-api
+          pm2 restart envi-api --update-env
+          pm2 save
+          REMOTE
+
+      - name: Verify the API came back up
+        env:
+          # The key and known_hosts are already on disk from the step above.
+          HOST: ${{ secrets.VPS_HOST }}
+          USER: ${{ secrets.VPS_USER }}
+        run: |
+          set -euo pipefail
+          # Checked from inside the box against the local port: this proves the
+          # process restarted, without depending on DNS, TLS or the proxy.
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes "$USER@$HOST" 'bash -eus' <<'REMOTE'
+          export PATH="$PATH:/usr/local/go/bin:$HOME/go/bin:$HOME/.npm-global/bin:/usr/local/bin"
+          for i in $(seq 1 15); do
+            if curl -fsS "http://127.0.0.1:${ENVI_API_PORT:-8080}/health" >/dev/null 2>&1; then
+              echo "API healthy after ${i}s"
+              pm2 describe envi-api | grep -E "status|restarts" || true
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "API did not become healthy within 15s" >&2
+          pm2 logs envi-api --lines 40 --nostream || true
+          exit 1
+          REMOTE
