@@ -20,9 +20,9 @@ export default function SidebarNav() {
         // "/dashboard" must match exactly; the rest match their subtree.
         const active = href === "/dashboard" ? pathname === href : pathname.startsWith(href);
         return (
-          <Link key={href} href={href} className={active ? "active" : undefined} aria-current={active ? "page" : undefined}>
+          <Link key={href} href={href} className={active ? "active" : undefined} aria-current={active ? "page" : undefined} title={label}>
             <Icon />
-            {label}
+            <span className="nav-label">{label}</span>
           </Link>
         );
       })}

@@ -1,6 +1,7 @@
 "use client";
 import { Activity, Check, Clipboard, Eye, EyeOff, Folder, FolderPlus, KeyRound, Pencil, Plus, RefreshCw, Search, Shield, Trash2, UploadCloud, UserPlus } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import Select from "@/components/select";
 import { filterKeys, parseDotenv, relativeTime } from "../utils";
 
 type Project = { ID: string; OrgID: string; Name: string };
@@ -141,13 +142,18 @@ export default function Workspace({ page }: { page: Page }) {
     </div>
 
     {showContext && <div className="context-bar">
-      <label className="field field-grow">
+      {/* a plain div, not a <label>: clicking a label forwards the click to
+          the control inside it, which would immediately re-toggle the menu */}
+      <div className="field field-grow">
         <span>Project</span>
-        <select value={project?.ID || ""} onChange={(e) => setProject(projects.find((p) => p.ID === e.target.value))}>
-          {!projects.length && <option value="">No projects yet</option>}
-          {projects.map((p) => <option key={p.ID} value={p.ID}>{p.Name}</option>)}
-        </select>
-      </label>
+        <Select
+          ariaLabel="Project"
+          placeholder={projects.length ? "Select a project" : "No projects yet"}
+          value={project?.ID || ""}
+          options={projects.map((p) => ({ value: p.ID, label: p.Name }))}
+          onChange={(id) => setProject(projects.find((p) => p.ID === id))}
+        />
+      </div>
     </div>}
 
     {error && <div className="alert error"><button className="alert-dismiss" onClick={() => setError("")}>×</button>{error}</div>}
@@ -246,6 +252,9 @@ const DIALOG_META: Record<string, { title: string; sub?: string }> = {
 function Dialog({ type, close, submit }: { type: "project" | "secret" | "share"; close: () => void; submit: (d: Record<string, string>) => Promise<void> }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  // Controlled so the glass Select can mirror it into a hidden input, which
+  // is what keeps this form readable through FormData.
+  const [permission, setPermission] = useState("read");
   const meta = DIALOG_META[type];
   return <div className="dialog-backdrop" onMouseDown={close}>
     <form className="dialog" onMouseDown={(e) => e.stopPropagation()} onSubmit={async (e: FormEvent<HTMLFormElement>) => {
@@ -257,7 +266,7 @@ function Dialog({ type, close, submit }: { type: "project" | "secret" | "share";
       {meta.sub && <p className="dialog-sub">{meta.sub}</p>}
       {type === "project" && <Field name="name" label="Project name" placeholder="acme-api" />}
       {type === "secret" && <><Field name="key" label="Key" placeholder="API_KEY" /><label>Value<textarea name="value" placeholder="secret value" /></label></>}
-      {type === "share" && <><Field name="email" label="Email" type="email" placeholder="teammate@company.com" /><label>Permission<select name="permission" defaultValue="read"><option value="read">read</option><option value="write">write</option><option value="manage">manage</option></select></label></>}
+      {type === "share" && <><Field name="email" label="Email" type="email" placeholder="teammate@company.com" /><div className="field"><span>Permission</span><Select name="permission" ariaLabel="Permission" value={permission} onChange={setPermission} options={[{ value: "read", label: "read" }, { value: "write", label: "write" }, { value: "manage", label: "manage" }]} /></div></>}
       {error && <p className="form-error">{error}</p>}
       <button className="button primary" disabled={busy}>{busy ? "Saving..." : "Save"}</button>
     </form>

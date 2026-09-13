@@ -12,5 +12,5 @@ export default function DeviceForm({ initialCode }: { initialCode: string }) {
     setDone(true);
   }
   if (done) return <div className="auth-form"><span className="kicker">Connected</span><p>Your terminal is authorized. You can close this tab and return to it.</p></div>;
-  return <form className="auth-form" onSubmit={submit}><label>One-time code<input autoFocus required type="text" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} placeholder="WXYZ-ABCD" /></label>{error && <p className="form-error">{error}</p>}<button className="button primary large" disabled={busy}>{busy ? "Authorizing..." : "Authorize device"}<ArrowRight /></button></form>;
+  return <form className="auth-form" onSubmit={submit}><label>One-time code<input autoFocus required type="text" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} placeholder="WXYZ-ABCD" /></label>{error && <p className="form-error">{error}</p>}<button className="button accent large" disabled={busy}>{busy ? "Authorizing..." : "Authorize device"}<ArrowRight /></button></form>;
 }

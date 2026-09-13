@@ -83,14 +83,14 @@ export default function InvitePage() {
         <span className="kicker">Invitation accepted</span>
         <h1>You&rsquo;re in on {preview.ProjectName}</h1>
         <p>You have {preview.Permission} access{preview.EnvironmentName ? ` to ${preview.EnvironmentName}` : ""}.</p>
-        <button className="button primary large" onClick={() => router.push("/dashboard")}>Go to dashboard<ArrowRight /></button>
+        <button className="button accent large" onClick={() => router.push("/dashboard")}>Go to dashboard<ArrowRight /></button>
       </>}
 
       {phase === "mismatch" && preview && <>
         <span className="kicker">Wrong account</span>
         <h1>This invite is for {preview.Email}</h1>
         <p>You&rsquo;re signed in with a different account. Sign out and continue with {preview.Email} to accept it.</p>
-        <button className="button primary large" disabled={busy} onClick={switchAccount}>{busy ? "Working..." : "Sign out and continue"}</button>
+        <button className="button accent large" disabled={busy} onClick={switchAccount}>{busy ? "Working..." : "Sign out and continue"}</button>
       </>}
 
       {phase === "needs-code" && preview && <>
@@ -99,11 +99,11 @@ export default function InvitePage() {
         <p className="invite-summary"><ShieldCheck /> {preview.Permission} access{preview.EnvironmentName ? ` · ${preview.EnvironmentName}` : ""}</p>
         <p>We&rsquo;ll send a one-time code to <strong>{preview.Email}</strong>{sent ? "" : " to confirm it&rsquo;s you"}. If you don&rsquo;t have an Envi account yet, this creates one.</p>
         {!sent
-          ? <button className="button primary large" disabled={busy} onClick={requestCode}>{busy ? "Sending..." : "Send code"}<ArrowRight /></button>
+          ? <button className="button accent large" disabled={busy} onClick={requestCode}>{busy ? "Sending..." : "Send code"}<ArrowRight /></button>
           : <form className="auth-form" onSubmit={verifyAndAccept}>
               <label>One-time code<input autoFocus required inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} placeholder="123456" /></label>
               {error && <p className="form-error">{error}</p>}
-              <button className="button primary large" disabled={busy}>{busy ? "Working..." : "Verify and join"}<ArrowRight /></button>
+              <button className="button accent large" disabled={busy}>{busy ? "Working..." : "Verify and join"}<ArrowRight /></button>
             </form>}
         {!sent && error && <p className="form-error">{error}</p>}
       </>}

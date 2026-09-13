@@ -1,8 +1,3 @@
----
-title: "Service Tokens & CI/CD"
-description: "Pull secrets in a pipeline without a human's session."
----
-
 A service token is a long-lived credential scoped to exactly one environment and one permission level — `read`, `write`, or `manage` — independent of any person's account. Revoking it doesn't sign anyone out; it just stops that one credential from working.
 
 ## Create one
@@ -23,9 +18,7 @@ This prints the token value once. It isn't retrievable again — store it in you
 
 The CLI picks up a service token from `ENVI_TOKEN` and uses it instead of a stored login session — no `envi auth` needed:
 
-<CodeGroup>
-
-```yaml GitHub Actions
+```yaml
 - name: Install envi
   run: curl -fsSL https://install.envisecrets.com | sh
 
@@ -39,14 +32,14 @@ The CLI picks up a service token from `ENVI_TOKEN` and uses it instead of a stor
     envi pull
 ```
 
-```bash Any shell
+Or from any shell:
+
+```bash
 export ENVI_TOKEN=<your service token>
 export ENVI_API_URL=https://api.envisecrets.com
 envi init --project acme-api --env production
 envi pull
 ```
-
-</CodeGroup>
 
 <Note>
   A service token is scoped to one project's environment already — `envi init` still needs to run once (there's nothing to authenticate, it's just writing the local `envi.toml` link), but it won't prompt for login when `ENVI_TOKEN` is set.

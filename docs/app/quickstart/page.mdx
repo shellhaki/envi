@@ -1,8 +1,3 @@
----
-title: "Quickstart"
-description: "Authenticate, create a project, and push your first .env."
----
-
 <Steps>
   <Step title="Sign in">
     ```bash
@@ -27,7 +22,7 @@ description: "Authenticate, create a project, and push your first .env."
     envi push
     ```
 
-    Envi encrypts every value before it's stored. Pushing again later only succeeds if your local copy is still based on the latest remote revision — see [conflict handling](#keeping-things-in-sync) below.
+    Envi encrypts every value before it's stored. Pushing again later only succeeds if your local copy is still based on the latest remote revision.
   </Step>
   <Step title="Pull it somewhere else">
     On another machine, or a fresh clone:
@@ -68,16 +63,16 @@ They get an email with a link. If they don't have an Envi account yet, that link
 ## What's next
 
 <CardGroup cols={2}>
-  <Card title="Projects & Environments" icon="folder-tree" href="/concepts/projects-and-environments">
+  <Card title="Projects & Environments" href="/concepts/projects-and-environments">
     How the pieces are organized.
   </Card>
-  <Card title="Access & Permissions" icon="key" href="/concepts/access-and-permissions">
+  <Card title="Access & Permissions" href="/concepts/access-and-permissions">
     Read, write, manage — and why production is different.
   </Card>
-  <Card title="Service tokens for CI/CD" icon="robot" href="/ci-service-tokens">
+  <Card title="Service tokens for CI/CD" href="/ci-service-tokens">
     Pull secrets in a pipeline without a human's session.
   </Card>
-  <Card title="Full CLI reference" icon="square-terminal" href="/cli">
+  <Card title="Full CLI reference" href="/cli">
     Every command, every flag.
   </Card>
 </CardGroup>

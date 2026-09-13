@@ -6,3 +6,4 @@ dist/
 bin/
 logs/
 beta_testers.json
+info.txt

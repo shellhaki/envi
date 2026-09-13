@@ -1,8 +1,3 @@
----
-title: "Access & Permissions"
-description: "Read, write, manage — and why production is different."
----
-
 Access is granted per environment, at one of three levels:
 
 | Permission | Can do |
@@ -16,14 +11,14 @@ Each level includes the ones before it — `write` implies `read`, `manage` impl
 ## Who gets access, and why
 
 <AccordionGroup>
-  <Accordion title="Organization owners and admins" icon="crown">
+  <Accordion title="Organization owners and admins">
     Always have full access to every project and environment in the organization. This can't be scoped away — it's the account-recovery path.
   </Accordion>
-  <Accordion title="Any org member, on non-production environments" icon="users">
+  <Accordion title="Any org member, on non-production environments">
     Development and staging environments are open to anyone in the organization by default, no explicit grant required. The idea is that day-to-day environments shouldn't need a manage-level person to hand-provision access for every teammate.
   </Accordion>
-  <Accordion title="Explicit grants, for everything else" icon="key">
-    Production environments require a real, explicit grant — from an invitation ([`envi share`](/invitations)) or a direct grant by someone with `manage` access. There's no ambient access to production through organization membership alone.
+  <Accordion title="Explicit grants, for everything else">
+    Production environments require a real, explicit grant — from an invitation (`envi share`) or a direct grant by someone with `manage` access. There's no ambient access to production through organization membership alone.
   </Accordion>
 </AccordionGroup>
 

@@ -1,19 +1,14 @@
----
-title: "Secrets & Encryption"
-description: "How values are stored, versioned, and read."
----
-
 ## Encryption at rest
 
 Every secret value is sealed with **AES-256-GCM** before it's written to Postgres — a single encryption key, held only by the API process, never by the database. The database sees ciphertext; it has no way to recover the plaintext on its own.
 
-```mermaid
-flowchart LR
-    Value["plaintext value"] --> Seal["AES-256-GCM seal"]
-    Seal --> DB[("Postgres\nciphertext only")]
-    DB --> Open["AES-256-GCM open"]
-    Open --> Decrypted["plaintext, in memory only"]
-```
+<Diagram
+  nodes={[
+    { from: "plaintext value", label: "seal", to: "ciphertext" },
+    { from: "ciphertext", label: "stored", to: "Postgres" },
+    { from: "Postgres", label: "open", to: "plaintext, in memory only" },
+  ]}
+/>
 
 Decryption happens only in memory, on demand, for a request that has already passed the access-grant check for that environment. A secret is never decrypted "just in case" — only when a specific, authorized read actually needs it.
 
@@ -27,7 +22,7 @@ Updating a key doesn't overwrite it — it inserts a new version and repoints th
 
 ## Every read is audited
 
-Reading a secret's value — via the CLI, the dashboard, or a service token — writes an audit event: who, what, when. See [the audit log](/web-dashboard#activity) in the dashboard, or `envi activity` from the CLI.
+Reading a secret's value — via the CLI, the dashboard, or a service token — writes an audit event: who, what, when. See [the audit log](/web-dashboard) in the dashboard, or `envi activity` from the CLI.
 
 <Warning>
   This means secrets are genuinely sensitive to over-fetch: pulling a `.env` file logs a read for every key in it. That's intentional — the audit trail is only useful if it reflects real access, not a sampled approximation of it.

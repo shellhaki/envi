@@ -1,0 +1,316 @@
+/* ============================================================================
+   Envi docs — standalone app.
+
+   Shares the main site's design language: black/white primary, the brand
+   yellow as a deliberate secondary, true-neutral grays, tight Inter. Tokens
+   are duplicated here rather than imported because this deploys separately
+   from the main site (docs.envisecrets.com vs envisecrets.com).
+   ========================================================================== */
+:root {
+  --bg: #fafafa;
+  --surface: #ffffff;
+  --surface-2: #f4f4f5;
+  --surface-3: #e9e9ec;
+  --line: #e8e8ea;
+  --line-strong: #d6d6da;
+  --text: #09090b;
+  --text-2: #3f3f46;
+  --muted: #71717a;
+  --faint: #a1a1aa;
+
+  --accent: #f5e73f;
+  --accent-on: #09090b;
+  --accent-weak: rgba(226, 208, 20, .16);
+  --accent-line: rgba(180, 162, 10, .45);
+
+  --primary: #09090b;
+  --primary-text: #ffffff;
+
+  --success: #15803d;
+  --success-weak: #f0fdf4;
+  --warning: #b45309;
+  --warning-weak: #fffbeb;
+  --danger: #dc2626;
+  --danger-weak: #fef2f2;
+  --info: #2563eb;
+
+  --r-sm: 6px;
+  --r: 8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+
+  --shadow-sm: 0 1px 2px rgba(9, 9, 11, .04);
+  --shadow: 0 2px 8px rgba(9, 9, 11, .06), 0 1px 2px rgba(9, 9, 11, .04);
+  --shadow-lg: 0 16px 48px -12px rgba(9, 9, 11, .18), 0 4px 12px rgba(9, 9, 11, .05);
+  --topbar: rgba(250, 250, 250, .8);
+
+  /* Glass surfaces: translucent fill + blur, with a bright top sheen that
+     reads as a lit edge rather than a flat overlay. */
+  --glass: rgba(255, 255, 255, .72);
+  --glass-line: rgba(9, 9, 11, .12);
+  --glass-sheen: rgba(255, 255, 255, .9);
+
+  /* Tight tracking is the single strongest signal of a precision tool. */
+  --tracking-body: -.006em;
+  --tracking-tight: -.019em;
+  --tracking-tighter: -.032em;
+}
+html[data-theme=dark] {
+  --bg: #09090b;
+  --surface: #101012;
+  --surface-2: #17171a;
+  --surface-3: #202024;
+  --line: #232327;
+  --line-strong: #35353b;
+  --text: #fafafa;
+  --text-2: #d4d4d8;
+  --muted: #a1a1aa;
+  --faint: #71717a;
+
+  /* Yellow earns its keep here — it reads as a genuine brand signal against
+     near-black instead of the washed-out note it becomes on white. */
+  --accent: #f5e73f;
+  --accent-on: #09090b;
+  --accent-weak: rgba(245, 231, 63, .13);
+  --accent-line: rgba(245, 231, 63, .45);
+
+  --primary: #fafafa;
+  --primary-text: #09090b;
+
+  --success: #4ade80;
+  --success-weak: rgba(74, 222, 128, .12);
+  --warning: #fbbf24;
+  --warning-weak: rgba(251, 191, 36, .12);
+  --danger: #f87171;
+  --danger-weak: rgba(248, 113, 113, .12);
+  --info: #60a5fa;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .5);
+  --shadow: 0 2px 8px rgba(0, 0, 0, .55);
+  --shadow-lg: 0 16px 48px -12px rgba(0, 0, 0, .75), 0 4px 12px rgba(0, 0, 0, .5);
+  --topbar: rgba(9, 9, 11, .72);
+
+  --glass: rgba(22, 22, 26, .72);
+  --glass-line: rgba(255, 255, 255, .12);
+  --glass-sheen: rgba(255, 255, 255, .08);
+}
+
+/* ============================================================================
+   Base
+   ========================================================================== */
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 14px;
+  letter-spacing: var(--tracking-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+h1, h2, h3 { letter-spacing: var(--tracking-tight); font-weight: 600; }
+a { color: inherit; text-decoration: none; }
+button { font: inherit; letter-spacing: inherit; color: inherit; }
+button:focus-visible, a:focus-visible {
+  outline: 2px solid var(--text); outline-offset: 2px; border-radius: var(--r-sm);
+}
+::selection { background: var(--accent); color: var(--accent-on); }
+
+.brand { display: flex; align-items: center; gap: 9px; }
+.brand-logo { width: 124px; height: 42px; object-fit: contain; }
+.brand-logo-dark { display: none; }
+html[data-theme=dark] .brand-logo-light { display: none; }
+html[data-theme=dark] .brand-logo-dark { display: block; }
+
+.button {
+  min-height: 36px; padding: 0 14px; display: inline-flex; align-items: center; justify-content: center;
+  gap: 7px; border: 1px solid transparent; border-radius: var(--r); font-size: 13px; font-weight: 500;
+  letter-spacing: var(--tracking-body); cursor: pointer; white-space: nowrap;
+  transition: background .15s ease, border-color .15s ease, color .15s ease;
+}
+.button.accent { background: var(--accent); color: var(--accent-on); font-weight: 600; }
+.button.accent:hover { background: color-mix(in srgb, var(--accent) 88%, #000); }
+
+.icon-button {
+  width: 36px; height: 36px; display: grid; place-items: center;
+  border: 1px solid var(--line); border-radius: var(--r); background: var(--surface);
+  color: var(--text-2); cursor: pointer; transition: background .15s ease, color .15s ease, border-color .15s ease;
+}
+.icon-button:hover { background: var(--surface-2); border-color: var(--line-strong); color: var(--text); }
+.icon-button svg { width: 17px; }
+.theme-toggle svg { grid-area: 1/1; }
+.theme-toggle .sun { display: none; }
+html[data-theme=dark] .theme-toggle .moon { display: none; }
+html[data-theme=dark] .theme-toggle .sun { display: block; }
+
+/* ============================================================================
+   Docs
+   ========================================================================== */
+.docs-page { min-height: 100vh; }
+.docs-topbar {
+  position: sticky; top: 0; z-index: 40; height: 60px; padding: 0 24px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  border-bottom: 1px solid var(--line); background: var(--topbar);
+  backdrop-filter: blur(12px) saturate(180%);
+}
+.docs-topbar-left, .docs-topbar-right { display: flex; align-items: center; gap: 14px; }
+.docs-badge { padding: 2px 8px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--surface-2); color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .04em; }
+.docs-topbar-link { font-size: 13px; color: var(--muted); transition: color .15s ease; }
+.docs-topbar-link:hover { color: var(--text); }
+.docs-menu-button { display: none; width: 34px; height: 34px; place-items: center; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface); color: var(--text-2); cursor: pointer; }
+.docs-menu-button svg { width: 17px; }
+
+.docs-shell { max-width: 1440px; margin: auto; display: grid; grid-template-columns: 248px minmax(0, 1fr) 208px; gap: 44px; padding: 0 24px; }
+.docs-sidebar { position: sticky; top: 60px; align-self: start; max-height: calc(100vh - 60px); overflow-y: auto; padding: 32px 0 48px; scrollbar-width: thin; }
+.docs-nav { display: grid; gap: 22px; }
+.docs-nav-group { display: grid; gap: 1px; }
+.docs-nav-label { padding: 0 10px 8px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; color: var(--faint); }
+.docs-nav a {
+  position: relative; padding: 6px 10px; border-radius: var(--r-sm); color: var(--muted);
+  font-size: 13.5px; transition: background .12s ease, color .12s ease;
+}
+.docs-nav a:hover { background: var(--surface-2); color: var(--text); }
+.docs-nav a.active { background: var(--surface-2); color: var(--text); font-weight: 550; }
+.docs-nav a.active::before { content: ""; position: absolute; left: 0; top: 50%; margin-top: -8px; width: 2px; height: 16px; border-radius: 0 2px 2px 0; background: var(--accent); }
+
+.docs-main { min-width: 0; padding: 36px 0 80px; }
+.docs-toc { position: sticky; top: 60px; align-self: start; display: grid; gap: 1px; align-content: start; padding: 36px 0; }
+.docs-toc a { padding: 4px 0; color: var(--muted); font-size: 12.5px; line-height: 1.5; transition: color .15s ease; }
+.docs-toc a:hover { color: var(--text); }
+
+/* ---- prose ------------------------------------------------------------- */
+.doc-header { padding-bottom: 8px; }
+.doc-header h1 { margin: 0 0 10px; font-size: 34px; font-weight: 600; letter-spacing: var(--tracking-tighter); line-height: 1.12; }
+.doc-header p { margin: 0 0 8px; color: var(--muted); font-size: 16px; line-height: 1.6; }
+.doc-body { max-width: 760px; font-size: 15px; line-height: 1.72; color: var(--text-2); }
+.doc-body h2 { margin: 44px 0 14px; font-size: 21px; font-weight: 600; color: var(--text); letter-spacing: var(--tracking-tight); scroll-margin-top: 84px; }
+.doc-body h3 { margin: 30px 0 10px; font-size: 16px; font-weight: 600; color: var(--text); scroll-margin-top: 84px; }
+.doc-body p { margin: 0 0 16px; }
+.doc-body strong { color: var(--text); font-weight: 600; }
+.doc-body ul, .doc-body ol { margin: 0 0 18px; padding-left: 20px; display: grid; gap: 8px; }
+.doc-body li { padding-left: 2px; }
+.doc-body a { color: var(--text); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-strong); transition: text-decoration-color .15s ease; }
+.doc-body a:hover { text-decoration-color: var(--accent); }
+/* Card links are surfaces, not inline prose links — the underline from the
+   rule above would drag across the title and body text inside them. */
+.doc-body a.doc-card, .doc-body a.doc-card:hover { text-decoration: none; }
+.doc-body code {
+  padding: 2px 5px; border: 1px solid var(--line); border-radius: var(--r-sm);
+  background: var(--surface-2); color: var(--text);
+  font-family: var(--font-mono), monospace; font-size: 12.5px; letter-spacing: 0;
+}
+.doc-body pre {
+  margin: 0 0 18px; padding: 15px 16px; overflow-x: auto;
+  border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface-2);
+}
+.doc-body pre code { padding: 0; border: 0; background: none; font-size: 12.5px; line-height: 1.65; }
+.doc-body table { width: 100%; margin: 0 0 20px; border-collapse: collapse; font-size: 13.5px; }
+.doc-body th { padding: 9px 12px; border-bottom: 1px solid var(--line-strong); text-align: left; color: var(--text); font-weight: 600; }
+.doc-body td { padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.doc-body hr { margin: 36px 0; border: 0; border-top: 1px solid var(--line); }
+
+/* ---- doc components ---------------------------------------------------- */
+.doc-cards { display: grid; grid-template-columns: repeat(var(--doc-card-cols, 2), minmax(0, 1fr)); gap: 12px; margin: 0 0 22px; }
+.doc-card { padding: 16px; display: grid; gap: 5px; align-content: start; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); transition: border-color .15s ease, background .15s ease; }
+a.doc-card:hover { border-color: var(--line-strong); background: var(--surface-2); }
+.doc-card strong { font-size: 14px; font-weight: 600; color: var(--text); }
+.doc-card-body { font-size: 13px; color: var(--muted); line-height: 1.6; }
+.doc-card-icon svg { width: 17px; color: var(--text-2); }
+
+.doc-callout { display: flex; gap: 11px; margin: 0 0 20px; padding: 13px 15px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface-2); font-size: 14px; line-height: 1.65; }
+.doc-callout p:last-child { margin-bottom: 0; }
+.doc-callout-icon svg { width: 16px; margin-top: 2px; }
+.doc-callout.note .doc-callout-icon svg { color: var(--info); }
+.doc-callout.tip .doc-callout-icon svg { color: var(--success); }
+.doc-callout.warning { border-color: color-mix(in srgb, var(--warning) 32%, transparent); background: var(--warning-weak); }
+.doc-callout.warning .doc-callout-icon svg { color: var(--warning); }
+
+.doc-steps { margin: 0 0 22px; padding: 0; list-style: none; display: grid; gap: 0; counter-reset: doc-step; }
+.doc-step { position: relative; padding: 0 0 26px 38px; border-left: 1px solid var(--line); margin-left: 12px; counter-increment: doc-step; }
+.doc-step:last-child { border-left-color: transparent; padding-bottom: 0; }
+.doc-step::before {
+  content: counter(doc-step); position: absolute; left: -13px; top: -2px;
+  width: 25px; height: 25px; display: grid; place-items: center; border-radius: 50%;
+  border: 1px solid var(--line-strong); background: var(--surface); color: var(--text);
+  font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums;
+}
+.doc-step-title { display: block; margin: 2px 0 8px; font-size: 15px; font-weight: 600; color: var(--text); }
+
+.doc-tabs { margin: 0 0 20px; border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; }
+.doc-tab-list { display: flex; flex-wrap: wrap; gap: 2px; padding: 5px; border-bottom: 1px solid var(--line); background: var(--surface-2); }
+.doc-tab-list button { padding: 6px 12px; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--muted); font-size: 13px; font-weight: 500; cursor: pointer; transition: background .12s ease, color .12s ease; }
+.doc-tab-list button:hover { color: var(--text); }
+.doc-tab-list button.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); }
+.doc-tab-panel { padding: 16px 16px 2px; }
+.doc-tab-panel pre { background: var(--surface-2); }
+
+.doc-accordions { display: grid; gap: 8px; margin: 0 0 22px; }
+.doc-accordion { border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; }
+.doc-accordion > button { width: 100%; padding: 12px 14px; display: flex; align-items: center; gap: 10px; border: 0; background: transparent; color: var(--text); font-size: 14px; font-weight: 550; text-align: left; cursor: pointer; }
+.doc-accordion > button:hover { background: var(--surface-2); }
+.doc-accordion-caret { width: 15px; flex: none; color: var(--faint); transition: transform .18s ease; }
+.doc-accordion.open .doc-accordion-caret { transform: rotate(90deg); }
+.doc-accordion-body { padding: 0 14px 14px 39px; font-size: 14px; color: var(--text-2); line-height: 1.65; }
+.doc-accordion-body p:last-child { margin-bottom: 0; }
+
+.doc-param { padding: 12px 0; border-bottom: 1px solid var(--line); }
+.doc-param-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.doc-param-head code { background: var(--surface-2); }
+.doc-param-type, .doc-param-default, .doc-param-required { font-size: 11px; font-weight: 500; color: var(--faint); }
+.doc-param-required { color: var(--warning); font-weight: 600; }
+.doc-param-body { margin-top: 5px; font-size: 13.5px; color: var(--muted); line-height: 1.6; }
+.doc-param-body p { margin: 0; }
+
+.doc-diagram { margin: 0 0 22px; padding: 18px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface-2); display: grid; gap: 10px; }
+.doc-diagram-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.doc-diagram-node { padding: 6px 11px; border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--surface); color: var(--text); font-size: 12.5px; font-weight: 500; white-space: nowrap; }
+.doc-diagram-arrow { display: inline-flex; align-items: center; gap: 5px; color: var(--faint); }
+.doc-diagram-arrow em { font-style: normal; font-size: 11px; }
+.doc-diagram-arrow svg { width: 14px; color: var(--accent); }
+.doc-diagram-caption { margin: 4px 0 0; font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+.doc-pager { max-width: 760px; margin-top: 48px; padding-top: 22px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 12px; }
+.doc-pager-link { display: flex; align-items: center; gap: 10px; padding: 11px 14px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); font-size: 14px; font-weight: 550; color: var(--text); transition: border-color .15s ease, background .15s ease; }
+.doc-pager-link:hover { border-color: var(--line-strong); background: var(--surface-2); }
+.doc-pager-link svg { width: 15px; color: var(--faint); flex: none; }
+.doc-pager-link span { display: grid; gap: 1px; }
+.doc-pager-link small { font-size: 11px; font-weight: 500; color: var(--faint); }
+.doc-pager-link.next { margin-left: auto; text-align: right; }
+
+/* ============================================================================
+   Responsive
+   ========================================================================== */
+@media (max-width: 1180px) {
+  /* Drop the right-hand TOC first — it's the least essential column. */
+  .docs-shell { grid-template-columns: 232px minmax(0, 1fr); gap: 32px; }
+  .docs-toc { display: none; }
+}
+@media (max-width: 760px) {
+  /* iOS Safari zooms the viewport when a focused control is under 16px,
+     leaving the page scrolled sideways. Nothing here takes input today, but
+     the rule keeps that true if a search box lands in the topbar later. */
+  input, select, textarea { font-size: 16px; }
+
+  .docs-topbar { height: 56px; padding: 0 16px; gap: 10px; }
+  .docs-topbar-left { gap: 10px; }
+  .docs-topbar-right .docs-topbar-link, .docs-badge { display: none; }
+  .docs-menu-button { display: grid; }
+  .docs-shell { grid-template-columns: minmax(0, 1fr); gap: 0; padding: 0 16px; }
+  .docs-sidebar {
+    display: none; position: fixed; z-index: 39; inset: 56px 0 auto 0;
+    max-height: calc(100vh - 56px); overflow-y: auto; padding: 18px 16px 28px;
+    border-bottom: 1px solid var(--line); background: var(--surface);
+  }
+  .docs-sidebar.open { display: block; }
+  .docs-main { padding: 26px 0 64px; }
+  .doc-header h1 { font-size: 28px; }
+  .doc-cards { grid-template-columns: minmax(0, 1fr); }
+  .doc-pager { flex-direction: column; }
+  .doc-pager-link.next { margin-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { scroll-behavior: auto !important; transition: none !important; }
+}

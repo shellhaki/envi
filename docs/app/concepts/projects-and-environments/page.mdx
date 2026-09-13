@@ -1,19 +1,12 @@
----
-title: "Projects & Environments"
-description: "How secrets are organized."
----
-
 Envi organizes secrets in three layers:
 
-```mermaid
-flowchart TD
-    Org["Organization"] --> Proj1["Project: acme-api"]
-    Org --> Proj2["Project: payments-service"]
-    Proj1 --> Env1["Environment: development"]
-    Proj1 --> Env2["Environment: production"]
-    Env2 --> S1["DATABASE_URL"]
-    Env2 --> S2["STRIPE_KEY"]
-```
+<Diagram
+  nodes={[
+    { from: "Organization", label: "contains", to: "Projects" },
+    { from: "Project", label: "contains", to: "Environments" },
+    { from: "Environment", label: "contains", to: "Secrets" },
+  ]}
+/>
 
 **Organization** — every account gets a personal organization on sign-up. Access grants, memberships, and billing (if you're on the hosted product) all live at this level.
 

@@ -1,28 +1,23 @@
----
-title: "Overview"
-description: "What running your own instance actually involves."
----
-
 Envi is offered as a hosted product, and this is the same stack behind it — nothing is held back for a separate self-hosted build. Running your own instance means running four things:
 
 <CardGroup cols={2}>
-  <Card title="Postgres" icon="database">
+  <Card title="Postgres">
     The source of truth for everything: projects, environments, encrypted secrets, access grants, audit events.
   </Card>
-  <Card title="Redis" icon="bolt">
+  <Card title="Redis">
     Short-lived state only — OTP codes and rate-limit counters. Nothing here needs to survive a restart.
   </Card>
-  <Card title="The API" icon="server">
+  <Card title="The API">
     A single stateless Go binary (`cmd/api`), talking to both. This is the entire backend.
   </Card>
-  <Card title="The install-script server" icon="download">
-    A tiny, dependency-free Go binary (`cmd/install`) serving `curl | sh` install scripts. No database, no auth — it doesn't need to be up for the product to work, only for new installs of the CLI.
+  <Card title="The install-script server">
+    A tiny, dependency-free Go binary (`cmd/install`) serving `curl | sh` install scripts. No database, no auth.
   </Card>
 </CardGroup>
 
 ## The web dashboard is optional infrastructure
 
-The Next.js dashboard (`ui/`) is a separate deployable — it's a client of the API, exactly like the CLI is, and doesn't need to live on the same machine or even be self-hosted at all. Deploying it to Vercel (or anywhere else that runs Next.js) and pointing `ENVI_API_URL` at your self-hosted API works fine.
+The Next.js dashboard is a separate deployable — it's a client of the API, exactly like the CLI is, and doesn't need to live on the same machine or even be self-hosted at all. Deploying it to Vercel (or anywhere else that runs Next.js) and pointing `ENVI_API_URL` at your self-hosted API works fine.
 
 ## Encryption key ownership
 
@@ -34,6 +29,6 @@ OTP codes and invitations go out through [Resend](https://resend.com) — bring 
 
 ## Next
 
-<Card title="Deployment walkthrough" icon="server" href="/self-hosting/deployment">
+<Card title="Deployment walkthrough" href="/self-hosting/deployment">
   A concrete, first-deploy guide: system dependencies, the database, process management, and TLS.
 </Card>
