@@ -228,13 +228,16 @@ a.doc-card:hover { border-color: var(--line-strong); background: var(--surface-2
 .doc-callout.warning { border-color: color-mix(in srgb, var(--warning) 32%, transparent); background: var(--warning-weak); }
 .doc-callout.warning .doc-callout-icon svg { color: var(--warning); }
 
-.doc-steps { margin: 0 0 22px; padding: 0; list-style: none; display: grid; gap: 0; counter-reset: doc-step; }
+/* Scoped under .doc-body so these beat the generic `.doc-body ol/li` prose
+   rules above — without the extra specificity the list keeps the prose
+   padding and the number badge lands on top of the step title. */
+.doc-body .doc-steps { margin: 0 0 22px; padding: 0; list-style: none; display: grid; gap: 0; counter-reset: doc-step; }
 /* min-width: 0 — as a grid item the step otherwise takes its max-content
    width from the longest line in a nested <pre>, which stretches the page
    instead of letting that <pre> scroll inside itself. */
-.doc-step { position: relative; min-width: 0; padding: 0 0 26px 38px; border-left: 1px solid var(--line); margin-left: 12px; counter-increment: doc-step; }
+.doc-body .doc-step { position: relative; min-width: 0; padding: 0 0 26px 38px; border-left: 1px solid var(--line); margin-left: 12px; counter-increment: doc-step; }
 .doc-step-body { min-width: 0; }
-.doc-step:last-child { border-left-color: transparent; padding-bottom: 0; }
+.doc-body .doc-step:last-child { border-left-color: transparent; padding-bottom: 0; }
 .doc-step::before {
   content: counter(doc-step); position: absolute; left: -13px; top: -2px;
   width: 25px; height: 25px; display: grid; place-items: center; border-radius: 50%;
