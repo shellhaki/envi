@@ -67,6 +67,33 @@ func (s Service) Create(ctx context.Context, user, project, env, email, permissi
 	if err := s.checkRateLimit(ctx, user); err != nil {
 		return Invitation{}, err
 	}
+	var inviterEmail string
+	if err := s.DB.QueryRow(ctx, `SELECT email FROM users WHERE id=$1`, user).Scan(&inviterEmail); err == nil && strings.EqualFold(inviterEmail, email) {
+		return Invitation{}, errors.New("you already have access — you can't invite yourself")
+	}
+	// An invited address that already has access (a member of the project's
+	// org, or an existing grant covering this environment) would just get a
+	// pointless email and a redundant access_grants row. Checked against the
+	// account, not the raw address, since that's what actually holds access.
+	var hasAccess bool
+	err = s.DB.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM users u JOIN projects p ON p.id=$1 WHERE lower(u.email)=$2 AND (EXISTS(SELECT 1 FROM memberships m WHERE m.org_id=p.org_id AND m.user_id=u.id) OR EXISTS(SELECT 1 FROM access_grants g WHERE g.subject_user_id=u.id AND g.project_id=p.id AND (g.environment_id IS NULL OR g.environment_id=NULLIF($3,'')::uuid))))`, project, email, env).Scan(&hasAccess)
+	if err != nil {
+		return Invitation{}, err
+	}
+	if hasAccess {
+		return Invitation{}, errors.New("this person already has access to this project")
+	}
+	// Without this, the same address can be invited over and over — confusing
+	// for the recipient, and exactly the repeated-send pattern mail providers
+	// flag as spammy.
+	var alreadyPending bool
+	err = s.DB.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM invitations WHERE project_id=$1 AND email=$2 AND status='pending' AND expires_at>now() AND environment_id IS NOT DISTINCT FROM NULLIF($3,'')::uuid)`, project, email, env).Scan(&alreadyPending)
+	if err != nil {
+		return Invitation{}, err
+	}
+	if alreadyPending {
+		return Invitation{}, errors.New("there's already a pending invitation for this address")
+	}
 	b := make([]byte, 32)
 	if _, err = rand.Read(b); err != nil {
 		return Invitation{}, err

@@ -69,7 +69,11 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
 echo "envi: downloading $archive ($tag)..."
-curl -fsSL "$base_url/$archive" -o "$work/$archive" \
+# The archive is ~10MB, which is long enough that silence reads as a hang.
+# Only when someone is actually watching, though: piped into a log or a CI
+# step, a progress bar is thousands of useless carriage returns.
+if [ -t 2 ]; then progress="-#"; else progress="-s"; fi
+curl -fL "$progress" -S "$base_url/$archive" -o "$work/$archive" \
   || fail "download failed — check that $tag exists and has a $os/$arch build"
 curl -fsSL "$base_url/checksums.txt" -o "$work/checksums.txt" \
   || fail "couldn't download checksums.txt for $tag"

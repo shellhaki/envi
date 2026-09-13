@@ -58,9 +58,19 @@ func TestLifecycleIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := Service{DB: db}
+	var ownerEmail string
+	if err = db.QueryRow(t.Context(), `SELECT email FROM users WHERE id=$1`, owner.UserID).Scan(&ownerEmail); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.Create(t.Context(), owner.UserID, p.ID, env.ID, ownerEmail, "read", time.Hour); err == nil {
+		t.Fatal("owner invited themselves to their own project")
+	}
 	i, err := s.Create(t.Context(), owner.UserID, p.ID, env.ID, email, "read", time.Hour)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if _, err = s.Create(t.Context(), owner.UserID, p.ID, env.ID, email, "read", time.Hour); err == nil {
+		t.Fatal("duplicate pending invitation accepted")
 	}
 	if err = s.Accept(t.Context(), wrong.UserID, i.Token); err != ErrForbidden {
 		t.Fatal("wrong user accepted invitation")
@@ -73,6 +83,9 @@ func TestLifecycleIntegration(t *testing.T) {
 	}
 	if err = s.Accept(t.Context(), guest.UserID, i.Token); err != ErrForbidden {
 		t.Fatal("invitation reused")
+	}
+	if _, err = s.Create(t.Context(), owner.UserID, p.ID, env.ID, email, "read", time.Hour); err == nil {
+		t.Fatal("invited an address that already has access")
 	}
 	projects, err := project.Service{DB: db}.List(t.Context(), guest.UserID)
 	if err != nil || len(projects) != 1 || projects[0].ID != p.ID {
