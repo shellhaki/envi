@@ -564,21 +564,42 @@ footer { min-height: 96px; padding: 0 24px; display: flex; align-items: center; 
   .feature-band { grid-template-columns: 1fr; }
   .feature-band article { min-height: 0; border-right: 0; border-bottom: 1px solid var(--line); }
   .workflow { grid-template-columns: 1fr; gap: 48px; padding: 72px 24px; }
-  .product-shell { grid-template-columns: 1fr; }
+  /* grid-template-rows matters here: with two auto rows and min-height:100vh,
+     the default align-content: stretch hands the leftover viewport height to
+     the nav strip, padding it out to ~140px of mostly empty space. Pinning
+     the strip to auto and letting main take 1fr fixes it. */
+  .product-shell { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
   /* width: 100% alone doesn't cap it — as a grid item of .product-shell it
      still has an implicit min-width: auto, so its min-content size (driven
      by .sidebar-nav below) can stretch the grid track wider than the
      viewport. min-width: 0 here is what actually makes width: 100% bind. */
-  .product-sidebar { position: static; width: 100%; min-width: 0; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px; border-right: 0; border-bottom: 1px solid var(--line); }
+  /* Tighter vertical padding than the desktop rail — on a phone this strip
+     is competing with the content for screen height. */
+  .product-sidebar { position: static; width: 100%; min-width: 0; height: auto; padding: 8px 12px; flex-direction: row; flex-wrap: nowrap; align-items: center; gap: 6px; border-right: 0; border-bottom: 1px solid var(--line); }
   .sidebar-head { padding: 6px 8px; }
   .sidebar-label { display: none; }
   /* min-width: 0 overrides the flex item's default min-width: auto — without
      it, overflow: auto never kicks in and the nav's full content width
      pushes every ancestor (and the page body) wider instead of scrolling
      internally. */
+  /* The edge toggle is a desktop affordance — its styles live in the
+     min-width block above, so without hiding the element here the bare,
+     unstyled button renders as a stray chevron in the rail. */
+  .sidebar-edge-toggle { display: none; }
+  /* Trade the wordmark for the compact mark: at phone widths the full logo
+     eats the ~95px the nav items need. */
+  .sidebar-head .brand { display: none; }
+  .sidebar-head .brand-mark { display: block; }
+
   .sidebar-nav { flex-direction: row; flex: 1; min-width: 0; gap: 2px; overflow: auto; scrollbar-width: none; }
   .sidebar-nav::-webkit-scrollbar { display: none; }
   .sidebar-nav a { white-space: nowrap; }
+  /* Fade the trailing edge so a half-cut item reads as "scroll for more"
+     rather than as a broken layout. */
+  .sidebar-nav {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  }
   /* The edge marker moves to the bottom when the rail becomes a strip. */
   .sidebar-nav a.active::before { left: 50%; top: auto; bottom: 0; transform: translateX(-50%); width: 16px; height: 2px; border-radius: 2px 2px 0 0; }
   .sidebar-foot { display: none; }
