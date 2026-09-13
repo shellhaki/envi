@@ -75,7 +75,9 @@ func (a App) Run(args []string) int {
 		if e := fs.Parse(args[1:]); e != nil {
 			return ExitUsage
 		}
-		return a.authenticated(func(c Client) error {
+		// init prompts, so it gets the raw writer: a spinner would fight with
+		// the questions it asks.
+		return a.authenticated("Preparing", func(c Client, _ io.Writer) error {
 			dir, e := os.Getwd()
 			if e != nil {
 				return e
@@ -83,24 +85,27 @@ func (a App) Run(args []string) int {
 			return projectctx.Init(context.Background(), c, a.input(), a.Out, dir, *name, *env)
 		})
 	case "pull", "push", "diff":
-		return a.authenticated(func(c Client) error {
+		labels := map[string]string{"pull": "Pulling secrets", "push": "Pushing secrets", "diff": "Comparing with remote"}
+		return a.authenticated(labels[args[0]], func(c Client, out io.Writer) error {
 			dir, e := os.Getwd()
 			if e != nil {
 				return e
 			}
+			var count int
 			switch args[0] {
 			case "pull":
-				e = Pull(context.Background(), c, dir)
+				count, e = Pull(context.Background(), c, dir)
 			case "push":
-				e = Push(context.Background(), c, dir)
+				count, e = Push(context.Background(), c, dir)
 			default:
-				e = Diff(context.Background(), c, dir, a.Out)
+				e = Diff(context.Background(), c, dir, out)
 			}
 			if e != nil {
 				return e
 			}
 			if args[0] != "diff" {
-				fmt.Fprintln(a.Out, args[0]+" complete")
+				ui := NewUI(out)
+				ui.Success("%s %d secret%s", map[string]string{"pull": "Pulled", "push": "Pushed"}[args[0]], count, plural(count))
 			}
 			return nil
 		})
@@ -109,8 +114,8 @@ func (a App) Run(args []string) int {
 			fmt.Fprintln(a.Err, "usage: envi project create <name>")
 			return ExitUsage
 		}
-		return a.authenticated(func(c Client) error {
-			return CreateProject(context.Background(), c, args[2], a.Out)
+		return a.authenticated("Creating project", func(c Client, out io.Writer) error {
+			return CreateProject(context.Background(), c, args[2], out)
 		})
 	case "env":
 		if len(args) < 3 || args[1] != "create" {
@@ -124,12 +129,12 @@ func (a App) Run(args []string) int {
 		if e := fs.Parse(args[3:]); e != nil {
 			return ExitUsage
 		}
-		return a.authenticated(func(c Client) error {
+		return a.authenticated("Creating environment", func(c Client, out io.Writer) error {
 			dir, e := os.Getwd()
 			if e != nil {
 				return e
 			}
-			return CreateEnv(context.Background(), c, dir, *project, args[2], *production, a.Out)
+			return CreateEnv(context.Background(), c, dir, *project, args[2], *production, out)
 		})
 	case "activity":
 		fs := flag.NewFlagSet("activity", flag.ContinueOnError)
@@ -138,9 +143,9 @@ func (a App) Run(args []string) int {
 		if e := fs.Parse(args[1:]); e != nil {
 			return ExitUsage
 		}
-		return a.authenticated(func(c Client) error {
+		return a.authenticated("Loading activity", func(c Client, out io.Writer) error {
 			dir, _ := os.Getwd()
-			return Activity(context.Background(), c, dir, *limit, a.Out)
+			return Activity(context.Background(), c, dir, *limit, out)
 		})
 	case "token":
 		if len(args) < 2 || args[1] != "create" {
@@ -155,12 +160,12 @@ func (a App) Run(args []string) int {
 		if e := fs.Parse(args[2:]); e != nil {
 			return ExitUsage
 		}
-		return a.authenticated(func(c Client) error {
+		return a.authenticated("Creating token", func(c Client, out io.Writer) error {
 			dir, e := os.Getwd()
 			if e != nil {
 				return e
 			}
-			return CreateServiceToken(context.Background(), c, dir, *name, *permission, *ttl, a.Out)
+			return CreateServiceToken(context.Background(), c, dir, *name, *permission, *ttl, out)
 		})
 	case "share":
 		if len(args) < 2 {
@@ -175,10 +180,10 @@ func (a App) Run(args []string) int {
 		if e := fs.Parse(args[2:]); e != nil {
 			return ExitUsage
 		}
-		return a.authenticated(func(c Client) error {
+		return a.authenticated("Sending invitation", func(c Client, out io.Writer) error {
 			dir, e := os.Getwd()
 			if e == nil {
-				e = Share(context.Background(), c, dir, args[1], *project, *env, *permission, a.Out)
+				e = Share(context.Background(), c, dir, args[1], *project, *env, *permission, out)
 			}
 			return e
 		})
@@ -187,7 +192,7 @@ func (a App) Run(args []string) int {
 			fmt.Fprintln(a.Err, "usage: envi invite accept <token>")
 			return ExitUsage
 		}
-		return a.authenticated(func(c Client) error { return AcceptInvitation(context.Background(), c, args[2]) })
+		return a.authenticated("Accepting invitation", func(c Client, _ io.Writer) error { return AcceptInvitation(context.Background(), c, args[2]) })
 	case "update":
 		ui := NewUI(a.Out)
 		sub := ""
@@ -273,17 +278,28 @@ func (a App) input() io.Reader {
 	}
 	return a.In
 }
-func (a App) authenticated(run func(Client) error) int {
+// authenticated resolves a session and runs a command against it, showing a
+// spinner labelled with what is happening. The command is handed the writer to
+// print to: the first write stops the spinner, so commands that stream results
+// need no knowledge of it, and commands that print only at the end get a clean
+// line to print on.
+func (a App) authenticated(label string, run func(Client, io.Writer) error) int {
 	store, code := a.tokenStore()
 	if store == nil {
 		return code
 	}
+	ui := NewUI(a.Out)
+	connecting := ui.Spinner("Authenticating")
 	c, err := authorize(a.client(), store)
+	connecting.Stop()
 	if err != nil {
 		fmt.Fprintln(a.Err, err)
 		return ExitAuth
 	}
-	if err = run(c); err != nil {
+	working := ui.Spinner(label)
+	err = run(c, working.Writer(a.Out))
+	working.Stop()
+	if err != nil {
 		fmt.Fprintln(a.Err, err)
 		return ExitCode(err)
 	}

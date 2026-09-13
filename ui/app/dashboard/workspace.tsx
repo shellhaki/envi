@@ -292,13 +292,6 @@ export default function Workspace({ page }: { page: Page }) {
     </div>)}
 
     {page === "sharing" && <section className="plain-section">
-      <h2>Invite collaborators to a project</h2>
-      <p>Pick a project above, then grant a collaborator scoped permission to its secrets. They&rsquo;ll get an email with a link to accept — signing up first if they don&rsquo;t have an account yet.</p>
-      <ul className="perm-list">
-        <li><Eye />Read — view and pull secrets</li>
-        <li><Pencil />Write — push and change secrets</li>
-        <li><Shield />Manage — invite others and manage access</li>
-      </ul>
       {contextLoading || loadingCollaborators ? <Loading label="Loading collaborators" /> : collaborators.length ? <div className="data-table">
         <div className="thead"><span>Collaborator</span><span>Access</span><span /></div>
         {collaborators.map((c) => <div className="trow" key={c.id}>
@@ -314,7 +307,7 @@ export default function Workspace({ page }: { page: Page }) {
           </div>
         </div>)}
       </div> : <Empty icon={<UserPlus />} title={project ? "No collaborators yet" : "No project selected"}
-        text={project ? "Invite someone above — they'll show up here as pending until they accept." : "Choose a project above to see who has access."} />}
+        text={project ? "Invited people appear here until they accept." : "Choose a project above."} />}
     </section>}
 
     {page === "activity" && <section className="panel">
@@ -350,7 +343,7 @@ function Loading({ label }: { label: string }) {
 const DIALOG_META: Record<string, { title: string; sub?: string }> = {
   project: { title: "New project" },
   secret: { title: "Add secret" },
-  share: { title: "Invite collaborator", sub: "They'll get an email with a link to accept — signing up first if they don't have an account yet." },
+  share: { title: "Invite collaborator", sub: "They'll get an email with a link to accept." },
 };
 function Dialog({ type, close, submit }: { type: "project" | "secret" | "share"; close: () => void; submit: (d: Record<string, string>) => Promise<void> }) {
   const [error, setError] = useState("");
@@ -369,7 +362,7 @@ function Dialog({ type, close, submit }: { type: "project" | "secret" | "share";
       {meta.sub && <p className="dialog-sub">{meta.sub}</p>}
       {type === "project" && <Field name="name" label="Project name" placeholder="acme-api" />}
       {type === "secret" && <><Field name="key" label="Key" placeholder="API_KEY" /><label>Value<textarea name="value" placeholder="secret value" /></label></>}
-      {type === "share" && <><Field name="email" label="Email" type="email" placeholder="teammate@company.com" /><div className="field"><span>Permission</span><Select name="permission" ariaLabel="Permission" value={permission} onChange={setPermission} options={[{ value: "read", label: "read" }, { value: "write", label: "write" }, { value: "manage", label: "manage" }]} /></div></>}
+      {type === "share" && <><Field name="email" label="Email" type="email" placeholder="teammate@company.com" /><div className="field"><span>Permission</span><Select name="permission" ariaLabel="Permission" value={permission} onChange={setPermission} options={[{ value: "read", label: "Read — view and pull" }, { value: "write", label: "Write — push and change" }, { value: "manage", label: "Manage — invite and manage access" }]} /></div></>}
       {error && <p className="form-error">{error}</p>}
       <button className="button primary" disabled={busy}>{busy && <span className="spinner" />}{busy ? "Saving..." : "Save"}</button>
     </form>

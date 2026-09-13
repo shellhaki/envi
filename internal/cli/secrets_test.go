@@ -33,8 +33,8 @@ func TestPullPush(t *testing.T) {
 	}))
 	defer s.Close()
 	c := Client{BaseURL: s.URL, Token: "token"}
-	if e := Pull(context.Background(), c, d); e != nil {
-		t.Fatal(e)
+	if n, e := Pull(context.Background(), c, d); e != nil || n != 2 {
+		t.Fatalf("pulled %d secrets: %v", n, e)
 	}
 	b, e := os.ReadFile(filepath.Join(d, ".env"))
 	if e != nil || string(b) != "A=1\nB=2\n" {
@@ -44,8 +44,8 @@ func TestPullPush(t *testing.T) {
 	if info.Mode().Perm() != 0600 {
 		t.Fatalf("mode %o", info.Mode().Perm())
 	}
-	if e = Push(context.Background(), c, d); e != nil {
-		t.Fatal(e)
+	if n, e := Push(context.Background(), c, d); e != nil || n != 2 {
+		t.Fatalf("pushed %d secrets: %v", n, e)
 	}
 	if !strings.Contains(pushed, `"A":"1"`) || !strings.Contains(pushed, `"B":"2"`) {
 		t.Fatal(pushed)
@@ -74,12 +74,12 @@ func TestDiff(t *testing.T) {
 }
 func TestPushErrors(t *testing.T) {
 	d := t.TempDir()
-	if e := Push(context.Background(), Client{}, d); e == nil {
+	if _, e := Push(context.Background(), Client{}, d); e == nil {
 		t.Fatal("missing config accepted")
 	}
 	_ = projectctx.Write(d, projectctx.Context{Version: 1, Project: projectctx.Resource{ID: "p", Name: "demo"}, Environment: projectctx.Resource{ID: "e", Name: "dev"}})
 	_ = os.WriteFile(filepath.Join(d, ".env"), []byte("bad"), 0600)
-	if e := Push(context.Background(), Client{}, d); e == nil {
+	if _, e := Push(context.Background(), Client{}, d); e == nil {
 		t.Fatal("malformed env accepted")
 	}
 }

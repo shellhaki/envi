@@ -56,49 +56,53 @@ func writeEnv(path string, values map[string]string) error {
 	return nil
 }
 
-func Pull(ctx context.Context, c Client, dir string) error {
+// Pull writes the environment's secrets to .env, returning how many were
+// written so the caller can say so rather than just "complete".
+func Pull(ctx context.Context, c Client, dir string) (int, error) {
 	x, e := loadContext(dir)
 	if e != nil {
-		return e
+		return 0, e
 	}
 	var snapshot struct {
 		Values   map[string]string `json:"values"`
 		Revision int64             `json:"revision"`
 	}
 	if e = c.Do(ctx, "GET", "/environments/"+x.Environment.ID+"/secrets/snapshot", nil, &snapshot); e != nil {
-		return e
+		return 0, e
 	}
 	if e = writeEnv(envPath(dir), snapshot.Values); e != nil {
-		return e
+		return 0, e
 	}
 	x.Environment.Revision = snapshot.Revision
-	return projectctx.Write(dir, x)
+	return len(snapshot.Values), projectctx.Write(dir, x)
 }
-func Push(ctx context.Context, c Client, dir string) error {
+
+// Push sends local .env changes up, returning how many secrets were sent.
+func Push(ctx context.Context, c Client, dir string) (int, error) {
 	x, e := loadContext(dir)
 	if e != nil {
-		return e
+		return 0, e
 	}
 	f, e := os.Open(envPath(dir))
 	if os.IsNotExist(e) {
-		return errors.New(".env not found")
+		return 0, errors.New(".env not found")
 	}
 	if e != nil {
-		return e
+		return 0, e
 	}
 	defer f.Close()
 	values, e := parseEnv(f)
 	if e != nil {
-		return e
+		return 0, e
 	}
 	var result struct {
 		Revision int64 `json:"revision"`
 	}
 	if e = c.Do(ctx, "PUT", "/environments/"+x.Environment.ID+"/secrets/snapshot", map[string]any{"values": values, "expected_revision": x.Environment.Revision}, &result); e != nil {
-		return e
+		return 0, e
 	}
 	x.Environment.Revision = result.Revision
-	return projectctx.Write(dir, x)
+	return len(values), projectctx.Write(dir, x)
 }
 
 func Diff(ctx context.Context, c Client, dir string, out io.Writer) error {

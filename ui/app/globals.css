@@ -495,9 +495,6 @@ footer { min-height: 96px; padding: 0 24px; display: flex; align-items: center; 
 .plain-section { padding: 30px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); }
 .plain-section h2 { margin: 0 0 8px; font-size: 20px; font-weight: 600; letter-spacing: var(--tracking-tight); }
 .plain-section p { max-width: 620px; margin: 0 0 22px; color: var(--muted); line-height: 1.6; }
-.perm-list { display: grid; gap: 11px; margin: 0 0 22px; padding: 0; list-style: none; }
-.perm-list li { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-2); }
-.perm-list svg { width: 15px; color: var(--muted); flex: none; }
 
 /* ============================================================================
    Glass select
