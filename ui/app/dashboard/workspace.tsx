@@ -49,18 +49,37 @@ export default function Workspace({ page }: { page: Page }) {
   const [copied, setCopied] = useState("");
   const [dragging, setDragging] = useState(false);
   const [modal, setModal] = useState<"project" | "secret" | "share" | "import">();
+  // Every list starts in flight rather than empty. Without this, the first
+  // paint renders "No projects yet" against state that simply hasn't been
+  // fetched, which reads as a bug rather than as loading.
+  const [loadingProjects, setLoadingProjects] = useState(true);
+  const [loadingEnv, setLoadingEnv] = useState(true);
+  const [loadingSecrets, setLoadingSecrets] = useState(true);
+  const [loadingEvents, setLoadingEvents] = useState(true);
+  const [loadingCollaborators, setLoadingCollaborators] = useState(true);
 
-  const loadProjects = useCallback(() => api<Project[]>("/projects").then((x) => {
-    const list = x ?? [];
-    setProjects(list);
-    setProject((p) => list.find((i) => i.ID === p?.ID) || list[0]);
-  }).catch((e) => setError(e.message)), []);
-  useEffect(() => { void loadProjects(); }, [loadProjects]);
+  const loadProjects = useCallback(() => {
+    setLoadingProjects(true);
+    return api<Project[]>("/projects").then((x) => {
+      const list = x ?? [];
+      setProjects(list);
+      setProject((p) => list.find((i) => i.ID === p?.ID) || list[0]);
+      // Nothing to select means the env/secret fetches below never run, so
+      // release their spinners here or they would hang forever.
+      if (!list.length) { setLoadingEnv(false); setLoadingSecrets(false); }
+    }).catch((e) => { setError(e.message); setLoadingEnv(false); setLoadingSecrets(false); })
+      .finally(() => setLoadingProjects(false));
+  }, []);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => void loadProjects());
+    return () => cancelAnimationFrame(id);
+  }, [loadProjects]);
 
   // Resolve the project's single environment, provisioning one on the fly if the
   // project has none. New envs are non-production so access is never denied.
   const loadEnv = useCallback(() => {
-    if (!project) { setEnv(undefined); return Promise.resolve(); }
+    if (!project) { setEnv(undefined); setLoadingEnv(false); return Promise.resolve(); }
+    setLoadingEnv(true);
     const pid = project.ID;
     return api<Env[]>(`/projects/${pid}/environments`).then(async (x) => {
       let list = x ?? [];
@@ -69,33 +88,54 @@ export default function Workspace({ page }: { page: Page }) {
         list = [created];
       }
       setEnv((e) => list.find((i) => i.ID === e?.ID) || list[0]);
-    }).catch((e) => setError(e.message));
+    }).catch((e) => setError(e.message)).finally(() => setLoadingEnv(false));
   }, [project]);
-  useEffect(() => { void loadEnv(); }, [loadEnv]);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => void loadEnv());
+    return () => cancelAnimationFrame(id);
+  }, [loadEnv]);
 
   const loadSecrets = useCallback(() => {
-    if (!env) { setSnap({ values: {}, revision: 0 }); return; }
-    api<Snap>(`/environments/${env.ID}/secrets/snapshot`).then((x) => setSnap({ values: x?.values ?? {}, revision: x?.revision ?? 0 })).catch((e) => setError(e.message));
+    if (!env) { setSnap({ values: {}, revision: 0 }); setLoadingSecrets(false); return; }
+    setLoadingSecrets(true);
+    api<Snap>(`/environments/${env.ID}/secrets/snapshot`).then((x) => setSnap({ values: x?.values ?? {}, revision: x?.revision ?? 0 }))
+      .catch((e) => setError(e.message)).finally(() => setLoadingSecrets(false));
   }, [env]);
-  useEffect(() => { void loadSecrets(); }, [loadSecrets]);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => loadSecrets());
+    return () => cancelAnimationFrame(id);
+  }, [loadSecrets]);
 
   const loadEvents = useCallback(() => {
-    if (project) api<Event[]>(`/orgs/${project.OrgID}/audit-events`).then((x) => setEvents(x ?? [])).catch((e) => setError(e.message));
+    if (!project) { setEvents([]); setLoadingEvents(false); return; }
+    setLoadingEvents(true);
+    api<Event[]>(`/orgs/${project.OrgID}/audit-events`).then((x) => setEvents(x ?? []))
+      .catch((e) => setError(e.message)).finally(() => setLoadingEvents(false));
   }, [project]);
-  useEffect(() => { if (page === "activity") loadEvents(); }, [page, loadEvents]);
+  useEffect(() => {
+    if (page !== "activity") return;
+    const id = requestAnimationFrame(() => loadEvents());
+    return () => cancelAnimationFrame(id);
+  }, [page, loadEvents]);
 
   const loadCollaborators = useCallback(() => {
-    if (!project) { setCollaborators([]); return; }
-    api<Collaborator[]>(`/projects/${project.ID}/collaborators`).then((x) => setCollaborators(x ?? [])).catch((e) => setError(e.message));
+    if (!project) { setCollaborators([]); setLoadingCollaborators(false); return; }
+    setLoadingCollaborators(true);
+    api<Collaborator[]>(`/projects/${project.ID}/collaborators`).then((x) => setCollaborators(x ?? []))
+      .catch((e) => setError(e.message)).finally(() => setLoadingCollaborators(false));
   }, [project]);
   useEffect(() => {
     if (page !== "sharing") return;
-    // Deferred a frame: loadCollaborators can reset state synchronously
-    // (no project selected), and that needs to land outside the effect's
-    // own synchronous pass.
+    // Deferred a frame: these loaders can reset state synchronously (no
+    // project selected), and that needs to land outside the effect's own
+    // synchronous pass.
     const id = requestAnimationFrame(() => loadCollaborators());
     return () => cancelAnimationFrame(id);
   }, [page, loadCollaborators]);
+
+  // Project and environment resolve as a waterfall, so anything downstream of
+  // them is still loading while either is in flight.
+  const contextLoading = loadingProjects || loadingEnv;
 
   async function revokeCollaborator(c: Collaborator) {
     if (!project || !confirm(c.status === "pending" ? `Cancel the invitation to ${c.email}?` : `Remove ${c.email}'s access?`)) return;
@@ -189,8 +229,8 @@ export default function Workspace({ page }: { page: Page }) {
 
     {page === "overview" && <>
       <div className="stat-cards">
-        <div className="stat-card"><div className="stat-icon"><Folder /></div><span>Projects</span><strong>{projects.length}</strong></div>
-        <div className="stat-card"><div className="stat-icon"><KeyRound /></div><span>Secrets in {project?.Name || "project"}</span><strong>{Object.keys(snap.values).length}</strong></div>
+        <div className="stat-card"><div className="stat-icon"><Folder /></div><span>Projects</span>{loadingProjects ? <span className="spinner" /> : <strong>{projects.length}</strong>}</div>
+        <div className="stat-card"><div className="stat-icon"><KeyRound /></div><span>Secrets in {project?.Name || "project"}</span>{contextLoading || loadingSecrets ? <span className="spinner" /> : <strong>{Object.keys(snap.values).length}</strong>}</div>
       </div>
       <div className="quick-actions">
         <button className="button primary" onClick={() => setModal("project")}><Plus />New project</button>
@@ -213,7 +253,7 @@ export default function Workspace({ page }: { page: Page }) {
         </div>
       </div>
       {dragging && <div className="drop-hint"><UploadCloud />Drop a .env file to import its keys</div>}
-      {keys.length ? <div className="data-table">
+      {contextLoading || loadingSecrets ? <Loading label="Loading secrets" /> : keys.length ? <div className="data-table">
         <div className="thead"><span>Key</span><span>Value</span><span /></div>
         {keys.map((k) => <div className="trow" key={k}>
           <code>{k}</code>
@@ -228,13 +268,13 @@ export default function Workspace({ page }: { page: Page }) {
         text={project ? "Add a secret, or drag a .env file anywhere on this panel to import it." : "Choose a project above to view its secrets."} />}
     </section>}
 
-    {page === "projects" && <div className="project-grid">
+    {page === "projects" && (loadingProjects ? <Loading label="Loading projects" /> : <div className="project-grid">
       {projects.map((p) => <button key={p.ID} className={"project-card" + (p.ID === project?.ID ? " active" : "")} onClick={() => setProject(p)}>
         <div className="proj-top"><div className="proj-icon"><Folder /></div>{p.ID === project?.ID && <span className="badge selected">Selected</span>}</div>
         <strong>{p.Name}</strong><small>{p.ID.slice(0, 8)}</small>
       </button>)}
       <button className="project-card new" onClick={() => setModal("project")}><FolderPlus /><strong>New project</strong></button>
-    </div>}
+    </div>)}
 
     {page === "sharing" && <section className="plain-section">
       <h2>Invite collaborators to a project</h2>
@@ -244,7 +284,7 @@ export default function Workspace({ page }: { page: Page }) {
         <li><Pencil />Write — push and change secrets</li>
         <li><Shield />Manage — invite others and manage access</li>
       </ul>
-      {collaborators.length ? <div className="data-table">
+      {contextLoading || loadingCollaborators ? <Loading label="Loading collaborators" /> : collaborators.length ? <div className="data-table">
         <div className="thead"><span>Collaborator</span><span>Access</span><span /></div>
         {collaborators.map((c) => <div className="trow" key={c.id}>
           <span>{c.email}</span>
@@ -263,7 +303,7 @@ export default function Workspace({ page }: { page: Page }) {
     </section>}
 
     {page === "activity" && <section className="panel">
-      {events.length ? <div className="timeline">
+      {contextLoading || loadingEvents ? <Loading label="Loading activity" /> : events.length ? <div className="timeline">
         {events.map((x, i) => {
           const kind = x.action.includes("delete") ? "delete" : x.action.includes("write") ? "write" : "read";
           const Icon = kind === "delete" ? Trash2 : kind === "write" ? Pencil : Eye;
@@ -286,6 +326,10 @@ export default function Workspace({ page }: { page: Page }) {
 
 function Empty({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) {
   return <div className="empty"><div className="empty-icon">{icon}</div><strong>{title}</strong><p>{text}</p></div>;
+}
+
+function Loading({ label }: { label: string }) {
+  return <div className="loading-state" role="status" aria-live="polite"><span className="spinner" /><p>{label}</p></div>;
 }
 
 const DIALOG_META: Record<string, { title: string; sub?: string }> = {
@@ -312,7 +356,7 @@ function Dialog({ type, close, submit }: { type: "project" | "secret" | "share";
       {type === "secret" && <><Field name="key" label="Key" placeholder="API_KEY" /><label>Value<textarea name="value" placeholder="secret value" /></label></>}
       {type === "share" && <><Field name="email" label="Email" type="email" placeholder="teammate@company.com" /><div className="field"><span>Permission</span><Select name="permission" ariaLabel="Permission" value={permission} onChange={setPermission} options={[{ value: "read", label: "read" }, { value: "write", label: "write" }, { value: "manage", label: "manage" }]} /></div></>}
       {error && <p className="form-error">{error}</p>}
-      <button className="button primary" disabled={busy}>{busy ? "Saving..." : "Save"}</button>
+      <button className="button primary" disabled={busy}>{busy && <span className="spinner" />}{busy ? "Saving..." : "Save"}</button>
     </form>
   </div>;
 }
@@ -326,7 +370,7 @@ function ImportDialog({ projectName, close, onImport }: { projectName: string; c
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [dragging, setDragging] = useState(false);
-  async function useFile(file?: File | null) { if (!file) return; setFileName(file.name); setText(await file.text()); }
+  async function readDroppedFile(file?: File | null) { if (!file) return; setFileName(file.name); setText(await file.text()); }
   const parsed = parseDotenv(text);
   const count = Object.keys(parsed).length;
   return <div className="dialog-backdrop" onMouseDown={close}>
@@ -341,15 +385,15 @@ function ImportDialog({ projectName, close, onImport }: { projectName: string; c
       <label className={"dropzone" + (dragging ? " dragging" : "")}
         onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
-        onDrop={(e) => { e.preventDefault(); setDragging(false); void useFile(e.dataTransfer.files?.[0]); }}>
+        onDrop={(e) => { e.preventDefault(); setDragging(false); void readDroppedFile(e.dataTransfer.files?.[0]); }}>
         <UploadCloud />
         <strong>{fileName || "Drop a .env file or click to choose"}</strong>
         <small>KEY=VALUE lines · comments and quotes supported</small>
-        <input type="file" accept=".env,text/plain" hidden onChange={(e) => void useFile(e.target.files?.[0])} />
+        <input type="file" accept=".env,text/plain" hidden onChange={(e) => void readDroppedFile(e.target.files?.[0])} />
       </label>
       <label>Or paste contents<textarea value={text} onChange={(e) => setText(e.target.value)} placeholder={"API_KEY=sk_live_...\nDATABASE_URL=postgres://..."} /></label>
       {error && <p className="form-error">{error}</p>}
-      <button className="button primary" disabled={busy}>{busy ? "Importing..." : count ? `Import ${count} secret${count > 1 ? "s" : ""}` : "Import"}</button>
+      <button className="button primary" disabled={busy}>{busy && <span className="spinner" />}{busy ? "Importing..." : count ? `Import ${count} secret${count > 1 ? "s" : ""}` : "Import"}</button>
     </form>
   </div>;
 }

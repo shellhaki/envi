@@ -447,6 +447,24 @@ footer { min-height: 96px; padding: 0 24px; display: flex; align-items: center; 
 .empty strong { font-size: 14px; font-weight: 600; color: var(--text); }
 .empty p { margin: 0; font-size: 13px; max-width: 320px; line-height: 1.55; }
 
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+  width: 16px; height: 16px; flex: none; border-radius: 50%;
+  border: 2px solid var(--line-strong); border-top-color: var(--text);
+  animation: spin .6s linear infinite;
+}
+/* Matches .empty's height so swapping one for the other doesn't shift the
+   page — the flash of a jumping layout is the thing this is here to avoid. */
+.loading-state { min-height: 230px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 13px; padding: 30px; color: var(--muted); text-align: center; }
+.loading-state .spinner { width: 22px; height: 22px; }
+.loading-state p { margin: 0; font-size: 13px; }
+.stat-card .spinner { width: 18px; height: 18px; margin: 4px 0; }
+.button .spinner { width: 13px; height: 13px; border-width: 1.5px; border-color: color-mix(in srgb, currentColor 30%, transparent); border-top-color: currentColor; }
+@media (prefers-reduced-motion: reduce) {
+  /* Slowed, not stopped: a frozen spinner reads as a hung page. */
+  .spinner { animation-duration: 1.8s; }
+}
+
 .project-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(248px, 1fr)); gap: 14px; }
 .project-card { padding: 17px; display: grid; gap: 4px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); text-align: left; cursor: pointer; transition: border-color .15s ease, background .15s ease; }
 .project-card:hover { border-color: var(--line-strong); background: var(--surface-2); }

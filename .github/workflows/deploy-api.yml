@@ -4,10 +4,11 @@ on:
   push:
     branches: [main]
     # UI and docs deploy separately (Vercel), so a change to either should not
-    # rebuild and restart the API.
+    # rebuild and restart the API. cmd/install is deliberately absent too: this
+    # workflow only builds and restarts envi-api, so listing it here would
+    # imply an install-server deploy that never happens.
     paths:
       - "cmd/api/**"
-      - "cmd/install/**"
       - "internal/**"
       - "migrations/**"
       - "go.mod"
