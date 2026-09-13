@@ -4,6 +4,7 @@ query.sql
 .env
 dist/
 bin/
+/api
 logs/
 beta_testers.json
 info.txt
