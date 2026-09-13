@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, Check, KeyRound, ShieldCheck, Terminal, Users } from "lucide-react";
 import Brand from "@/components/brand";
 import ThemeToggle from "@/components/theme-toggle";
+import CookieConsent from "@/components/cookie-consent";
 import { account, firstName } from "@/lib/server-api";
 export default async function Home() {
   const user = await account();
@@ -10,5 +11,5 @@ export default async function Home() {
     <section className="feature-band" id="product"><article><KeyRound /><h2>One source of truth</h2><p>Manage secrets from the dashboard or use the same projects and environments from the CLI.</p></article><article><Users /><h2>Share the project</h2><p>Grant read, write, or manage access without opening your entire workspace.</p></article><article id="security"><ShieldCheck /><h2>Production stays explicit</h2><p>Production environments require direct grants, reducing accidental access and changes.</p></article></section>
     <section className="workflow"><div><span className="kicker">Built around the workflow</span><h2>Local when you want speed. Web when you want visibility.</h2></div><ol><li><b>01</b><span><strong>Create a project</strong>Set up environments from the dashboard or with <code>envi init</code>.</span></li><li><b>02</b><span><strong>Push encrypted values</strong>Versioned updates make concurrent changes visible.</span></li><li><b>03</b><span><strong>Control access</strong>Invite collaborators and keep an audit trail.</span></li></ol></section>
     <section className="pricing" id="pricing"><span className="kicker">Simple pricing</span><h2>Start free. Upgrade when the team grows.</h2><div><strong>$0</strong><span>for personal projects</span><Link className="button accent large" href={user ? "/dashboard" : "/auth"}>Get started</Link></div></section>
-  </main><footer><Brand /><span>Secrets workflow for modern teams.</span></footer></div>;
+  </main><footer><Brand /><span>Secrets workflow for modern teams.</span></footer><CookieConsent /></div>;
 }

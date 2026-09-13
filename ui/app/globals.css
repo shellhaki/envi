@@ -178,6 +178,11 @@ html[data-theme=dark] .brand-logo-dark { display: block; }
 .badge.success { border-color: color-mix(in srgb, var(--success) 35%, transparent); background: var(--success-weak); color: var(--success); }
 /* Selection is the brand moment: solid yellow, black text, no border. */
 .badge.selected { border-color: transparent; background: var(--accent); color: var(--accent-on); font-weight: 700; }
+.badge.pending { border-color: color-mix(in srgb, var(--warning) 35%, transparent); background: var(--warning-weak); color: var(--warning); text-transform: none; letter-spacing: 0; }
+.badge svg { width: 11px; }
+
+.perm-cell { display: flex; align-items: center; gap: 8px; }
+.perm-cell svg:first-child { width: 15px; color: var(--muted); flex: none; }
 
 .avatar {
   width: 32px; height: 32px; flex: none; display: grid; place-items: center; border-radius: 50%;
@@ -375,6 +380,18 @@ footer { min-height: 96px; padding: 0 24px; display: flex; align-items: center; 
 .alert.notice { border-color: color-mix(in srgb, var(--success) 35%, transparent); background: var(--success-weak); color: var(--success); overflow-wrap: anywhere; }
 .alert-dismiss { float: right; border: 0; background: transparent; color: inherit; font-size: 16px; line-height: 1; cursor: pointer; opacity: .6; }
 .alert-dismiss:hover { opacity: 1; }
+
+.cookie-consent {
+  position: fixed; z-index: 50; left: 16px; right: 16px; bottom: 16px;
+  margin-inline: auto; max-width: 560px;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 14px 16px; padding-bottom: calc(14px + env(safe-area-inset-bottom));
+  background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+}
+.cookie-consent-icon { flex-shrink: 0; width: 18px; height: 18px; color: var(--muted); }
+.cookie-consent p { flex: 1 1 240px; margin: 0; font-size: 13px; line-height: 1.5; color: var(--text-2); }
+.cookie-consent .button { flex-shrink: 0; margin-left: auto; }
 
 /* auto-fill (not a fixed column count) so 2 cards sit at their natural width
    instead of stretching to fill a 3-column row with an empty gap. */

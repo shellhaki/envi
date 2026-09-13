@@ -59,8 +59,7 @@ func (s Service) Create(ctx context.Context, user, project, env, email, permissi
 	if permission != "read" && permission != "write" && permission != "manage" {
 		return Invitation{}, errors.New("invalid permission")
 	}
-	var allowed bool
-	err := s.DB.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM projects p WHERE p.id=$1 AND (EXISTS(SELECT 1 FROM memberships m WHERE m.org_id=p.org_id AND m.user_id=$2 AND m.role IN('owner','admin')) OR EXISTS(SELECT 1 FROM access_grants g WHERE g.project_id=p.id AND g.subject_user_id=$2 AND g.permission='manage')) AND (NULLIF($3::text,'') IS NULL OR EXISTS(SELECT 1 FROM environments e WHERE e.id=NULLIF($3::text,'')::uuid AND e.project_id=p.id)))`, project, user, env).Scan(&allowed)
+	allowed, err := s.canManage(ctx, project, user, env)
 	if err != nil || !allowed {
 		return Invitation{}, ErrForbidden
 	}
@@ -109,6 +108,16 @@ func (s Service) Create(ctx context.Context, user, project, env, email, permissi
 	}
 	s.notify(ctx, i)
 	return i, nil
+}
+
+// canManage reports whether user can invite and manage collaborators on
+// project — an org owner/admin, or anyone already holding a 'manage' grant.
+// env narrows the check to a specific environment; empty means the project
+// as a whole.
+func (s Service) canManage(ctx context.Context, project, user, env string) (bool, error) {
+	var allowed bool
+	err := s.DB.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM projects p WHERE p.id=$1 AND (EXISTS(SELECT 1 FROM memberships m WHERE m.org_id=p.org_id AND m.user_id=$2 AND m.role IN('owner','admin')) OR EXISTS(SELECT 1 FROM access_grants g WHERE g.project_id=p.id AND g.subject_user_id=$2 AND g.permission='manage')) AND (NULLIF($3::text,'') IS NULL OR EXISTS(SELECT 1 FROM environments e WHERE e.id=NULLIF($3::text,'')::uuid AND e.project_id=p.id)))`, project, user, env).Scan(&allowed)
+	return allowed, err
 }
 
 // checkRateLimit caps how many invitations one inviter can send per window.
@@ -212,4 +221,109 @@ func (s Service) Accept(ctx context.Context, user, token string) error {
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+// Collaborator is one row in a project's sharing list — either an accepted
+// grant (Status "active") or a still-open invitation (Status "pending",
+// ExpiresAt set). Both shapes reuse the same struct since the dashboard
+// renders them as one list.
+type Collaborator struct {
+	ID            string     `json:"id"`
+	Email         string     `json:"email"`
+	Permission    string     `json:"permission"`
+	EnvironmentID string     `json:"environment_id,omitempty"`
+	Status        string     `json:"status"`
+	ExpiresAt     *time.Time `json:"expires_at,omitempty"`
+}
+
+// ListCollaborators returns everyone with access to project, or an open
+// invitation to get it — the thing the dashboard's Sharing page had no way
+// to answer before, short of asking someone to check the database.
+func (s Service) ListCollaborators(ctx context.Context, user, project string) ([]Collaborator, error) {
+	allowed, err := s.canManage(ctx, project, user, "")
+	if err != nil {
+		return nil, err
+	}
+	if !allowed {
+		return nil, ErrForbidden
+	}
+	out := []Collaborator{}
+	grants, err := s.DB.Query(ctx, `SELECT g.id::text,u.email,g.permission,COALESCE(g.environment_id::text,'') FROM access_grants g JOIN users u ON u.id=g.subject_user_id WHERE g.project_id=$1 ORDER BY g.created_at DESC`, project)
+	if err != nil {
+		return nil, err
+	}
+	for grants.Next() {
+		var c Collaborator
+		if err := grants.Scan(&c.ID, &c.Email, &c.Permission, &c.EnvironmentID); err != nil {
+			grants.Close()
+			return nil, err
+		}
+		c.Status = "active"
+		out = append(out, c)
+	}
+	grants.Close()
+	if err := grants.Err(); err != nil {
+		return nil, err
+	}
+	pending, err := s.DB.Query(ctx, `SELECT id::text,email,permission,COALESCE(environment_id::text,''),expires_at FROM invitations WHERE project_id=$1 AND status='pending' AND expires_at>now() ORDER BY created_at DESC`, project)
+	if err != nil {
+		return nil, err
+	}
+	defer pending.Close()
+	for pending.Next() {
+		var c Collaborator
+		var exp time.Time
+		if err := pending.Scan(&c.ID, &c.Email, &c.Permission, &c.EnvironmentID, &exp); err != nil {
+			return nil, err
+		}
+		c.Status = "pending"
+		c.ExpiresAt = &exp
+		out = append(out, c)
+	}
+	if err := pending.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// RevokeInvitation cancels a still-pending invitation so its link stops
+// working — for inviting the wrong address, or one sent by mistake.
+func (s Service) RevokeInvitation(ctx context.Context, user, project, invitationID string) error {
+	allowed, err := s.canManage(ctx, project, user, "")
+	if err != nil {
+		return err
+	}
+	if !allowed {
+		return ErrForbidden
+	}
+	ct, err := s.DB.Exec(ctx, `UPDATE invitations SET status='revoked' WHERE id=$1 AND project_id=$2 AND status='pending'`, invitationID, project)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrForbidden
+	}
+	return nil
+}
+
+// RevokeGrant removes an accepted collaborator's access outright. This only
+// ever touches access_grants rows — an owner's access comes from
+// memberships, not a grant, so there is no path here to lock out a project's
+// owner.
+func (s Service) RevokeGrant(ctx context.Context, user, project, grantID string) error {
+	allowed, err := s.canManage(ctx, project, user, "")
+	if err != nil {
+		return err
+	}
+	if !allowed {
+		return ErrForbidden
+	}
+	ct, err := s.DB.Exec(ctx, `DELETE FROM access_grants WHERE id=$1 AND project_id=$2`, grantID, project)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrForbidden
+	}
+	return nil
 }

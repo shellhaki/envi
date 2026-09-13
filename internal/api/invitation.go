@@ -19,6 +19,9 @@ func (h InvitationHandler) Routes(r *gin.Engine, m gin.HandlerFunc) {
 	r.GET("/invitations/:token", h.preview)
 	r.POST("/projects/:id/invitations", m, h.create)
 	r.POST("/invitations/accept", m, h.accept)
+	r.GET("/projects/:id/collaborators", m, h.list)
+	r.DELETE("/projects/:id/invitations/:invitationID", m, h.revokeInvitation)
+	r.DELETE("/projects/:id/collaborators/:grantID", m, h.revokeGrant)
 }
 func (h InvitationHandler) preview(c *gin.Context) {
 	p, err := h.Service.Preview(c, c.Param("token"))
@@ -71,6 +74,42 @@ func (h InvitationHandler) accept(c *gin.Context) {
 	}
 	if err := h.Service.Accept(c, c.GetString("user_id"), in.Token); err != nil {
 		c.JSON(403, gin.H{"code": "forbidden", "error": "invitation invalid or expired"})
+		return
+	}
+	c.Status(204)
+}
+func (h InvitationHandler) list(c *gin.Context) {
+	cs, err := h.Service.ListCollaborators(c, c.GetString("user_id"), c.Param("id"))
+	if err == invitation.ErrForbidden {
+		c.JSON(403, gin.H{"code": "forbidden", "error": "access denied"})
+		return
+	}
+	if err != nil {
+		c.JSON(500, gin.H{"code": "internal", "error": "unable to load collaborators"})
+		return
+	}
+	c.JSON(200, cs)
+}
+func (h InvitationHandler) revokeInvitation(c *gin.Context) {
+	err := h.Service.RevokeInvitation(c, c.GetString("user_id"), c.Param("id"), c.Param("invitationID"))
+	if err == invitation.ErrForbidden {
+		c.JSON(403, gin.H{"code": "forbidden", "error": "access denied"})
+		return
+	}
+	if err != nil {
+		c.JSON(500, gin.H{"code": "internal", "error": "unable to revoke invitation"})
+		return
+	}
+	c.Status(204)
+}
+func (h InvitationHandler) revokeGrant(c *gin.Context) {
+	err := h.Service.RevokeGrant(c, c.GetString("user_id"), c.Param("id"), c.Param("grantID"))
+	if err == invitation.ErrForbidden {
+		c.JSON(403, gin.H{"code": "forbidden", "error": "access denied"})
+		return
+	}
+	if err != nil {
+		c.JSON(500, gin.H{"code": "internal", "error": "unable to remove collaborator"})
 		return
 	}
 	c.Status(204)

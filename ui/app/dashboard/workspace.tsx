@@ -1,5 +1,5 @@
 "use client";
-import { Activity, Check, Clipboard, Eye, EyeOff, Folder, FolderPlus, KeyRound, Pencil, Plus, RefreshCw, Search, Shield, Trash2, UploadCloud, UserPlus } from "lucide-react";
+import { Activity, Check, Clipboard, Clock, Eye, EyeOff, Folder, FolderPlus, KeyRound, Pencil, Plus, RefreshCw, Search, Shield, Trash2, UploadCloud, UserPlus } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Select from "@/components/select";
 import { filterKeys, parseDotenv, relativeTime } from "../utils";
@@ -8,7 +8,10 @@ type Project = { ID: string; OrgID: string; Name: string };
 type Env = { ID: string; Name: string; Production: boolean };
 type Snap = { values: Record<string, string>; revision: number };
 type Event = { action: string; target_type: string; target_id: string; actor: string; created_at: string };
+type Collaborator = { id: string; email: string; permission: string; environment_id?: string; status: "active" | "pending"; expires_at?: string };
 type Page = "overview" | "secrets" | "projects" | "sharing" | "activity";
+
+const PERM_ICON: Record<string, React.ReactNode> = { read: <Eye />, write: <Pencil />, manage: <Shield /> };
 
 async function api<T>(path: string, init: RequestInit = {}) {
   const r = await fetch("/api/envi" + path, { ...init, headers: { "Content-Type": "application/json", ...init.headers } });
@@ -38,6 +41,7 @@ export default function Workspace({ page }: { page: Page }) {
   const [env, setEnv] = useState<Env>();
   const [snap, setSnap] = useState<Snap>({ values: {}, revision: 0 });
   const [events, setEvents] = useState<Event[]>([]);
+  const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [query, setQuery] = useState("");
@@ -80,6 +84,29 @@ export default function Workspace({ page }: { page: Page }) {
   }, [project]);
   useEffect(() => { if (page === "activity") loadEvents(); }, [page, loadEvents]);
 
+  const loadCollaborators = useCallback(() => {
+    if (!project) { setCollaborators([]); return; }
+    api<Collaborator[]>(`/projects/${project.ID}/collaborators`).then((x) => setCollaborators(x ?? [])).catch((e) => setError(e.message));
+  }, [project]);
+  useEffect(() => {
+    if (page !== "sharing") return;
+    // Deferred a frame: loadCollaborators can reset state synchronously
+    // (no project selected), and that needs to land outside the effect's
+    // own synchronous pass.
+    const id = requestAnimationFrame(() => loadCollaborators());
+    return () => cancelAnimationFrame(id);
+  }, [page, loadCollaborators]);
+
+  async function revokeCollaborator(c: Collaborator) {
+    if (!project || !confirm(c.status === "pending" ? `Cancel the invitation to ${c.email}?` : `Remove ${c.email}'s access?`)) return;
+    try {
+      const path = c.status === "pending" ? `/projects/${project.ID}/invitations/${c.id}` : `/projects/${project.ID}/collaborators/${c.id}`;
+      await api(path, { method: "DELETE" });
+      setCollaborators((prev) => prev.filter((x) => x.id !== c.id));
+      setNotice(c.status === "pending" ? `Cancelled the invitation to ${c.email}.` : `Removed ${c.email}'s access.`);
+    } catch (e) { setError((e as Error).message); }
+  }
+
   const keys = useMemo(() => filterKeys(snap.values, query), [snap, query]);
 
   async function submit(type: string, data: Record<string, string>) {
@@ -99,6 +126,7 @@ export default function Workspace({ page }: { page: Page }) {
     if (type === "share" && project && env) {
       await api<{ Token: string }>(`/projects/${project.ID}/invitations`, { method: "POST", body: JSON.stringify({ email: data.email, environment_id: env.ID, permission: data.permission }) });
       setNotice(`Invitation sent to ${data.email}. They can accept it even without an existing account.`);
+      loadCollaborators();
     }
     setModal(undefined);
   }
@@ -216,6 +244,22 @@ export default function Workspace({ page }: { page: Page }) {
         <li><Pencil />Write — push and change secrets</li>
         <li><Shield />Manage — invite others and manage access</li>
       </ul>
+      {collaborators.length ? <div className="data-table">
+        <div className="thead"><span>Collaborator</span><span>Access</span><span /></div>
+        {collaborators.map((c) => <div className="trow" key={c.id}>
+          <span>{c.email}</span>
+          <span className="perm-cell">
+            {PERM_ICON[c.permission]}{c.permission}
+            {c.status === "pending"
+              ? <span className="badge pending"><Clock />Pending{c.expires_at ? ` · expires ${new Date(c.expires_at).toLocaleDateString()}` : ""}</span>
+              : <span className="badge success">Active</span>}
+          </span>
+          <div className="cell-actions">
+            <button className="icon-btn danger" title={c.status === "pending" ? "Cancel invitation" : "Remove access"} onClick={() => revokeCollaborator(c)}><Trash2 /></button>
+          </div>
+        </div>)}
+      </div> : <Empty icon={<UserPlus />} title={project ? "No collaborators yet" : "No project selected"}
+        text={project ? "Invite someone above — they'll show up here as pending until they accept." : "Choose a project above to see who has access."} />}
     </section>}
 
     {page === "activity" && <section className="panel">
