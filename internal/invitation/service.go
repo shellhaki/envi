@@ -153,6 +153,12 @@ func (s Service) notify(ctx context.Context, i Invitation) {
 		projectName = "a project"
 	}
 	link := strings.TrimRight(s.WebURL, "/") + "/invite/" + i.Token
+	// A local WebURL with a real mail provider configured sends a real person a
+	// link that only resolves on the sender's own machine. It is a legitimate
+	// setup for local testing, so it is not fatal, but it must not be silent.
+	if strings.Contains(s.WebURL, "localhost") || strings.Contains(s.WebURL, "127.0.0.1") {
+		log.Printf("WARNING: emailing %s an invitation link on %s — it will not resolve for them. Set ENVI_WEB_URL to the public dashboard URL.", i.Email, s.WebURL)
+	}
 	subject := fmt.Sprintf("You're invited to %s on Envi", projectName)
 	expiry := i.ExpiresAt.Format("Jan 2, 2006 at 3:04 PM MST")
 	text := fmt.Sprintf(

@@ -66,6 +66,14 @@ func main() {
 	mail := mailer.Resend{APIKey: c.ResendAPIKey, From: c.ResendFrom}
 	tokens := &auth.PostgresTokens{DB: db, AccessTTL: accessTTL, RefreshTTL: refreshTTL}
 	isBeta := c.Environment == "beta"
+	// Stated once at boot so it is obvious which instance a CLI is talking to:
+	// an invitation sent against a local API lands in the local database, with
+	// a link nobody else can open.
+	if c.WritesToRemoteDatabaseWithLocalLinks() {
+		log.Printf("WARNING: ENVI_WEB_URL is %s but DATABASE_URL is not local — invitations created here are written to the shared database and emailed with links only you can open. Set ENVI_WEB_URL to the public dashboard URL.", c.WebURL)
+	} else if c.IsLocalWebURL() {
+		log.Printf("WARNING: ENVI_WEB_URL is %s — invitation and device links will only work on this machine", c.WebURL)
+	}
 	a := auth.Service{OTP: otp.Service{Store: otp.Redis{Client: rc}, TTL: 10 * time.Minute, MaxAttempts: 10, RequestLimit: 20}, Mailer: otp.Resend{Client: mail}, Provision: w.Identity, AccessTTL: accessTTL, RefreshTTL: refreshTTL}
 	if isBeta {
 		allowlist, e := beta.Load("beta_testers.json")
