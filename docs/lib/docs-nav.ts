@@ -41,6 +41,7 @@ export const docsNav: DocGroup[] = [
     pages: [
       { slug: "/self-hosting", title: "Overview", description: "What running your own instance actually involves." },
       { slug: "/self-hosting/docker", title: "Docker Compose", description: "The whole stack in one command." },
+      { slug: "/self-hosting/workers", title: "Cloudflare Workers", description: "The same API on Workers, D1 and KV — no server to run." },
       { slug: "/self-hosting/deployment", title: "Deployment", description: "A first deploy to a plain VPS, no Docker required." },
     ],
   },

@@ -67,6 +67,26 @@ You need four values in `.env` before it will start:
 
 Prefer running the binaries directly under a process manager instead? See the [deployment walkthrough](https://docs.envisecrets.com/self-hosting/deployment).
 
+## Or run it on Cloudflare Workers
+
+Envi ships two implementations of the same API. The Go server is the reference; `workers/` is a port to Hono, D1 and KV that speaks the identical wire protocol — the CLI and dashboard work against either, and only `ENVI_API_URL` changes. There is no server to patch and nothing to keep running.
+
+```bash
+cd workers
+bun install
+bunx wrangler d1 create envi          # put the id in wrangler.jsonc as binding DB
+bunx wrangler kv namespace create CACHE
+bun run db:remote
+bunx wrangler secret put ENVI_ENCRYPTION_KEY
+bunx wrangler secret put RESEND_API_KEY
+bunx wrangler secret put RESEND_FROM
+bunx wrangler deploy
+```
+
+D1 replaces Postgres and, with two small tables, Redis. Secret reads are cached in KV keyed by environment revision, so entries are immutable and a stale one is never read.
+
+Two things to know: the two deployments **do not share a database**, so a Workers instance starts empty; and `ENVI_ENCRYPTION_KEY` must be byte-identical across both if they will ever read the same data. Full walkthrough: [docs.envisecrets.com/self-hosting/workers](https://docs.envisecrets.com/self-hosting/workers).
+
 ## How it fits together
 
 ```mermaid
@@ -91,6 +111,7 @@ The CLI and the dashboard are two clients of the same API — neither one is a s
 | `ui/` | The Next.js dashboard (deployable separately, e.g. to Vercel) |
 | `docs/` | The documentation site, its own Next.js app |
 | `migrations/` | `schema.sql` for a fresh database, numbered files to catch one up |
+| `workers/` | The same API on Cloudflare Workers, D1 and KV — an alternative to `cmd/api` |
 | `traefik/` | Reverse-proxy config for a non-Docker deployment |
 
 ## Security, briefly

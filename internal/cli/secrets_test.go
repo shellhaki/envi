@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -81,5 +82,44 @@ func TestPushErrors(t *testing.T) {
 	_ = os.WriteFile(filepath.Join(d, ".env"), []byte("bad"), 0600)
 	if _, e := Push(context.Background(), Client{}, d); e == nil {
 		t.Fatal("malformed env accepted")
+	}
+}
+
+// Round-trip the values a real Worker secret actually holds: private keys with
+// newlines, JSON blobs, connection strings with '=' and '#'.
+func TestEnvRoundTripRealisticSecrets(t *testing.T) {
+	cases := map[string]map[string]string{
+		"plain":            {"API_KEY": "sk_live_abc123"},
+		"spaces":           {"GREETING": "hello world"},
+		"equals in value":  {"DATABASE_URL": "postgres://u:p@h/db?a=1&b=2"},
+		"hash in value":    {"COLOR": "#ff0000"},
+		"quotes in value":  {"JSON_BLOB": `{"a":"b"}`},
+		"trailing space":   {"PADDED": "value "},
+		"empty value":      {"EMPTY": ""},
+		"newline in value": {"PRIVATE_KEY": "-----BEGIN KEY-----\nabc\ndef\n-----END KEY-----"},
+	}
+	for name, in := range cases {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			p := filepath.Join(dir, ".env")
+			if err := writeEnv(p, in); err != nil {
+				t.Fatal(err)
+			}
+			f, err := os.Open(p)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer f.Close()
+			got, err := parseEnv(f)
+			if err != nil {
+				raw, _ := os.ReadFile(p)
+				t.Fatalf("parse failed: %v\nfile written was:\n%s", err, raw)
+			}
+			if !reflect.DeepEqual(got, in) {
+				raw, _ := os.ReadFile(p)
+				t.Fatalf("round-trip changed the value\n  wrote: %q\n  read:  %q\n  file:\n%s",
+					in, got, strings.ReplaceAll(string(raw), "\n", "\\n\n"))
+			}
+		})
 	}
 }

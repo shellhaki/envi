@@ -1,0 +1,172 @@
+Envi ships two implementations of the same API. The Go server is the reference;
+the Cloudflare Workers port in `workers/` speaks the same wire protocol, so the
+CLI and dashboard work against either. Point `ENVI_API_URL` at one or the other
+and nothing else changes.
+
+Running on Workers means no server to patch, no process manager, and no machine
+to fall over — at the cost of committing to Cloudflare's platform.
+
+<Note>
+  The two deployments do not share a database. A Workers instance starts empty:
+  it will not see projects or secrets that live in your Postgres.
+</Note>
+
+## What replaces what
+
+| Go server | Workers |
+|---|---|
+| Postgres | D1 |
+| Redis (OTP, rate limits) | D1 tables |
+| `.env` file | `wrangler secret put` and `vars` |
+| `beta_testers.json` | `src/beta.ts`, compiled in |
+| pm2 or systemd | Cloudflare runs it |
+
+Secret reads are additionally cached in KV, keyed by environment revision. A
+write bumps the revision, so cache entries are immutable and a stale one is
+never read rather than being wrong.
+
+## Deploy
+
+<Steps>
+
+<Step title="Create the resources">
+  ```bash
+  cd workers
+  bun install
+  bunx wrangler login
+  bunx wrangler d1 create envi
+  bunx wrangler kv namespace create CACHE
+  ```
+
+  Put the returned ids into `wrangler.jsonc`. The D1 binding must be named `DB`
+  and the KV binding `CACHE` — that is what the code reads.
+</Step>
+
+<Step title="Apply the schema">
+  ```bash
+  bun run db:remote
+  ```
+
+  Confirm it landed:
+
+  ```bash
+  bunx wrangler d1 execute envi --remote --command "SELECT COUNT(*) AS n FROM sqlite_master WHERE type='table'"
+  ```
+</Step>
+
+<Step title="Set the secrets">
+  ```bash
+  bunx wrangler secret put ENVI_ENCRYPTION_KEY
+  bunx wrangler secret put RESEND_API_KEY
+  bunx wrangler secret put RESEND_FROM
+  ```
+
+  Each prompts for the value, so nothing lands in your shell history. They are
+  stored encrypted at Cloudflare and cannot be read back — keep your own copy.
+</Step>
+
+<Step title="Set the public values">
+  In `wrangler.jsonc`:
+
+  ```jsonc
+  "vars": {
+    "ENVI_WEB_URL": "https://your-dashboard.example.com",
+    "ENVIRONMENT": "production"
+  },
+  "preview_urls": false
+  ```
+
+  These are committed in plain text, so nothing secret belongs here.
+  `preview_urls: false` stops every deploy publishing a second public hostname
+  against the same database.
+</Step>
+
+<Step title="Deploy">
+  ```bash
+  bunx wrangler deploy
+  ```
+
+  A brand new `workers.dev` subdomain takes a minute or two to get its TLS
+  certificate. Until it does, every request fails the handshake — that is
+  expected, not a broken deploy.
+
+  ```bash
+  curl https://envi-api.YOUR-SUBDOMAIN.workers.dev/health
+  ```
+</Step>
+
+</Steps>
+
+<Warning>
+  `ENVI_ENCRYPTION_KEY` must be exactly 32 characters, and byte-identical to the
+  Go server's if the two will ever read the same data. A different key means
+  every existing secret is undecryptable — there is deliberately no recovery
+  path.
+</Warning>
+
+## Local development
+
+`.dev.vars` is gitignored and overrides `vars` when running `wrangler dev`, which
+is how local development stays pointed at localhost while deploys stay pointed at
+the real site.
+
+```
+ENVI_WEB_URL=http://localhost:3000
+ENVIRONMENT=development
+ENVI_ENCRYPTION_KEY=01234567890123456789012345678901
+RESEND_API_KEY=re_test_key_not_real
+RESEND_FROM=Envi <noreply@example.com>
+```
+
+```bash
+bun run db:local
+bun run dev
+```
+
+<Warning>
+  Use throwaway values here, not production ones. Local D1 is a separate, empty
+  database, so the real encryption key buys nothing — and a real Resend key means
+  local testing can email real people.
+</Warning>
+
+Point a client at it:
+
+```bash
+ENVI_API_URL=http://127.0.0.1:8787 envi auth
+```
+
+## Checking the deployment
+
+The device-code endpoint is public and writes to D1, so it tests both the
+database and the link configuration at once:
+
+```bash
+curl -X POST https://envi-api.YOUR-SUBDOMAIN.workers.dev/auth/device/code \
+  -H 'Content-Type: application/json' -d '{}'
+```
+
+`verification_uri` must be your real dashboard URL. If it says `localhost`, the
+`vars` never made it into the deploy.
+
+<Note>
+  Invitation and device-approval links are built from `ENVI_WEB_URL`. With
+  `ENVIRONMENT` set to anything other than a development label, a loopback URL
+  makes those requests fail outright rather than mailing links nobody can open.
+</Note>
+
+## Differences worth knowing
+
+- **The beta allowlist is compiled in.** Workers have no filesystem, so editing
+  the list means a redeploy, not a restart.
+- **`vars` changes need a redeploy**, where the Go server rereads `.env` on
+  restart.
+- **D1 has no `SELECT ... FOR UPDATE`.** Single-use guarantees — refresh
+  rotation, device redemption, invitation accept — come from conditional
+  `UPDATE` statements checked by rows-changed instead.
+- **Changing the D1 `database_id` resets your local database**, because
+  local state is keyed by that id. Re-run `bun run db:local`.
+
+## Without Cloudflare
+
+Prefer containers or your own machine? See [Docker Compose](/self-hosting/docker)
+or the [deployment walkthrough](/self-hosting/deployment).

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	projectctx "shellhaki/envi/internal/cli/project"
@@ -20,6 +21,10 @@ func envPath(dir string) string                          { return filepath.Join(
 func parseEnv(r io.Reader) (map[string]string, error) {
 	out := map[string]string{}
 	s := bufio.NewScanner(r)
+	// A private key or certificate on one quoted line comfortably exceeds
+	// bufio's 64KB default, which would otherwise surface as a truncated value
+	// rather than an error.
+	s.Buffer(make([]byte, 0, 64<<10), 4<<20)
 	for s.Scan() {
 		line := strings.TrimSpace(s.Text())
 		if line == "" || strings.HasPrefix(line, "#") {
@@ -33,9 +38,36 @@ func parseEnv(r io.Reader) (map[string]string, error) {
 		if k == "" {
 			return nil, errors.New("empty .env key")
 		}
-		out[k] = strings.Trim(strings.TrimSpace(line[i+1:]), "\"")
+		out[k] = unquoteValue(strings.TrimSpace(line[i+1:]))
 	}
 	return out, s.Err()
+}
+
+// unquoteValue reverses quoteValue. A double-quoted value carries escapes, so
+// newlines and surrounding whitespace survive; anything else is taken
+// literally, which keeps hand-written .env files working as before.
+func unquoteValue(v string) string {
+	if len(v) >= 2 && v[0] == '"' && v[len(v)-1] == '"' {
+		if unquoted, err := strconv.Unquote(v); err == nil {
+			return unquoted
+		}
+		// Not valid escape syntax (a hand-written "value" with a stray
+		// backslash, say) — fall back to stripping the delimiters.
+		return v[1 : len(v)-1]
+	}
+	return v
+}
+
+// quoteValue decides whether a value can be written bare. Newlines are the
+// case that matters: a private key written raw spreads across lines and the
+// file no longer parses at all, silently corrupting the secret it was meant to
+// carry. Leading and trailing spaces are quoted for the same reason — parsing
+// trims them, so writing them bare loses them.
+func quoteValue(v string) string {
+	if v == "" || (!strings.ContainsAny(v, "\n\r\"\\") && strings.TrimSpace(v) == v) {
+		return v
+	}
+	return strconv.Quote(v)
 }
 func writeEnv(path string, values map[string]string) error {
 	f, e := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
@@ -49,7 +81,7 @@ func writeEnv(path string, values map[string]string) error {
 	}
 	sort.Strings(keys)
 	for _, k := range keys {
-		if _, e = fmt.Fprintf(f, "%s=%s\n", k, values[k]); e != nil {
+		if _, e = fmt.Fprintf(f, "%s=%s\n", k, quoteValue(values[k])); e != nil {
 			return e
 		}
 	}

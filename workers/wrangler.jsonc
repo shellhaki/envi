@@ -1,0 +1,50 @@
+{
+	"name": "envi-api",
+	"main": "src/index.ts",
+	"compatibility_date": "2025-01-01",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"observability": {
+		"enabled": true
+	},
+
+	// Bound as DB because the code reads env.DB. No "remote" flag, so
+	// `wrangler dev` uses a local simulated database: local experiments must not
+	// write to the same D1 that serves real users. Reach the real one
+	// deliberately, with `--remote`.
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "envi",
+			"database_id": "001fa49e-5b78-47c1-9477-48b04128befc"
+		}
+	],
+
+	// Read cache only. Keys embed the environment revision, so entries are
+	// immutable and a stale one is never read rather than being wrong.
+	"kv_namespaces": [
+		{
+			"binding": "CACHE",
+			"id": "dc1fe5a953004f99bc9278210bf617a0"
+		}
+	],
+
+	// Production values. Plaintext and committed, so never a secret here.
+	// `wrangler dev` overrides these from .dev.vars, which is gitignored — that
+	// is how local development stays pointed at localhost while deploys stay
+	// pointed at the real site.
+	"vars": {
+		"ENVI_WEB_URL": "https://envisecrets.com",
+		"ENVIRONMENT": "production"
+	},
+
+	// Every deploy would otherwise publish a second public hostname running the
+	// same API against the same database.
+	"preview_urls": false
+
+	// Secrets, already set with `wrangler secret put <NAME>`:
+	//   ENVI_ENCRYPTION_KEY  exactly 32 characters, identical to the Go server
+	//   RESEND_API_KEY
+	//   RESEND_FROM
+}
