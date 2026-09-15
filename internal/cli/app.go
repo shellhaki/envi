@@ -75,14 +75,15 @@ func (a App) Run(args []string) int {
 		if e := fs.Parse(args[1:]); e != nil {
 			return ExitUsage
 		}
-		// init prompts, so it gets the raw writer: a spinner would fight with
-		// the questions it asks.
-		return a.authenticated("Preparing", func(c Client, _ io.Writer) error {
+		// init prompts, so it must print through the spinner's writer: the first
+		// prompt stops the animation. Writing to a.Out directly leaves the
+		// spinner redrawing over the questions while init waits for input.
+		return a.authenticated("Loading projects", func(c Client, out io.Writer) error {
 			dir, e := os.Getwd()
 			if e != nil {
 				return e
 			}
-			return projectctx.Init(context.Background(), c, a.input(), a.Out, dir, *name, *env)
+			return projectctx.Init(context.Background(), c, a.input(), out, dir, *name, *env)
 		})
 	case "pull", "push", "diff":
 		labels := map[string]string{"pull": "Pulling secrets", "push": "Pushing secrets", "diff": "Comparing with remote"}
