@@ -4,7 +4,7 @@
 #   Build Pack        Dockerfile
 #   Dockerfile        Dockerfile
 #   Base Directory    /docs
-#   Ports Exposes     3000
+#   Ports Exposes     3351
 #
 # The build context is this directory, so paths below are relative to /docs.
 
@@ -25,12 +25,12 @@ RUN bunx --bun next build
 # image needs neither bun nor node_modules.
 FROM node:22-alpine AS runtime
 WORKDIR /app
-ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3351 HOSTNAME=0.0.0.0
 RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
 COPY --from=build --chown=nextjs:nodejs /app/.next/standalone ./
 # standalone deliberately omits these two; without them every asset 404s.
 COPY --from=build --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=build --chown=nextjs:nodejs /app/public ./public
 USER nextjs
-EXPOSE 3000
+EXPOSE 3351
 CMD ["node", "server.js"]

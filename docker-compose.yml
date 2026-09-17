@@ -83,7 +83,7 @@ services:
     depends_on:
       - api
     ports:
-      - "${ENVI_WEB_PORT:-3000}:3000"
+      - "${ENVI_WEB_PORT:-3000}:3352"
     restart: unless-stopped
 
 volumes:
