@@ -11,3 +11,4 @@ info.txt
 node_modules/
 .next
 envi.toml
+.env.prod
