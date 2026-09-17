@@ -218,6 +218,16 @@ html[data-theme=dark] .brand-logo-dark { display: block; }
 .command { margin: 18px; width: max-content; padding: 10px 13px; display: flex; align-items: center; gap: 9px; background: #09090b; color: #fafafa; border-radius: var(--r); }
 /* The prompt glyph is the one spot of yellow in the terminal chip. */
 .command svg { width: 14px; color: var(--accent); }
+
+/* Hero demo. aspect-ratio reserves the space before the video loads, so the
+   hero never jumps once it does. object-fit: cover keeps the frame filled at
+   any column width without letterboxing. */
+.demo-frame {
+  position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden;
+  border: 1px solid var(--line); border-radius: var(--r-xl);
+  background: var(--surface-2); box-shadow: var(--shadow-lg);
+}
+.demo-video { display: block; width: 100%; height: 100%; object-fit: cover; background: var(--surface-2); }
 .feature-band { border-block: 1px solid var(--line); display: grid; grid-template-columns: repeat(3, 1fr); }
 .feature-band article { min-height: 248px; padding: 46px; border-right: 1px solid var(--line); }
 .feature-band article:last-child { border: 0; }
