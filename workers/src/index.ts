@@ -177,6 +177,11 @@ app.post("/projects", requireAuth, async (c) => {
   return c.json(await projects.create(c.env.DB, userId(c), org_id, name), 201);
 });
 
+app.delete("/projects/:id", requireAuth, async (c) => {
+  await projects.remove(c.env.DB, userId(c), param(c, "id"));
+  return c.body(null, 204);
+});
+
 app.get("/projects/:id/environments", requireAuth, async (c) =>
   c.json(await projects.listEnvironments(c.env.DB, userId(c), param(c, "id"))),
 );

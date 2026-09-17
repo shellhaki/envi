@@ -31,7 +31,9 @@ async function api<T>(path: string, init: RequestInit = {}) {
   let r = await send();
   if (r.status === 401 && await ensureSession()) r = await send();
   const b = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(b.error || "Request failed");
+  // Status travels with the error so callers can branch on it; the message
+  // text differs between the Go and Workers servers for the same refusal.
+  if (!r.ok) throw Object.assign(new Error(b.error || "Request failed"), { status: r.status });
   return b as T;
 }
 
@@ -64,6 +66,10 @@ export default function Workspace({ page }: { page: Page }) {
   const [copied, setCopied] = useState("");
   const [dragging, setDragging] = useState(false);
   const [modal, setModal] = useState<"project" | "secret" | "share" | "import">();
+  const [deleting, setDeleting] = useState<Project>();
+  // Only projects in the viewer's own org offer delete; the server enforces
+  // owner/admin regardless, this just avoids a button that can only fail.
+  const [myOrg, setMyOrg] = useState<string>();
   // Every list starts in flight rather than empty. Without this, the first
   // paint renders "No projects yet" against state that simply hasn't been
   // fetched, which reads as a bug rather than as loading.
@@ -75,6 +81,7 @@ export default function Workspace({ page }: { page: Page }) {
 
   const loadProjects = useCallback(() => {
     setLoadingProjects(true);
+    api<{ OrganizationID: string }>("/me").then((m) => setMyOrg(m.OrganizationID)).catch(() => {});
     return api<Project[]>("/projects").then((x) => {
       const list = x ?? [];
       setProjects(list);
@@ -99,8 +106,11 @@ export default function Workspace({ page }: { page: Page }) {
     return api<Env[]>(`/projects/${pid}/environments`).then(async (x) => {
       let list = x ?? [];
       if (!list.length) {
-        const created = await api<Env>(`/projects/${pid}/environments`, { method: "POST", body: JSON.stringify({ name: "default", is_production: false }) });
-        list = [created];
+        // A read-only collaborator may not create one. That is not an error to
+        // show them — the project simply has nothing in it yet.
+        const created = await api<Env>(`/projects/${pid}/environments`, { method: "POST", body: JSON.stringify({ name: "default", is_production: false }) })
+          .catch((err: Error & { status?: number }) => { if (err.status === 403) return undefined; throw err; });
+        list = created ? [created] : [];
       }
       setEnv((e) => list.find((i) => i.ID === e?.ID) || list[0]);
     }).catch((e) => setError(e.message)).finally(() => setLoadingEnv(false));
@@ -151,6 +161,13 @@ export default function Workspace({ page }: { page: Page }) {
   // Project and environment resolve as a waterfall, so anything downstream of
   // them is still loading while either is in flight.
   const contextLoading = loadingProjects || loadingEnv;
+
+  async function deleteProject(p: Project) {
+    await api(`/projects/${p.ID}`, { method: "DELETE" });
+    setDeleting(undefined);
+    setNotice(`Deleted ${p.Name}.`);
+    await loadProjects();
+  }
 
   async function revokeCollaborator(c: Collaborator) {
     if (!project || !confirm(c.status === "pending" ? `Cancel the invitation to ${c.email}?` : `Remove ${c.email}'s access?`)) return;
@@ -284,10 +301,18 @@ export default function Workspace({ page }: { page: Page }) {
     </section>}
 
     {page === "projects" && (loadingProjects ? <Loading label="Loading projects" /> : <div className="project-grid">
-      {projects.map((p) => <button key={p.ID} className={"project-card" + (p.ID === project?.ID ? " active" : "")} onClick={() => setProject(p)}>
-        <div className="proj-top"><div className="proj-icon"><Folder /></div>{p.ID === project?.ID && <span className="badge selected">Selected</span>}</div>
-        <strong>{p.Name}</strong><small>{p.ID.slice(0, 8)}</small>
-      </button>)}
+      {projects.map((p) => {
+        const deletable = p.OrgID === myOrg;
+        return <div key={p.ID} className={"project-card item" + (p.ID === project?.ID ? " active" : "") + (deletable ? " deletable" : "")}>
+          {/* Siblings, not nested: a button inside a button is invalid, and
+              it folds the delete label into the card's accessible name. */}
+          <button type="button" className="project-select" aria-pressed={p.ID === project?.ID} onClick={() => setProject(p)}>
+            <div className="proj-top"><div className="proj-icon"><Folder /></div>{p.ID === project?.ID && <span className="badge selected">Selected</span>}</div>
+            <strong>{p.Name}</strong><small>{p.ID.slice(0, 8)}</small>
+          </button>
+          {deletable && <button type="button" className="icon-btn danger proj-delete" title={`Delete ${p.Name}`} aria-label={`Delete ${p.Name}`} onClick={() => setDeleting(p)}><Trash2 /></button>}
+        </div>;
+      })}
       <button className="project-card new" onClick={() => setModal("project")}><FolderPlus /><strong>New project</strong></button>
     </div>)}
 
@@ -327,6 +352,7 @@ export default function Workspace({ page }: { page: Page }) {
       </div> : <Empty icon={<Activity />} title="No activity yet" text="Reads, writes, and deletes on your secrets will show up here." />}
     </section>}
 
+    {deleting && <DeleteProjectDialog project={deleting} close={() => setDeleting(undefined)} onDelete={() => deleteProject(deleting)} />}
     {modal === "import" && <ImportDialog projectName={project?.Name || ""} close={() => setModal(undefined)} onImport={importValues} />}
     {modal && modal !== "import" && <Dialog type={modal} close={() => setModal(undefined)} submit={(d) => submit(modal, d)} />}
   </main>;
@@ -365,6 +391,26 @@ function Dialog({ type, close, submit }: { type: "project" | "secret" | "share";
       {type === "share" && <><Field name="email" label="Email" type="email" placeholder="teammate@company.com" /><div className="field"><span>Permission</span><Select name="permission" ariaLabel="Permission" value={permission} onChange={setPermission} options={[{ value: "read", label: "Read — view and pull" }, { value: "write", label: "Write — push and change" }, { value: "manage", label: "Manage — invite and manage access" }]} /></div></>}
       {error && <p className="form-error">{error}</p>}
       <button className="button primary" disabled={busy}>{busy && <span className="spinner" />}{busy ? "Saving..." : "Save"}</button>
+    </form>
+  </div>;
+}
+function DeleteProjectDialog({ project, close, onDelete }: { project: Project; close: () => void; onDelete: () => Promise<void> }) {
+  const [typed, setTyped] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const confirmed = typed.trim() === project.Name;
+  return <div className="dialog-backdrop" onMouseDown={busy ? undefined : close}>
+    <form className="dialog" onMouseDown={(e) => e.stopPropagation()} onSubmit={async (e: FormEvent<HTMLFormElement>) => {
+      e.preventDefault();
+      if (!confirmed) return;
+      setBusy(true); setError("");
+      try { await onDelete(); } catch (x) { setBusy(false); setError((x as Error).message); }
+    }}>
+      <header><h2>Delete {project.Name}</h2><button type="button" onClick={close} disabled={busy}>×</button></header>
+      <p className="dialog-sub">Its environments, secrets, history and collaborator access go with it. This can&rsquo;t be undone.</p>
+      <label>Type <strong>{project.Name}</strong> to confirm<input autoFocus autoComplete="off" spellCheck={false} value={typed} onChange={(e) => setTyped(e.target.value)} /></label>
+      {error && <p className="form-error">{error}</p>}
+      <button className="button danger" disabled={!confirmed || busy}>{busy && <span className="spinner" />}{busy ? "Deleting..." : "Delete project"}</button>
     </form>
   </div>;
 }

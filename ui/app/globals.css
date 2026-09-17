@@ -164,6 +164,8 @@ html[data-theme=dark] .brand-logo-dark { display: block; }
 .button.accent:hover { background: color-mix(in srgb, var(--accent) 88%, #000); }
 .button.secondary { border-color: var(--line-strong); background: var(--surface); color: var(--text); }
 .button.secondary:hover { background: var(--surface-2); }
+.button.danger { border-color: var(--danger); background: var(--danger); color: #fff; }
+.button.danger:hover:not(:disabled) { background: color-mix(in srgb, var(--danger) 88%, #000); }
 .button.ghost { background: transparent; color: var(--text-2); }
 .button.ghost:hover { background: var(--surface-2); color: var(--text); }
 .button.large { min-height: 44px; padding: 0 20px; font-size: 14px; }
@@ -471,6 +473,10 @@ footer { min-height: 96px; padding: 0 24px; display: flex; align-items: center; 
 .project-card:active { transform: translateY(1px); }
 .project-card.new { align-items: center; justify-content: center; text-align: center; border-style: dashed; color: var(--muted); min-height: 112px; }
 .project-card .proj-top { display: flex; align-items: center; justify-content: space-between; }
+.project-card.item { position: relative; padding: 0; }
+.project-card .project-select { width: 100%; padding: 17px; display: grid; gap: 4px; border: 0; border-radius: inherit; background: none; text-align: left; color: inherit; cursor: pointer; }
+.project-card.deletable .proj-top { padding-right: 38px; }
+.project-card .proj-delete { position: absolute; top: 19px; right: 14px; }
 .project-card .proj-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: var(--r-sm); background: var(--surface-2); color: var(--text-2); }
 .project-card .proj-icon svg { width: 17px; }
 .project-card strong { margin-top: 12px; font-size: 14.5px; font-weight: 600; }

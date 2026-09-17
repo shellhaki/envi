@@ -1,5 +1,5 @@
 import { isOrgMember } from "./access";
-import { all, now, one, run, uuid } from "./db";
+import { all, changed, now, one, run, uuid } from "./db";
 import { conflict, forbidden } from "./errors";
 
 export type Project = { ID: string; OrgID: string; Name: string };
@@ -75,4 +75,21 @@ async function canSeeProject(db: D1Database, userId: string, projectId: string):
     userId,
   );
   return Boolean(row?.ok);
+}
+
+/**
+ * Owner or admin only. Environments, secrets, versions, grants, invitations and
+ * service tokens go with it through ON DELETE CASCADE.
+ */
+export async function remove(db: D1Database, userId: string, projectId: string): Promise<void> {
+  const count = await changed(
+    db,
+    `DELETE FROM projects WHERE id=?1 AND EXISTS(
+       SELECT 1 FROM memberships m WHERE m.org_id=projects.org_id AND m.user_id=?2 AND m.role IN ('owner','admin'))`,
+    projectId,
+    userId,
+  );
+  // Zero, not "not one": D1's change count for this statement includes the
+  // cascaded rows, so a successful delete reports more than 1.
+  if (count === 0) throw forbidden("only an owner or admin can delete this project");
 }

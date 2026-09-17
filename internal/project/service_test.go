@@ -46,8 +46,18 @@ func TestProjectEnvironmentIntegration(t *testing.T) {
 	if e = s.DeleteEnvironment(t.Context(), w.UserID, env.ID); e != nil {
 		t.Fatal(e)
 	}
+	if _, e = s.CreateEnvironment(t.Context(), w.UserID, p.ID, "cascade-check", false); e != nil {
+		t.Fatal(e)
+	}
+	if e = s.Delete(t.Context(), other.UserID, p.ID); e != ErrForbidden {
+		t.Fatal("a user outside the org deleted the project")
+	}
 	if e = s.Delete(t.Context(), w.UserID, p.ID); e != nil {
 		t.Fatal(e)
+	}
+	var remaining int
+	if e = db.QueryRow(t.Context(), `SELECT (SELECT count(*) FROM projects WHERE id=$1)+(SELECT count(*) FROM environments WHERE project_id=$1)`, p.ID).Scan(&remaining); e != nil || remaining != 0 {
+		t.Fatalf("project or its environments survived deletion: %d rows (%v)", remaining, e)
 	}
 	_, _ = db.Exec(t.Context(), `DELETE FROM users WHERE id IN($1,$2)`, w.UserID, other.UserID)
 }

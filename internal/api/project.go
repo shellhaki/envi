@@ -13,6 +13,7 @@ func (h ProjectHandler) Routes(r *gin.Engine) {
 	r.GET("/projects", h.list)
 	r.POST("/projects/:id/environments", h.createEnv)
 	r.GET("/projects/:id/environments", h.listEnv)
+	r.DELETE("/projects/:id", h.delete)
 }
 func (h ProjectHandler) RoutesProtected(r *gin.Engine, m gin.HandlerFunc) {
 	g := r.Group("/", m)
@@ -20,6 +21,7 @@ func (h ProjectHandler) RoutesProtected(r *gin.Engine, m gin.HandlerFunc) {
 	g.GET("/projects", h.list)
 	g.POST("/projects/:id/environments", h.createEnv)
 	g.GET("/projects/:id/environments", h.listEnv)
+	g.DELETE("/projects/:id", h.delete)
 }
 func (h ProjectHandler) user(c *gin.Context) string { return c.GetString("user_id") }
 func (h ProjectHandler) create(c *gin.Context) {
@@ -81,4 +83,20 @@ func (h ProjectHandler) listEnv(c *gin.Context) {
 		return
 	}
 	c.JSON(200, e)
+}
+
+// delete removes the project and, through ON DELETE CASCADE, every
+// environment, secret, version, grant, invitation and service token under it.
+// Only an owner or admin of the project's org may do it.
+func (h ProjectHandler) delete(c *gin.Context) {
+	err := h.Service.Delete(c, h.user(c), c.Param("id"))
+	if err == project.ErrForbidden {
+		c.JSON(403, gin.H{"code": "forbidden", "error": "only an owner or admin can delete this project"})
+		return
+	}
+	if err != nil {
+		c.JSON(500, gin.H{"code": "internal", "error": "project could not be deleted"})
+		return
+	}
+	c.Status(204)
 }
