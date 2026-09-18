@@ -12,3 +12,4 @@ node_modules/
 .next
 envi.toml
 .env.prod
+.env.cli

@@ -19,8 +19,28 @@ help: ## List available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | \
 		awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
 
-build-envi: ## Build the envi CLI into ~/.local/bin
-	cd cmd/envi && go build -o ~/.local/bin/envi
+# Build-time settings for the CLI. .env.cli is the source of truth: every
+# KEY=VALUE in it becomes -X internal/cli.KEY=VALUE, so adding a setting means
+# declaring the Go var and adding a line there. .env.cli.example is only an
+# example of what the file usually holds.
+#
+# CI has no .env.cli of its own — the release workflow writes one from the
+# repository secret before building, so both paths read the same file.
+CLI_PKG = shellhaki/envi/internal/cli
+
+.PHONY: cli-ldflags
+cli-ldflags: ## Print the -X flags the CLI is built with
+	@[ -f .env.cli ] || exit 0; \
+	sed -e 's/[[:space:]]*#.*$$//' -e '/^[[:space:]]*$$/d' .env.cli | \
+	while IFS='=' read -r k v; do \
+	  k=$$(printf '%s' "$$k" | tr -d '[:space:]'); \
+	  [ -n "$$k" ] && [ -n "$$v" ] && printf ' -X %s.%s=%s' "$(CLI_PKG)" "$$k" "$$v"; \
+	done; true
+
+build-envi: ## Build the envi CLI into ~/.local/bin (settings from .env.cli)
+	@flags="$$($(MAKE) -s cli-ldflags)"; \
+	go build -ldflags "-X main.version=dev-local$$flags" -o ~/.local/bin/envitest ./cmd/envi; \
+	echo "built dev-local with:$${flags:- (no .env.cli; compiled defaults stand)}"
 
 build-api: ## Build the API server into bin/envi-api (for pm2, see ecosystem.config.js)
 	go build -o bin/envi-api ./cmd/api

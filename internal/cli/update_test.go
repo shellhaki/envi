@@ -35,13 +35,13 @@ func TestCompareVersions(t *testing.T) {
 
 func TestIsDevBuild(t *testing.T) {
 	for _, v := range []string{"dev", "", "dev-abc123", "  dev  "} {
-		if !isDevBuild(v) {
-			t.Errorf("isDevBuild(%q) = false, want true", v)
+		if !IsDevBuild(v) {
+			t.Errorf("IsDevBuild(%q) = false, want true", v)
 		}
 	}
 	for _, v := range []string{"0.0.1", "v1.2.3", "1.0.0-rc1"} {
-		if isDevBuild(v) {
-			t.Errorf("isDevBuild(%q) = true, want false", v)
+		if IsDevBuild(v) {
+			t.Errorf("IsDevBuild(%q) = true, want false", v)
 		}
 	}
 }

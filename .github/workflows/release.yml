@@ -18,6 +18,22 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      # The build reads .env.cli, so CI writes one from the repository secret
+      # rather than inventing a second mechanism. Without the secret the file is
+      # absent and the compiled defaults stand, which for a stamped build is the
+      # hosted API — a missing secret cannot ship a binary pointing nowhere.
+      - name: Write CLI build settings
+        env:
+          ENV_CLI: ${{ secrets.ENV_CLI }}
+        run: |
+          if [ -n "$ENV_CLI" ]; then
+            printf '%s\n' "$ENV_CLI" > .env.cli
+            echo "wrote .env.cli with $(grep -c '=' .env.cli) setting(s)"
+          else
+            echo "no ENV_CLI secret; building with compiled defaults"
+          fi
+          echo "CLI_LDFLAGS=$(make -s cli-ldflags)" >> "$GITHUB_ENV"
+
       - uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
@@ -25,3 +41,4 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CLI_LDFLAGS: ${{ env.CLI_LDFLAGS }}

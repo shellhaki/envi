@@ -58,14 +58,6 @@ func splitVersion(v string) ([3]int, string) {
 	return out, pre
 }
 
-// isDevBuild reports a binary built from source rather than installed from a
-// release. Replacing one with a release build would silently discard local
-// work, so update refuses unless explicitly forced.
-func isDevBuild(version string) bool {
-	v := strings.TrimSpace(version)
-	return v == "" || v == "dev" || strings.HasPrefix(v, "dev-")
-}
-
 // UpdateCheck reports whether a newer release exists, without touching disk.
 func UpdateCheck(ctx context.Context, ui UI, current string) error {
 	ui.Step("Checking for updates...")
@@ -74,7 +66,7 @@ func UpdateCheck(ctx context.Context, ui UI, current string) error {
 		return err
 	}
 	latest := strings.TrimPrefix(release.Tag, "v")
-	if isDevBuild(current) {
+	if IsDevBuild(current) {
 		ui.Warn("This is a development build; latest release is %s.", ui.Bold(latest))
 		return nil
 	}
@@ -98,7 +90,7 @@ func UpdateCheck(ctx context.Context, ui UI, current string) error {
 // kept aside until the swap succeeds, and any failure after the swap begins
 // puts the original back.
 func UpdateNow(ctx context.Context, ui UI, current string, force bool) error {
-	if isDevBuild(current) && !force {
+	if IsDevBuild(current) && !force {
 		return errors.New("this is a development build; run with --force to overwrite it with the latest release")
 	}
 
@@ -122,7 +114,7 @@ func UpdateNow(ctx context.Context, ui UI, current string, force bool) error {
 		return err
 	}
 	latest := strings.TrimPrefix(release.Tag, "v")
-	if !force && !isDevBuild(current) && CompareVersions(current, latest) >= 0 {
+	if !force && !IsDevBuild(current) && CompareVersions(current, latest) >= 0 {
 		ui.Success("Already up to date (%s).", current)
 		return nil
 	}

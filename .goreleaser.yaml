@@ -13,7 +13,10 @@ builds:
     env:
       - CGO_ENABLED=0
     ldflags:
-      - -s -w -X main.version={{.Version}}
+      # CLI_LDFLAGS is computed by `make cli-ldflags` in the release workflow,
+      # from the keys in .env.cli.example and the values in the repository's
+      # Actions variables. Adding a build-time setting needs no change here.
+      - -s -w -X main.version={{.Version}}{{ .Env.CLI_LDFLAGS }}
     goos:
       - darwin
       - linux
