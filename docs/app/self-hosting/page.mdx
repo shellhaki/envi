@@ -27,20 +27,13 @@ The Next.js dashboard is a separate deployable — it's a client of the API, exa
 
 OTP codes and invitations go out through [Resend](https://resend.com) — bring your own API key and a verified sending domain. Without a verified domain, Resend restricts sending to the address your own account is registered with, which is enough to test the flow but not to invite real users.
 
-## Three ways to run it
+## Two ways to run it
 
 <CardGroup cols={2}>
   <Card title="Docker Compose" href="/self-hosting/docker">
     The whole stack — database, cache, API, install server, dashboard — in one command. Start here.
   </Card>
-  <Card title="Cloudflare Workers" href="/self-hosting/workers">
-    A second implementation of the same API on Workers, D1 and KV. No server to patch and nothing to keep running.
-  </Card>
   <Card title="Directly on a VPS" href="/self-hosting/deployment">
     Binaries under a process manager, no containers: system dependencies, the database, TLS.
   </Card>
 </CardGroup>
-
-The Workers port speaks the same wire protocol as the Go server, so the CLI and
-dashboard work against either — but the two do not share a database, and a
-Workers instance starts empty.
