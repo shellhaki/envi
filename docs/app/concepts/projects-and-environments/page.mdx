@@ -14,16 +14,33 @@ Envi organizes secrets in three layers:
 
 **Environment** — a named set of secrets within a project: `development`, `staging`, `production`, or whatever you call yours. Each has its own secrets, its own access grants, and its own revision counter for conflict detection.
 
-<Note>
-  The web dashboard currently shows one environment per project — it's provisioned automatically the first time you visit a project, so the common case needs no setup. The CLI and API support multiple named environments per project; create additional ones with `envi env create <name>`.
-</Note>
+Opening a project in the dashboard provisions its first environment, so the common case needs no setup. A project created from the CLI has none until you add one, and `envi init` needs at least one to link a directory to. Add them from the dashboard's environment picker, or with `envi origin create <name>`.
+
+## Switching between them
+
+The CLI calls an environment an **origin**: a working directory is linked to exactly one at a time, recorded in `envi.toml`, and `pull`, `push`, and `diff` all act on it.
+
+```bash
+envi origin list
+envi origin switch production
+```
+
+Switching repoints `envi.toml` and pulls that origin's secrets into `.env`. If `.env` holds changes you have not pushed, the switch is refused rather than throwing them away — pass `--force` when discarding them is what you meant.
+
+You can also write to an origin without leaving the one you are on:
+
+```bash
+envi push .env.staging origin staging
+```
+
+That prints what will change and asks before going ahead, since it touches an environment you are not looking at.
 
 ## Production is marked explicitly
 
 An environment is either production or it isn't — there's no inference from its name. Mark one on creation:
 
 ```bash
-envi env create production --production
+envi origin create production --production
 ```
 
 This matters for access: see [Access & Permissions](/concepts/access-and-permissions) for how production-marked environments are treated differently from the rest.
@@ -33,7 +50,10 @@ This matters for access: see [Access & Permissions](/concepts/access-and-permiss
 Every environment has a revision counter that increments on every write. `envi push` sends the revision it last saw alongside the new values — if that no longer matches (because someone else pushed in between), the push is rejected instead of silently overwriting their change:
 
 ```
-stale_revision: remote secrets changed; run envi diff or envi pull
+remote secrets have changed since your last pull; run envi pull to take them,
+or envi push --force to overwrite them with your local file
 ```
 
 This is optimistic concurrency control, the same idea as an HTTP `ETag` — cheap, and it only gets in your way when there's an actual conflict to resolve.
+
+Usually `envi pull` is the right answer: take what's there, reconcile by hand, push again. When the remote holds nothing you want — a scratch environment, a file you already know is authoritative — `envi push --force` reads the current revision and writes over it instead.

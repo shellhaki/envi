@@ -6,9 +6,17 @@ Sign in at your Envi instance's web address with the same passwordless flow as t
 
 A workspace-level summary: how many projects you have, how many secrets are in the currently selected one, and quick actions for the things you'll do most — new project, add a secret, import a `.env` file, invite a collaborator.
 
+## Choosing a project and environment
+
+A bar across the top of every page picks the project you're working in and, beside it, which of its environments you're looking at. Everything below — secrets, activity, the revision badge — follows that pair.
+
+Production environments carry a `PRODUCTION` badge next to the picker, so you know before you edit anything that you're in the one that matters.
+
+**New environment** adds another to the current project. Name it whatever you like; the production checkbox is the same explicit marking the CLI's `--production` flag sets, with the same consequence — org members stop getting access automatically and each person needs a grant of their own. A project's last environment can't be deleted.
+
 ## Secrets
 
-The full key/value table for the selected project's environment. Values are masked by default; reveal one at a time, or copy a value directly without ever displaying it on screen.
+The full key/value table for the selected environment. Values are masked by default; reveal one at a time, or copy a value directly without ever displaying it on screen.
 
 <Tip>
   Drag a `.env` file anywhere onto this panel to import it — existing keys with the same name are overwritten, everything else is merged in.
@@ -18,7 +26,7 @@ The revision badge (`REV n`) in the toolbar matches what `envi diff` and `envi p
 
 ## Projects
 
-A grid of every project you have access to. Selecting one here changes which project's secrets and activity you're viewing everywhere else in the dashboard.
+A grid of every project you have access to. Selecting one here changes which project's secrets and activity you're viewing everywhere else in the dashboard. Each card also carries a delete button, which removes the project along with all of its environments and their secrets.
 
 ## Sharing
 

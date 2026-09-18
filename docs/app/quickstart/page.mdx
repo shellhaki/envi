@@ -6,14 +6,24 @@
 
     This opens your browser to approve the device — no password, ever. Prefer email codes instead? Use `envi auth --email you@company.com`.
   </Step>
-  <Step title="Initialize a project">
+  <Step title="Create a project and an environment">
+    ```bash
+    envi project create acme-api
+    envi origin create development --project acme-api
+    ```
+
+    A project needs at least one environment before a directory can be linked to it. The dashboard provisions a first one for you the moment you open a project; from the CLI you create it yourself.
+  </Step>
+  <Step title="Link your repo to it">
     From the root of the repo you want to manage secrets for:
 
     ```bash
     envi init
     ```
 
-    You'll be prompted to pick or create a project and an environment. This writes an `envi.toml` linking the current directory to that project — commit it, it holds no secrets, just IDs.
+    You'll be asked to pick one of your projects, then one of its environments. This writes an `envi.toml` linking the current directory to that pair — commit it, it holds no secrets, just IDs.
+
+    `envi init --project acme-api --env development` skips both prompts.
   </Step>
   <Step title="Push your existing .env">
     Already have a `.env` file here? Send it up:
@@ -47,10 +57,27 @@ envi diff
 This compares your local `.env` against the remote without changing either side — it prints `added`, `removed`, and `changed` keys. If someone else pushed since you last pulled, `envi push` fails with a conflict rather than silently overwriting their changes:
 
 ```
-stale_revision: remote secrets changed; run envi diff or envi pull
+remote secrets have changed since your last pull; run envi pull to take them,
+or envi push --force to overwrite them with your local file
 ```
 
-Run `envi pull` to catch up, resolve any overlap by hand, then push again.
+Run `envi pull` to catch up, resolve any overlap by hand, then push again. If the remote holds nothing you want, `envi push --force` writes over it instead.
+
+## More than one environment
+
+Projects hold as many environments as you need — the CLI calls them origins, and a directory is linked to one at a time:
+
+```bash
+envi origin create staging
+envi origin list
+envi origin switch staging
+```
+
+Switching pulls that origin's secrets into `.env`, and refuses if `.env` has changes you haven't pushed yet. To send a file to another origin without leaving the one you're on:
+
+```bash
+envi push .env.staging origin staging
+```
 
 ## Inviting a collaborator
 

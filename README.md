@@ -108,9 +108,12 @@ The CLI and the dashboard are two clients of the same API — neither one is a s
 | `envi init` | Link the current directory to a project and environment |
 | `envi pull` | Write the environment's secrets to `.env` |
 | `envi push` | Send local `.env` changes up, with conflict detection |
+| `envi push <file> [origin <name>]` | Push a named file, optionally to another environment |
 | `envi diff` | Show what's changed between local and remote before you push |
 | `envi project create <name>` | Create a project |
-| `envi env create <name>` | Create an environment under the current project |
+| `envi origin list` | List the project's environments, marking the current one |
+| `envi origin switch <name>` | Point this directory at another environment and pull it |
+| `envi origin create <name>` | Create an environment under the current project |
 | `envi share <email>` | Invite a collaborator with scoped access |
 | `envi invite accept <token>` | Accept an invitation |
 | `envi token create --name <name>` | Mint a scoped service token for CI/CD |

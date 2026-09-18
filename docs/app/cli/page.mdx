@@ -52,21 +52,52 @@ envi init --project acme-api --env production
 envi project create acme-api
 ```
 
-### `envi env create <name>`
+## Environments
 
-Creates an environment under the current directory's project (from `envi.toml`).
+A project holds any number of environments. The CLI calls them **origins**, because from a working directory what matters is which one you are pointed at — the dashboard and the API call the same thing an environment.
 
-<ParamField query="--project" type="string">Project name, if not using the current directory's `envi.toml`</ParamField>
-<ParamField query="--production" type="boolean">Mark this environment as production</ParamField>
+### `envi origin list`
+
+Lists the current project's origins, marking the one this directory is linked to.
 
 ```bash
-envi env create staging
-envi env create production --production
+envi origin list
 ```
+
+```
+* development
+  production
+```
+
+### `envi origin switch <name>`
+
+Repoints `envi.toml` at another origin and pulls its secrets into `.env`. If `.env` holds changes you have not pushed, the switch is refused rather than discarding them.
+
+<ParamField query="--force" type="boolean">Overwrite unpushed local `.env` changes instead of refusing</ParamField>
+
+```bash
+envi origin switch production
+```
+
+`envi origin use` is an accepted alias.
+
+### `envi origin create <name>`
+
+Creates an origin under the current directory's project (from `envi.toml`). It does not switch to it.
+
+<ParamField query="--project" type="string">Project name, if not using the current directory's `envi.toml`</ParamField>
+<ParamField query="--production" type="boolean">Mark this origin as production</ParamField>
+
+```bash
+envi origin create staging
+envi origin create production --production
+```
+
+`envi env create <name>` is an accepted alias, with the same flags.
 
 ## Working with secrets
 
-These three all operate on the environment linked by `envi init` in the current directory.
+These three all operate on the origin linked by `envi init` in the current directory, unless you name another one.
 
 ### `envi pull`
 
@@ -76,13 +107,43 @@ Writes the environment's current secrets to `.env`, at `0600` permissions.
 envi pull
 ```
 
-### `envi push`
+### `envi push [file] [origin <name>]`
 
-Sends local `.env` changes up. Fails with a conflict if the remote has changed since your last pull or push.
+Sends a local env file up. With no arguments it pushes `.env` to the origin this directory is linked to.
 
 ```bash
 envi push
 ```
+
+Name a file to push something other than `.env`:
+
+```bash
+envi push .env.test
+```
+
+Add `origin <name>` to write to a different origin without switching to it. Because that changes an origin you are not looking at, it prints what will change and waits for a yes:
+
+```bash
+envi push .env.test origin production
+```
+
+<ParamField query="--force" type="boolean">
+  Push even though the remote has moved on since your last pull, overwriting it with your local file. It also answers the confirmation prompt, so a cross-origin push with `--force` runs unattended.
+</ParamField>
+<ParamField query="--yes" type="boolean">
+  Answer the confirmation prompt, without forcing past a conflict.
+</ParamField>
+
+Without `--force`, a remote that changed since your last pull is rejected rather than overwritten:
+
+```
+remote secrets have changed since your last pull; run envi pull to take them,
+or envi push --force to overwrite them with your local file
+```
+
+<Note>
+  A push adds and updates the keys in the file it sends. It does not delete keys the file leaves out — remove those from the dashboard.
+</Note>
 
 ### `envi diff`
 
