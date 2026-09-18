@@ -109,32 +109,82 @@ func Pull(ctx context.Context, c Client, dir string) (int, error) {
 	return len(snapshot.Values), projectctx.Write(dir, x)
 }
 
-// Push sends local .env changes up, returning how many secrets were sent.
-func Push(ctx context.Context, c Client, dir string) (int, error) {
+// Push sends a local env file up, returning how many secrets were sent.
+//
+// The write is a compare-and-swap against the revision recorded in envi.toml,
+// so an origin that moved on since the last pull is rejected rather than
+// quietly overwritten. force skips that check and writes against whatever the
+// server currently holds, for when the local file is already the wanted state
+// and pulling first would only drag down secrets destined to be discarded.
+func Push(ctx context.Context, c Client, dir, file string, force bool) (int, error) {
 	x, e := loadContext(dir)
 	if e != nil {
 		return 0, e
 	}
-	f, e := os.Open(envPath(dir))
-	if os.IsNotExist(e) {
-		return 0, errors.New(".env not found")
-	}
+	values, e := readEnvFile(resolveEnvFile(dir, file))
 	if e != nil {
 		return 0, e
 	}
-	defer f.Close()
-	values, e := parseEnv(f)
-	if e != nil {
-		return 0, e
+	expected := x.Environment.Revision
+	if force {
+		if expected, e = currentRevision(ctx, c, x.Environment.ID); e != nil {
+			return 0, e
+		}
 	}
 	var result struct {
 		Revision int64 `json:"revision"`
 	}
-	if e = c.Do(ctx, "PUT", "/environments/"+x.Environment.ID+"/secrets/snapshot", map[string]any{"values": values, "expected_revision": x.Environment.Revision}, &result); e != nil {
-		return 0, e
+	if e = c.Do(ctx, "PUT", "/environments/"+x.Environment.ID+"/secrets/snapshot", map[string]any{"values": values, "expected_revision": expected}, &result); e != nil {
+		return 0, withForceHint(e)
 	}
 	x.Environment.Revision = result.Revision
 	return len(values), projectctx.Write(dir, x)
+}
+
+// resolveEnvFile picks the file a command reads: the project's .env unless one
+// was named on the command line, in which case it is taken relative to the
+// working directory.
+func resolveEnvFile(dir, file string) string {
+	file = strings.TrimSpace(file)
+	switch {
+	case file == "":
+		return envPath(dir)
+	case filepath.IsAbs(file):
+		return file
+	default:
+		return filepath.Join(dir, file)
+	}
+}
+
+func readEnvFile(path string) (map[string]string, error) {
+	f, e := os.Open(path)
+	if os.IsNotExist(e) {
+		return nil, fmt.Errorf("%s not found", filepath.Base(path))
+	}
+	if e != nil {
+		return nil, e
+	}
+	defer f.Close()
+	return parseEnv(f)
+}
+
+func currentRevision(ctx context.Context, c Client, envID string) (int64, error) {
+	var remote struct {
+		Revision int64 `json:"revision"`
+	}
+	e := c.Do(ctx, "GET", "/environments/"+envID+"/secrets/snapshot", nil, &remote)
+	return remote.Revision, e
+}
+
+// withForceHint replaces the server's compare-and-swap rejection with the two
+// choices the user actually has. The bare code sends people to envi pull even
+// when the remote holds nothing they want.
+func withForceHint(e error) error {
+	var api *APIError
+	if errors.As(e, &api) && api.Code == "stale_revision" {
+		return errors.New("remote secrets have changed since your last pull; run envi pull to take them, or envi push --force to overwrite them with your local file")
+	}
+	return e
 }
 
 func Diff(ctx context.Context, c Client, dir string, out io.Writer) error {

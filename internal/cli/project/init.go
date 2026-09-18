@@ -23,6 +23,7 @@ type Environment struct {
 }
 
 func Init(ctx context.Context, a API, in io.Reader, out io.Writer, dir, name, envName string) error {
+	prompts := bufio.NewReader(in)
 	if strings.TrimSpace(dir) == "" {
 		return errors.New("working directory is required")
 	}
@@ -30,7 +31,7 @@ func Init(ctx context.Context, a API, in io.Reader, out io.Writer, dir, name, en
 	if e := a.Do(ctx, "GET", "/projects", nil, &ps); e != nil {
 		return e
 	}
-	p, e := chooseProject(ps, name, in, out)
+	p, e := chooseProject(ps, name, prompts, out)
 	if e != nil {
 		return e
 	}
@@ -38,7 +39,7 @@ func Init(ctx context.Context, a API, in io.Reader, out io.Writer, dir, name, en
 	if e = a.Do(ctx, "GET", "/projects/"+p.ID+"/environments", nil, &es); e != nil {
 		return e
 	}
-	v, e := chooseEnv(es, envName, in, out)
+	v, e := chooseEnv(es, envName, prompts, out)
 	if e != nil {
 		return e
 	}
@@ -48,7 +49,7 @@ func Init(ctx context.Context, a API, in io.Reader, out io.Writer, dir, name, en
 	fmt.Fprintf(out, "Initialized %s (%s)\n", p.Name, v.Name)
 	return nil
 }
-func chooseProject(v []Project, n string, in io.Reader, out io.Writer) (Project, error) {
+func chooseProject(v []Project, n string, in *bufio.Reader, out io.Writer) (Project, error) {
 	if n != "" {
 		for _, p := range v {
 			if p.Name == n {
@@ -63,7 +64,7 @@ func chooseProject(v []Project, n string, in io.Reader, out io.Writer) (Project,
 	i, e := selectIndex("project", len(v), func(i int) string { return v[i].Name }, in, out)
 	return v[i], e
 }
-func chooseEnv(v []Environment, n string, in io.Reader, out io.Writer) (Environment, error) {
+func chooseEnv(v []Environment, n string, in *bufio.Reader, out io.Writer) (Environment, error) {
 	if n != "" {
 		for _, x := range v {
 			if x.Name == n {
@@ -81,12 +82,12 @@ func chooseEnv(v []Environment, n string, in io.Reader, out io.Writer) (Environm
 	i, e := selectIndex("environment", len(v), func(i int) string { return v[i].Name }, in, out)
 	return v[i], e
 }
-func selectIndex(l string, n int, name func(int) string, in io.Reader, out io.Writer) (int, error) {
+func selectIndex(l string, n int, name func(int) string, in *bufio.Reader, out io.Writer) (int, error) {
 	for i := 0; i < n; i++ {
 		fmt.Fprintf(out, "%d) %s\n", i+1, name(i))
 	}
 	fmt.Fprintf(out, "Select %s: ", l)
-	s, e := bufio.NewReader(in).ReadString('\n')
+	s, e := in.ReadString('\n')
 	if e != nil && !errors.Is(e, io.EOF) {
 		return 0, e
 	}

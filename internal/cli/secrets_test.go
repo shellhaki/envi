@@ -2,6 +2,8 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -45,7 +47,7 @@ func TestPullPush(t *testing.T) {
 	if info.Mode().Perm() != 0600 {
 		t.Fatalf("mode %o", info.Mode().Perm())
 	}
-	if n, e := Push(context.Background(), c, d); e != nil || n != 2 {
+	if n, e := Push(context.Background(), c, d, "", false); e != nil || n != 2 {
 		t.Fatalf("pushed %d secrets: %v", n, e)
 	}
 	if !strings.Contains(pushed, `"A":"1"`) || !strings.Contains(pushed, `"B":"2"`) {
@@ -75,12 +77,12 @@ func TestDiff(t *testing.T) {
 }
 func TestPushErrors(t *testing.T) {
 	d := t.TempDir()
-	if _, e := Push(context.Background(), Client{}, d); e == nil {
+	if _, e := Push(context.Background(), Client{}, d, "", false); e == nil {
 		t.Fatal("missing config accepted")
 	}
 	_ = projectctx.Write(d, projectctx.Context{Version: 1, Project: projectctx.Resource{ID: "p", Name: "demo"}, Environment: projectctx.Resource{ID: "e", Name: "dev"}})
 	_ = os.WriteFile(filepath.Join(d, ".env"), []byte("bad"), 0600)
-	if _, e := Push(context.Background(), Client{}, d); e == nil {
+	if _, e := Push(context.Background(), Client{}, d, "", false); e == nil {
 		t.Fatal("malformed env accepted")
 	}
 }
@@ -121,5 +123,90 @@ func TestEnvRoundTripRealisticSecrets(t *testing.T) {
 					in, got, strings.ReplaceAll(string(raw), "\n", "\\n\n"))
 			}
 		})
+	}
+}
+
+// ctxDir is a project directory already initialized against env "e".
+func ctxDir(t *testing.T) string {
+	t.Helper()
+	d := t.TempDir()
+	if e := projectctx.Write(d, projectctx.Context{Version: 1, Project: projectctx.Resource{ID: "p", Name: "demo"}, Environment: projectctx.Resource{ID: "e", Name: "dev", Revision: 4}}); e != nil {
+		t.Fatal(e)
+	}
+	return d
+}
+
+// snapshotServer answers GET with the revision it holds and accepts a PUT only
+// when expected_revision matches it — the server's real compare-and-swap.
+func snapshotServer(t *testing.T, revision int64, sent *map[string]any) *httptest.Server {
+	t.Helper()
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" {
+			fmt.Fprintf(w, `{"values":{"REMOTE":"1"},"revision":%d}`, revision)
+			return
+		}
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if int64(body["expected_revision"].(float64)) != revision {
+			w.WriteHeader(409)
+			_ = json.NewEncoder(w).Encode(map[string]string{"code": "stale_revision", "error": "remote secrets changed"})
+			return
+		}
+		*sent = body
+		fmt.Fprintf(w, `{"revision":%d}`, revision+1)
+	}))
+	t.Cleanup(s.Close)
+	return s
+}
+
+// The point of --force: the remote moved on, the local file is what we want,
+// and pulling first would only bring down secrets we are about to discard.
+func TestPushForceOverwritesAStaleRevision(t *testing.T) {
+	d := ctxDir(t)
+	_ = os.WriteFile(filepath.Join(d, ".env"), []byte("LOCAL=1\n"), 0600)
+	var sent map[string]any
+	c := Client{BaseURL: snapshotServer(t, 9, &sent).URL}
+
+	if _, e := Push(context.Background(), c, d, "", false); e == nil {
+		t.Fatal("a stale revision was accepted without --force")
+	}
+	if _, e := Push(context.Background(), c, d, "", true); e != nil {
+		t.Fatalf("--force did not get past the stale revision: %v", e)
+	}
+	if got := sent["expected_revision"]; got != float64(9) {
+		t.Fatalf("pushed against revision %v, want the server's current 9", got)
+	}
+	if x, _ := projectctx.Load(d); x.Environment.Revision != 10 {
+		t.Fatalf("envi.toml kept revision %d after a forced push", x.Environment.Revision)
+	}
+}
+
+// The server's own wording sends people to envi pull, which is the thing
+// --force exists to avoid; the CLI must offer both ways out.
+func TestStaleRevisionTellsYouAboutForce(t *testing.T) {
+	d := ctxDir(t)
+	_ = os.WriteFile(filepath.Join(d, ".env"), []byte("LOCAL=1\n"), 0600)
+	var sent map[string]any
+	_, e := Push(context.Background(), Client{BaseURL: snapshotServer(t, 9, &sent).URL}, d, "", false)
+	if e == nil || !strings.Contains(e.Error(), "--force") {
+		t.Fatalf("stale revision reported as %v, expected it to mention --force", e)
+	}
+}
+
+func TestPushNamedFile(t *testing.T) {
+	d := ctxDir(t)
+	_ = os.WriteFile(filepath.Join(d, ".env"), []byte("FROM=dotenv\n"), 0600)
+	_ = os.WriteFile(filepath.Join(d, ".env.test"), []byte("FROM=test\n"), 0600)
+	var sent map[string]any
+	c := Client{BaseURL: snapshotServer(t, 4, &sent).URL}
+
+	if n, e := Push(context.Background(), c, d, ".env.test", false); e != nil || n != 1 {
+		t.Fatalf("pushed %d secrets: %v", n, e)
+	}
+	if got := sent["values"].(map[string]any)["FROM"]; got != "test" {
+		t.Fatalf("pushed %v; the named file was ignored in favour of .env", got)
+	}
+	if _, e := Push(context.Background(), c, d, ".env.missing", false); e == nil || !strings.Contains(e.Error(), ".env.missing") {
+		t.Fatalf("missing file reported as %v, expected it to name the file", e)
 	}
 }

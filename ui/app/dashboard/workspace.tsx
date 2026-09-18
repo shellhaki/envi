@@ -31,8 +31,8 @@ async function api<T>(path: string, init: RequestInit = {}) {
   let r = await send();
   if (r.status === 401 && await ensureSession()) r = await send();
   const b = await r.json().catch(() => ({}));
-  // Status travels with the error so callers can branch on it; the message
-  // text differs between the Go and Workers servers for the same refusal.
+  // Status travels with the error so callers can branch on it rather than
+  // matching on message text.
   if (!r.ok) throw Object.assign(new Error(b.error || "Request failed"), { status: r.status });
   return b as T;
 }
@@ -40,7 +40,7 @@ async function api<T>(path: string, init: RequestInit = {}) {
 const TITLES: Record<Page, string> = { overview: "Overview", secrets: "Secrets", projects: "Projects", sharing: "Sharing", activity: "Activity" };
 const SUBTITLES: Record<Page, string> = {
   overview: "Your workspace at a glance.",
-  secrets: "Encrypted values for this project.",
+  secrets: "Encrypted values for the selected environment.",
   projects: "Your projects.",
   sharing: "Grant collaborators scoped access.",
   activity: "Recent reads and changes across your org.",
@@ -53,8 +53,10 @@ function actionLabel(a: string) {
 export default function Workspace({ page }: { page: Page }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [project, setProject] = useState<Project>();
-  // Each project transparently uses a single environment. It is never surfaced
-  // in the UI — secrets, imports, and sharing all target this one env.
+  // A project has many environments — dev, prod, whatever you name them — each
+  // holding its own secrets. The default is simply the first one created,
+  // which is the order the API returns them in.
+  const [envs, setEnvs] = useState<Env[]>([]);
   const [env, setEnv] = useState<Env>();
   const [snap, setSnap] = useState<Snap>({ values: {}, revision: 0 });
   const [events, setEvents] = useState<Event[]>([]);
@@ -65,7 +67,8 @@ export default function Workspace({ page }: { page: Page }) {
   const [reveal, setReveal] = useState(new Set<string>());
   const [copied, setCopied] = useState("");
   const [dragging, setDragging] = useState(false);
-  const [modal, setModal] = useState<"project" | "secret" | "share" | "import">();
+  const [modal, setModal] = useState<"project" | "secret" | "share" | "import" | "environment">();
+  const [deletingEnv, setDeletingEnv] = useState<Env>();
   const [deleting, setDeleting] = useState<Project>();
   // Only projects in the viewer's own org offer delete; the server enforces
   // owner/admin regardless, this just avoids a button that can only fail.
@@ -112,6 +115,7 @@ export default function Workspace({ page }: { page: Page }) {
           .catch((err: Error & { status?: number }) => { if (err.status === 403) return undefined; throw err; });
         list = created ? [created] : [];
       }
+      setEnvs(list);
       setEnv((e) => list.find((i) => i.ID === e?.ID) || list[0]);
     }).catch((e) => setError(e.message)).finally(() => setLoadingEnv(false));
   }, [project]);
@@ -162,6 +166,15 @@ export default function Workspace({ page }: { page: Page }) {
   // them is still loading while either is in flight.
   const contextLoading = loadingProjects || loadingEnv;
 
+  async function deleteEnvironment(e: Env) {
+    await api(`/environments/${e.ID}`, { method: "DELETE" });
+    setDeletingEnv(undefined);
+    setNotice(`Deleted environment ${e.Name}.`);
+    // Fall back to the default (first created) environment.
+    setEnv(undefined);
+    await loadEnv();
+  }
+
   async function deleteProject(p: Project) {
     await api(`/projects/${p.ID}`, { method: "DELETE" });
     setDeleting(undefined);
@@ -194,6 +207,12 @@ export default function Workspace({ page }: { page: Page }) {
       const x = await api<{ revision: number }>(`/environments/${env.ID}/secrets/snapshot`, { method: "PUT", body: JSON.stringify({ values, expected_revision: snap.revision }) });
       setSnap({ values, revision: x.revision });
       setNotice(`Saved ${data.key}.`);
+    }
+    if (type === "environment" && project) {
+      const created = await api<Env>(`/projects/${project.ID}/environments`, { method: "POST", body: JSON.stringify({ name: data.name, is_production: data.is_production === "on" }) });
+      await loadEnv();
+      setEnv(created);
+      setNotice(`Created environment ${created.Name}.`);
     }
     if (type === "share" && project && env) {
       await api<{ Token: string }>(`/projects/${project.ID}/invitations`, { method: "POST", body: JSON.stringify({ email: data.email, environment_id: env.ID, permission: data.permission }) });
@@ -253,6 +272,20 @@ export default function Workspace({ page }: { page: Page }) {
           options={projects.map((p) => ({ value: p.ID, label: p.Name }))}
           onChange={(id) => setProject(projects.find((p) => p.ID === id))}
         />
+      </div>
+      <div className="field field-grow">
+        <span>Environment{env?.Production && <span className="badge prod">Production</span>}</span>
+        <Select
+          ariaLabel="Environment"
+          placeholder={envs.length ? "Select an environment" : "No environments yet"}
+          value={env?.ID || ""}
+          options={envs.map((e) => ({ value: e.ID, label: e.Name }))}
+          onChange={(id) => setEnv(envs.find((e) => e.ID === id))}
+        />
+      </div>
+      <div className="context-actions">
+        <button className="button secondary" onClick={() => setModal("environment")} disabled={!project}><Plus />New environment</button>
+        {env && envs.length > 1 && <button className="icon-btn danger" title={`Delete ${env.Name}`} aria-label={`Delete environment ${env.Name}`} onClick={() => setDeletingEnv(env)}><Trash2 /></button>}
       </div>
     </div>}
 
@@ -352,7 +385,12 @@ export default function Workspace({ page }: { page: Page }) {
       </div> : <Empty icon={<Activity />} title="No activity yet" text="Reads, writes, and deletes on your secrets will show up here." />}
     </section>}
 
-    {deleting && <DeleteProjectDialog project={deleting} close={() => setDeleting(undefined)} onDelete={() => deleteProject(deleting)} />}
+    {deleting && <ConfirmDelete title={`Delete ${deleting.Name}`} name={deleting.Name}
+      warning="Its environments, secrets, history and collaborator access go with it. This can't be undone."
+      close={() => setDeleting(undefined)} onDelete={() => deleteProject(deleting)} />}
+    {deletingEnv && <ConfirmDelete title={`Delete ${deletingEnv.Name}`} name={deletingEnv.Name}
+      warning="Every secret in this environment, and its history, goes with it. Other environments in the project are untouched."
+      close={() => setDeletingEnv(undefined)} onDelete={() => deleteEnvironment(deletingEnv)} />}
     {modal === "import" && <ImportDialog projectName={project?.Name || ""} close={() => setModal(undefined)} onImport={importValues} />}
     {modal && modal !== "import" && <Dialog type={modal} close={() => setModal(undefined)} submit={(d) => submit(modal, d)} />}
   </main>;
@@ -370,8 +408,9 @@ const DIALOG_META: Record<string, { title: string; sub?: string }> = {
   project: { title: "New project" },
   secret: { title: "Add secret" },
   share: { title: "Invite collaborator", sub: "They'll get an email with a link to accept." },
+  environment: { title: "New environment", sub: "A separate set of secrets in this project." },
 };
-function Dialog({ type, close, submit }: { type: "project" | "secret" | "share"; close: () => void; submit: (d: Record<string, string>) => Promise<void> }) {
+function Dialog({ type, close, submit }: { type: "project" | "secret" | "share" | "environment"; close: () => void; submit: (d: Record<string, string>) => Promise<void> }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   // Controlled so the glass Select can mirror it into a hidden input, which
@@ -388,17 +427,18 @@ function Dialog({ type, close, submit }: { type: "project" | "secret" | "share";
       {meta.sub && <p className="dialog-sub">{meta.sub}</p>}
       {type === "project" && <Field name="name" label="Project name" placeholder="acme-api" />}
       {type === "secret" && <><Field name="key" label="Key" placeholder="API_KEY" /><label>Value<textarea name="value" placeholder="secret value" /></label></>}
+      {type === "environment" && <><Field name="name" label="Name" placeholder="production" /><label className="checkbox-field"><input type="checkbox" name="is_production" /><span><strong>Production environment</strong>Org members lose automatic access — each person needs an explicit grant.</span></label></>}
       {type === "share" && <><Field name="email" label="Email" type="email" placeholder="teammate@company.com" /><div className="field"><span>Permission</span><Select name="permission" ariaLabel="Permission" value={permission} onChange={setPermission} options={[{ value: "read", label: "Read — view and pull" }, { value: "write", label: "Write — push and change" }, { value: "manage", label: "Manage — invite and manage access" }]} /></div></>}
       {error && <p className="form-error">{error}</p>}
       <button className="button primary" disabled={busy}>{busy && <span className="spinner" />}{busy ? "Saving..." : "Save"}</button>
     </form>
   </div>;
 }
-function DeleteProjectDialog({ project, close, onDelete }: { project: Project; close: () => void; onDelete: () => Promise<void> }) {
+function ConfirmDelete({ title, name, warning, close, onDelete }: { title: string; name: string; warning: string; close: () => void; onDelete: () => Promise<void> }) {
   const [typed, setTyped] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const confirmed = typed.trim() === project.Name;
+  const confirmed = typed.trim() === name;
   return <div className="dialog-backdrop" onMouseDown={busy ? undefined : close}>
     <form className="dialog" onMouseDown={(e) => e.stopPropagation()} onSubmit={async (e: FormEvent<HTMLFormElement>) => {
       e.preventDefault();
@@ -406,11 +446,11 @@ function DeleteProjectDialog({ project, close, onDelete }: { project: Project; c
       setBusy(true); setError("");
       try { await onDelete(); } catch (x) { setBusy(false); setError((x as Error).message); }
     }}>
-      <header><h2>Delete {project.Name}</h2><button type="button" onClick={close} disabled={busy}>×</button></header>
-      <p className="dialog-sub">Its environments, secrets, history and collaborator access go with it. This can&rsquo;t be undone.</p>
-      <label>Type <strong>{project.Name}</strong> to confirm<input autoFocus autoComplete="off" spellCheck={false} value={typed} onChange={(e) => setTyped(e.target.value)} /></label>
+      <header><h2>{title}</h2><button type="button" onClick={close} disabled={busy}>×</button></header>
+      <p className="dialog-sub">{warning}</p>
+      <label>Type <strong>{name}</strong> to confirm<input autoFocus autoComplete="off" spellCheck={false} value={typed} onChange={(e) => setTyped(e.target.value)} /></label>
       {error && <p className="form-error">{error}</p>}
-      <button className="button danger" disabled={!confirmed || busy}>{busy && <span className="spinner" />}{busy ? "Deleting..." : "Delete project"}</button>
+      <button className="button danger" disabled={!confirmed || busy}>{busy && <span className="spinner" />}{busy ? "Deleting..." : "Delete"}</button>
     </form>
   </div>;
 }

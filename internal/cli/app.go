@@ -85,29 +85,65 @@ func (a App) Run(args []string) int {
 			}
 			return projectctx.Init(context.Background(), c, a.input(), out, dir, *name, *env)
 		})
-	case "pull", "push", "diff":
-		labels := map[string]string{"pull": "Pulling secrets", "push": "Pushing secrets", "diff": "Comparing with remote"}
+	case "push":
+		// envi push [file] [origin <name>] [--force] [--yes]
+		file, originName, rest, e := parsePushArgs(args[1:])
+		if e != nil {
+			fmt.Fprintln(a.Err, e)
+			fmt.Fprintln(a.Err, "usage: envi push [file] [origin <name>] [--force] [--yes]")
+			return ExitUsage
+		}
+		fs := flag.NewFlagSet("push", flag.ContinueOnError)
+		fs.SetOutput(a.Err)
+		force := fs.Bool("force", false, "overwrite the remote instead of requiring a pull first")
+		yes := fs.Bool("yes", false, "skip the confirmation prompt")
+		if e := fs.Parse(rest); e != nil {
+			return ExitUsage
+		}
+		// Go's flag package stops at the first non-flag word, so
+		// "push --force origin prod" would otherwise parse as --force with
+		// "origin prod" quietly dropped, and push to the wrong origin.
+		if fs.NArg() > 0 {
+			fmt.Fprintf(a.Err, "unexpected argument %q\n", fs.Arg(0))
+			fmt.Fprintln(a.Err, "usage: envi push [file] [origin <name>] [--force] [--yes]")
+			return ExitUsage
+		}
+		label := "Pushing secrets"
+		if originName != "" {
+			label = "Reading " + originName
+		}
+		return a.authenticated(label, func(c Client, out io.Writer) error {
+			dir, e := os.Getwd()
+			if e != nil {
+				return e
+			}
+			// Another origin is one you are not looking at, so that path
+			// confirms before writing; the current one is the plain push.
+			if originName != "" {
+				return PushToOrigin(context.Background(), c, a.input(), out, dir, file, originName, *yes, *force)
+			}
+			count, e := Push(context.Background(), c, dir, file, *force)
+			if e != nil {
+				return e
+			}
+			NewUI(out).Success("Pushed %d secret%s", count, plural(count))
+			return nil
+		})
+	case "pull", "diff":
+		labels := map[string]string{"pull": "Pulling secrets", "diff": "Comparing with remote"}
 		return a.authenticated(labels[args[0]], func(c Client, out io.Writer) error {
 			dir, e := os.Getwd()
 			if e != nil {
 				return e
 			}
-			var count int
-			switch args[0] {
-			case "pull":
-				count, e = Pull(context.Background(), c, dir)
-			case "push":
-				count, e = Push(context.Background(), c, dir)
-			default:
-				e = Diff(context.Background(), c, dir, out)
+			if args[0] == "diff" {
+				return Diff(context.Background(), c, dir, out)
 			}
+			count, e := Pull(context.Background(), c, dir)
 			if e != nil {
 				return e
 			}
-			if args[0] != "diff" {
-				ui := NewUI(out)
-				ui.Success("%s %d secret%s", map[string]string{"pull": "Pulled", "push": "Pushed"}[args[0]], count, plural(count))
-			}
+			NewUI(out).Success("Pulled %d secret%s", count, plural(count))
 			return nil
 		})
 	case "project":
@@ -118,6 +154,61 @@ func (a App) Run(args []string) int {
 		return a.authenticated("Creating project", func(c Client, out io.Writer) error {
 			return CreateProject(context.Background(), c, args[2], out)
 		})
+	case "origin":
+		sub := ""
+		if len(args) > 1 {
+			sub = args[1]
+		}
+		switch sub {
+		case "list":
+			return a.authenticated("Loading origins", func(c Client, out io.Writer) error {
+				dir, e := os.Getwd()
+				if e != nil {
+					return e
+				}
+				return ListOrigins(context.Background(), c, dir, out)
+			})
+		case "switch", "use":
+			if len(args) < 3 {
+				fmt.Fprintln(a.Err, "usage: envi origin switch <name> [--force]")
+				return ExitUsage
+			}
+			fs := flag.NewFlagSet("origin switch", flag.ContinueOnError)
+			fs.SetOutput(a.Err)
+			force := fs.Bool("force", false, "discard local .env changes instead of refusing")
+			if e := fs.Parse(args[3:]); e != nil {
+				return ExitUsage
+			}
+			return a.authenticated("Switching origin", func(c Client, out io.Writer) error {
+				dir, e := os.Getwd()
+				if e != nil {
+					return e
+				}
+				return SwitchOrigin(context.Background(), c, a.input(), out, dir, args[2], *force)
+			})
+		case "create":
+			if len(args) < 3 {
+				fmt.Fprintln(a.Err, "usage: envi origin create <name> [--project <name>] [--production]")
+				return ExitUsage
+			}
+			fs := flag.NewFlagSet("origin create", flag.ContinueOnError)
+			fs.SetOutput(a.Err)
+			project := fs.String("project", "", "project name (defaults to envi.toml)")
+			production := fs.Bool("production", false, "mark as a production origin")
+			if e := fs.Parse(args[3:]); e != nil {
+				return ExitUsage
+			}
+			return a.authenticated("Creating origin", func(c Client, out io.Writer) error {
+				dir, e := os.Getwd()
+				if e != nil {
+					return e
+				}
+				return CreateEnv(context.Background(), c, dir, *project, args[2], *production, out)
+			})
+		default:
+			fmt.Fprintln(a.Err, "usage: envi origin list | envi origin switch <name> | envi origin create <name>")
+			return ExitUsage
+		}
 	case "env":
 		if len(args) < 3 || args[1] != "create" {
 			fmt.Fprintln(a.Err, "usage: envi env create <name> [--project <name>] [--production]")
@@ -250,7 +341,7 @@ func (a App) Run(args []string) int {
 	}
 }
 func (a App) help() {
-	fmt.Fprintln(a.Out, "Usage: envi <command> [flags]\n\nCommands:\n  auth       Authenticate this device in the browser (--email for email OTP)\n  logout     Revoke this device's session\n  project    Create a project (project create <name>)\n  env        Create an environment (env create <name> [--project <name>] [--production])\n  init       Initialize project context\n  pull       Write remote secrets to .env\n  push       Send .env secrets to Envi\n  diff       Compare local and remote keys\n  activity   Show recent activity for your organization\n  share      Invite a project collaborator\n  invite     Accept an invitation\n  token      Manage service tokens\n  update     Check for or install a new version (update check | update now)\n  uninstall  Remove envi from this machine\n  version    Print version\n  help       Show help")
+	fmt.Fprintln(a.Out, "Usage: envi <command> [flags]\n\nCommands:\n  auth       Authenticate this device in the browser (--email for email OTP)\n  logout     Revoke this device's session\n  project    Create a project (project create <name>)\n  origin     This project's origins (origin list | origin switch <name> | origin create <name>)\n  env        Alias for origin create\n  init       Initialize project context\n  pull       Write remote secrets to .env\n  push       Send .env secrets to Envi (push [file] [origin <name>] [--force])\n  diff       Compare local and remote keys\n  activity   Show recent activity for your organization\n  share      Invite a project collaborator\n  invite     Accept an invitation\n  token      Manage service tokens\n  update     Check for or install a new version (update check | update now)\n  uninstall  Remove envi from this machine\n  version    Print version\n  help       Show help")
 }
 
 // tokenStore resolves the session store, reporting the exit code to use when it
@@ -269,7 +360,7 @@ func (a App) tokenStore() (TokenStore, int) {
 func (a App) client() Client {
 	c := a.Client
 	if c.BaseURL == "" {
-		c.BaseURL = LoadConfig().APIURL
+		c.BaseURL = APIURL(a.Version)
 	}
 	return c
 }
@@ -279,6 +370,7 @@ func (a App) input() io.Reader {
 	}
 	return a.In
 }
+
 // authenticated resolves a session and runs a command against it, showing a
 // spinner labelled with what is happening. The command is handed the writer to
 // print to: the first write stops the spinner, so commands that stream results
@@ -325,4 +417,25 @@ func ExitCode(err error) int {
 		return ExitConfig
 	}
 	return ExitAPI
+}
+
+// parsePushArgs reads the positional part of
+//
+//	envi push [file] [origin <name>] [flags]
+//
+// and hands the rest to the flag set. A leading word is the env file to push
+// unless it is "origin" or a flag, which is what lets the file stay optional
+// without a --file flag nobody would type.
+func parsePushArgs(args []string) (file, origin string, rest []string, err error) {
+	rest = args
+	if len(rest) > 0 && rest[0] != "origin" && !strings.HasPrefix(rest[0], "-") {
+		file, rest = rest[0], rest[1:]
+	}
+	if len(rest) > 0 && rest[0] == "origin" {
+		if len(rest) < 2 || strings.HasPrefix(rest[1], "-") {
+			return "", "", nil, errors.New("origin needs a name")
+		}
+		origin, rest = rest[1], rest[2:]
+	}
+	return file, origin, rest, nil
 }

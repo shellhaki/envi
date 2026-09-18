@@ -377,9 +377,15 @@ footer { min-height: 96px; padding: 0 24px; display: flex; align-items: center; 
 .context-bar { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; padding: 14px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); }
 .field { display: grid; gap: 7px; }
 .context-bar .field > span { font-size: 11px; font-weight: 500; color: var(--muted); }
+.context-bar .field > span { display: flex; align-items: center; gap: 7px; }
 .dialog .field > span { font-size: 12px; font-weight: 500; color: var(--text-2); }
 .context-bar select { height: 36px; min-width: 190px; }
 .context-bar .field-grow { flex: 1; }
+.context-actions { display: flex; align-items: center; gap: 8px; }
+.checkbox-field { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
+.checkbox-field input { width: 16px; height: 16px; margin-top: 2px; flex: none; accent-color: var(--danger); }
+.checkbox-field span { display: grid; gap: 3px; font-size: 12px; font-weight: 400; color: var(--muted); line-height: 1.5; }
+.checkbox-field strong { font-size: 12px; font-weight: 600; color: var(--text); }
 .env-pills { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .env-pill { min-height: 36px; padding: 0 12px; display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line-strong); border-radius: var(--r); background: var(--surface); color: var(--text-2); font-size: 13px; font-weight: 500; cursor: pointer; transition: background .12s ease, border-color .12s ease, color .12s ease; }
 .env-pill:hover { background: var(--surface-2); color: var(--text); }

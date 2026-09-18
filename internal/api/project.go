@@ -14,6 +14,8 @@ func (h ProjectHandler) Routes(r *gin.Engine) {
 	r.POST("/projects/:id/environments", h.createEnv)
 	r.GET("/projects/:id/environments", h.listEnv)
 	r.DELETE("/projects/:id", h.delete)
+	r.PATCH("/environments/:id", h.updateEnv)
+	r.DELETE("/environments/:id", h.deleteEnv)
 }
 func (h ProjectHandler) RoutesProtected(r *gin.Engine, m gin.HandlerFunc) {
 	g := r.Group("/", m)
@@ -22,6 +24,8 @@ func (h ProjectHandler) RoutesProtected(r *gin.Engine, m gin.HandlerFunc) {
 	g.POST("/projects/:id/environments", h.createEnv)
 	g.GET("/projects/:id/environments", h.listEnv)
 	g.DELETE("/projects/:id", h.delete)
+	g.PATCH("/environments/:id", h.updateEnv)
+	g.DELETE("/environments/:id", h.deleteEnv)
 }
 func (h ProjectHandler) user(c *gin.Context) string { return c.GetString("user_id") }
 func (h ProjectHandler) create(c *gin.Context) {
@@ -96,6 +100,45 @@ func (h ProjectHandler) delete(c *gin.Context) {
 	}
 	if err != nil {
 		c.JSON(500, gin.H{"code": "internal", "error": "project could not be deleted"})
+		return
+	}
+	c.Status(204)
+}
+
+// updateEnv renames an environment or flips its production flag. Production is
+// not cosmetic: it stops org membership alone from granting access, so the
+// caller must be an owner or admin.
+func (h ProjectHandler) updateEnv(c *gin.Context) {
+	var in struct {
+		Name       string `json:"name" binding:"required"`
+		Production bool   `json:"is_production"`
+	}
+	if c.ShouldBindJSON(&in) != nil {
+		c.JSON(400, gin.H{"code": "invalid_request", "error": "name required"})
+		return
+	}
+	e, err := h.Service.UpdateEnvironment(c, h.user(c), c.Param("id"), in.Name, in.Production)
+	if err == project.ErrForbidden {
+		c.JSON(403, gin.H{"code": "forbidden", "error": "only an owner or admin can change this environment"})
+		return
+	}
+	if err != nil {
+		c.JSON(409, gin.H{"code": "conflict", "error": "environment could not be updated"})
+		return
+	}
+	c.JSON(200, e)
+}
+
+// deleteEnv removes the environment and, by cascade, every secret and version
+// inside it.
+func (h ProjectHandler) deleteEnv(c *gin.Context) {
+	err := h.Service.DeleteEnvironment(c, h.user(c), c.Param("id"))
+	if err == project.ErrForbidden {
+		c.JSON(403, gin.H{"code": "forbidden", "error": "only an owner or admin can delete this environment"})
+		return
+	}
+	if err != nil {
+		c.JSON(500, gin.H{"code": "internal", "error": "environment could not be deleted"})
 		return
 	}
 	c.Status(204)

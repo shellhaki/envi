@@ -3,6 +3,7 @@ package project
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -60,7 +61,7 @@ func (s Service) ListEnvironments(ctx context.Context, userID, projectID string)
 	if !s.projectViewer(ctx, userID, projectID) {
 		return nil, ErrForbidden
 	}
-	rows, err := s.DB.Query(ctx, `SELECT DISTINCT e.id,e.project_id,e.name,e.is_production FROM environments e JOIN projects p ON p.id=e.project_id LEFT JOIN memberships m ON m.org_id=p.org_id AND m.user_id=$2 LEFT JOIN access_grants g ON g.project_id=p.id AND g.subject_user_id=$2 AND (g.environment_id=e.id OR (g.environment_id IS NULL AND NOT e.is_production)) WHERE p.id=$1 AND (m.id IS NOT NULL OR g.id IS NOT NULL) ORDER BY e.name`, projectID, userID)
+	rows, err := s.DB.Query(ctx, `SELECT DISTINCT e.id,e.project_id,e.name,e.is_production,e.created_at FROM environments e JOIN projects p ON p.id=e.project_id LEFT JOIN memberships m ON m.org_id=p.org_id AND m.user_id=$2 LEFT JOIN access_grants g ON g.project_id=p.id AND g.subject_user_id=$2 AND (g.environment_id=e.id OR (g.environment_id IS NULL AND NOT e.is_production)) WHERE p.id=$1 AND (m.id IS NOT NULL OR g.id IS NOT NULL) ORDER BY e.created_at,e.name`, projectID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +69,8 @@ func (s Service) ListEnvironments(ctx context.Context, userID, projectID string)
 	out := []Environment{}
 	for rows.Next() {
 		var e Environment
-		if err = rows.Scan(&e.ID, &e.ProjectID, &e.Name, &e.Production); err != nil {
+		var createdAt time.Time
+		if err = rows.Scan(&e.ID, &e.ProjectID, &e.Name, &e.Production, &createdAt); err != nil {
 			return nil, err
 		}
 		out = append(out, e)
@@ -77,14 +79,14 @@ func (s Service) ListEnvironments(ctx context.Context, userID, projectID string)
 }
 func (s Service) UpdateEnvironment(ctx context.Context, userID, id, name string, production bool) (Environment, error) {
 	var e Environment
-	err := s.DB.QueryRow(ctx, `UPDATE environments e SET name=$1,is_production=$2 FROM projects p JOIN memberships m ON m.org_id=p.org_id WHERE e.id=$3 AND p.id=e.project_id AND m.user_id=$4 RETURNING e.id,e.project_id,e.name,e.is_production`, name, production, id, userID).Scan(&e.ID, &e.ProjectID, &e.Name, &e.Production)
+	err := s.DB.QueryRow(ctx, `UPDATE environments e SET name=$1,is_production=$2 FROM projects p JOIN memberships m ON m.org_id=p.org_id WHERE e.id=$3 AND p.id=e.project_id AND m.user_id=$4 AND m.role IN('owner','admin') RETURNING e.id,e.project_id,e.name,e.is_production`, name, production, id, userID).Scan(&e.ID, &e.ProjectID, &e.Name, &e.Production)
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = ErrForbidden
 	}
 	return e, err
 }
 func (s Service) DeleteEnvironment(ctx context.Context, userID, id string) error {
-	tag, err := s.DB.Exec(ctx, `DELETE FROM environments e USING projects p,memberships m WHERE e.id=$1 AND p.id=e.project_id AND m.org_id=p.org_id AND m.user_id=$2`, id, userID)
+	tag, err := s.DB.Exec(ctx, `DELETE FROM environments e USING projects p,memberships m WHERE e.id=$1 AND p.id=e.project_id AND m.org_id=p.org_id AND m.user_id=$2 AND m.role IN('owner','admin')`, id, userID)
 	if err == nil && tag.RowsAffected() == 0 {
 		return ErrForbidden
 	}
