@@ -141,3 +141,65 @@ func TestConcurrentPushIntegration(t *testing.T) {
 		t.Fatalf("succeeded=%d conflicted=%d", succeeded, conflicted)
 	}
 }
+
+// A snapshot is one act of reading, and `envi run` makes it a frequent one. A
+// row per secret would bury the activity feed, which only ever returns the most
+// recent 200 events.
+func TestSnapshotLogsOneEventRegardlessOfSecretCount(t *testing.T) {
+	if os.Getenv("ENVI_INTEGRATION") != "1" {
+		t.Skip("set ENVI_INTEGRATION=1")
+	}
+	db, e := pgxpool.New(t.Context(), os.Getenv("DATABASE_URL"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer db.Close()
+	w, e := workspace.Service{DB: db}.Provision(t.Context(), "snapshot-audit@example.com")
+	if e != nil {
+		t.Fatal(e)
+	}
+	p, e := project.Service{DB: db}.Create(t.Context(), w.UserID, w.OrganizationID, "snapshot-audit")
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer db.Exec(t.Context(), `DELETE FROM projects WHERE id=$1`, p.ID)
+	env, e := project.Service{DB: db}.CreateEnvironment(t.Context(), w.UserID, p.ID, "dev", false)
+	if e != nil {
+		t.Fatal(e)
+	}
+	c, _ := crypt.New([]byte("01234567890123456789012345678901"))
+	s := Service{DB: db, Access: access.Service{DB: db}, Cipher: c}
+	for _, k := range []string{"A", "B", "C", "D", "E"} {
+		if e = s.Put(t.Context(), w.UserID, env.ID, k, "v"); e != nil {
+			t.Fatal(e)
+		}
+	}
+
+	count := func() int {
+		var n int
+		if e := db.QueryRow(t.Context(),
+			`SELECT count(*) FROM audit_events WHERE action='secret.read' AND target_id=$1`, env.ID).Scan(&n); e != nil {
+			t.Fatal(e)
+		}
+		return n
+	}
+	before := count()
+	snap, e := s.Snapshot(t.Context(), w.UserID, env.ID)
+	if e != nil || len(snap.Values) != 5 {
+		t.Fatalf("snapshot returned %d values: %v", len(snap.Values), e)
+	}
+	if got := count() - before; got != 1 {
+		t.Fatalf("one snapshot of 5 secrets logged %d events, want 1", got)
+	}
+
+	var targetType string
+	var meta []byte
+	if e = db.QueryRow(t.Context(),
+		`SELECT target_type,metadata FROM audit_events WHERE action='secret.read' AND target_id=$1 ORDER BY created_at DESC LIMIT 1`,
+		env.ID).Scan(&targetType, &meta); e != nil {
+		t.Fatal(e)
+	}
+	if targetType != "environment" || string(meta) != `{"secrets": 5}` {
+		t.Fatalf("event recorded as target_type=%q metadata=%s", targetType, meta)
+	}
+}

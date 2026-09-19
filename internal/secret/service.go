@@ -65,7 +65,6 @@ func (s Service) Snapshot(ctx context.Context, user, env string) (Snapshot, erro
 	}
 	defer rows.Close()
 	out := map[string]string{}
-	var ids []string
 	for rows.Next() {
 		var id, key string
 		var b []byte
@@ -77,16 +76,17 @@ func (s Service) Snapshot(ctx context.Context, user, env string) (Snapshot, erro
 			return Snapshot{}, x
 		}
 		out[key] = string(plain)
-		ids = append(ids, id)
 	}
 	if e = rows.Err(); e != nil {
 		return Snapshot{}, e
 	}
 	rows.Close()
-	for _, id := range ids {
-		if _, e = tx.Exec(ctx, `INSERT INTO audit_events(org_id,actor_id,action,target_type,target_id)SELECT p.org_id,$1,'secret.read','secret',$2 FROM environments e JOIN projects p ON p.id=e.project_id WHERE e.id=$3`, user, id, env); e != nil {
-			return Snapshot{}, e
-		}
+	// One event for the read, not one per secret. A snapshot is a single act,
+	// and `envi run` makes it a frequent one: a row per key would mean hundreds
+	// a day per developer, and the activity feed only ever shows the most recent
+	// 200. This is also what the service-token path has always recorded.
+	if _, e = tx.Exec(ctx, `INSERT INTO audit_events(org_id,actor_id,action,target_type,target_id,metadata)SELECT p.org_id,$1,'secret.read','environment',$2,jsonb_build_object('secrets',$3::int) FROM environments e JOIN projects p ON p.id=e.project_id WHERE e.id=$2`, user, env, len(out)); e != nil {
+		return Snapshot{}, e
 	}
 	if e = tx.Commit(ctx); e != nil {
 		return Snapshot{}, e
