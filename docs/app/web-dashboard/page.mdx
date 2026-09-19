@@ -16,7 +16,11 @@ Production environments carry a `PRODUCTION` badge next to the picker, so you kn
 
 ## Secrets
 
-The full key/value table for the selected environment. Values are masked by default; reveal one at a time, or copy a value directly without ever displaying it on screen.
+The full key/value table for the selected environment. Values are masked by default; reveal one at a time, or copy a value directly without ever displaying it on screen. Revealing is per environment — switch to another and everything is masked again, so a value never stays on screen because of something you opened somewhere else.
+
+Each row carries four actions: reveal, copy, edit, and delete. **Edit** opens the value in a dialog with the key shown but locked, because changing a key is not an edit — it would leave the old secret in place and add a second one under the new name. To rename a key, add the new one and delete the old.
+
+Saving an edit writes a new version rather than overwriting: the previous value stays in the history, and the revision badge advances the same way `envi push` would.
 
 <Tip>
   Drag a `.env` file anywhere onto this panel to import it — existing keys with the same name are overwritten, everything else is merged in.

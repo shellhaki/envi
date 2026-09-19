@@ -32,8 +32,14 @@ The CLI and the web dashboard are two clients of one API — neither is a specia
   <Accordion title="Service tokens">
     Long-lived, scoped credentials for CI/CD pipelines and deploy scripts, independent of any human's session.
   </Accordion>
+  <Accordion title="Multiple environments">
+    Dev, staging, prod as separate sets of secrets in one project. `envi origin switch prod` repoints your working directory, and `envi push .env origin prod` writes to one you aren't on, after showing you exactly what will change.
+  </Accordion>
+  <Accordion title="No .env on disk">
+    `envi run -- npm start` injects secrets into the process that needs them and exits with that process's own status. Nothing plaintext is written to your filesystem, so there is no file to leak, to commit by accident, or to go stale.
+  </Accordion>
   <Accordion title="Full audit trail">
-    Every read, write, and delete is logged against the org, the actor, and the exact secret touched.
+    Every write and delete is logged against the org, the actor, and the exact secret touched. Reads are logged once per environment, with the number of secrets they covered, so a command you run all day stays readable in the feed.
   </Accordion>
   <Accordion title="Email invitations">
     Invite a teammate by address. They click through, sign in (or sign up on the spot if they're new), and land with access already waiting.
