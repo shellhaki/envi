@@ -24,8 +24,14 @@ Updating a key doesn't overwrite it — it inserts a new version and repoints th
 
 Reading a secret's value — via the CLI, the dashboard, or a service token — writes an audit event: who, what, when. See [the audit log](/web-dashboard) in the dashboard, or `envi activity` from the CLI.
 
+One read of an environment is one event, recording how many secrets it covered, whether it came from `envi pull`, `envi run`, the dashboard, or a service token in CI. The unit is the act of reading, not the key count, so a command you run fifty times a day stays legible in the feed instead of drowning it.
+
+## Injection, and what it does not protect against
+
+`envi run -- npm start` fetches the environment's secrets and hands them to the child process directly, so no `.env` is written. That removes the longest-lived exposure in the normal workflow: a plaintext file that outlives the process that needed it, gets copied into build contexts and editor backups, and only stays out of version control as long as the `.gitignore` is right.
+
 <Warning>
-  This means secrets are genuinely sensitive to over-fetch: pulling a `.env` file logs a read for every key in it. That's intentional — the audit trail is only useful if it reflects real access, not a sampled approximation of it.
+  Injection is not a sandbox. A child process's environment is readable by the same user on the same machine — through `/proc/<pid>/environ` on Linux, or `ps eww` — and anything the process itself does with a value, such as logging it or sending it onward, is outside Envi's reach. What injection buys is that the secrets exist for the life of one process and are never written to disk.
 </Warning>
 
 ## What the key protects against

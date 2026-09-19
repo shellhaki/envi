@@ -110,6 +110,7 @@ The CLI and the dashboard are two clients of the same API — neither one is a s
 | `envi push` | Send local `.env` changes up, with conflict detection |
 | `envi push <file> [origin <name>]` | Push a named file, optionally to another environment |
 | `envi diff` | Show what's changed between local and remote before you push |
+| `envi run -- <command>` | Run a command with the secrets injected, without writing a `.env` |
 | `envi project create <name>` | Create a project |
 | `envi origin list` | List the project's environments, marking the current one |
 | `envi origin switch <name>` | Point this directory at another environment and pull it |

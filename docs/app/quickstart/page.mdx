@@ -34,6 +34,15 @@
 
     Envi encrypts every value before it's stored. Pushing again later only succeeds if your local copy is still based on the latest remote revision.
   </Step>
+  <Step title="Run your app without a .env">
+    Instead of writing secrets to disk at all, hand them straight to the process that needs them:
+
+    ```bash
+    envi run -- npm start
+    ```
+
+    The secrets exist in that process's environment and nowhere else. Nothing is written, so there is no file to leak, to forget, or to let go stale. `envi run` exits with your command's own exit status, so it drops into scripts and CI unchanged.
+  </Step>
   <Step title="Pull it somewhere else">
     On another machine, or a fresh clone:
 

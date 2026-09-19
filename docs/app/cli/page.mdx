@@ -153,6 +153,38 @@ Compares local `.env` against remote without changing either side. Prints `added
 envi diff
 ```
 
+### `envi run -- <command>`
+
+Runs a command with the origin's secrets in its environment, without writing a `.env` at all. This is the better default for most projects: the secrets live for as long as the process does and never touch the disk.
+
+```bash
+envi run -- npm start
+envi run -- ./deploy.sh
+```
+
+Everything after `--` is the command, passed through untouched, including its own flags:
+
+```bash
+envi run -- npm run dev -- --port 3000
+```
+
+<ParamField query="--origin" type="string">
+  Run against another origin for this one command. `envi.toml` is not changed.
+</ParamField>
+<ParamField query="--preserve-env" type="boolean">
+  Keep the value already in your environment when a name exists in both. By default the secret wins.
+</ParamField>
+
+```bash
+envi run --origin production -- ./migrate.sh
+```
+
+<Note>
+  `envi run` exits with the status of the command it ran, not with one of Envi's own exit codes, so scripts wrapping a command in `envi run` see exactly what they would have seen without it. A command that cannot be found exits `127`; one killed by a signal exits `128` plus the signal number. Envi's own failures — not signed in, no `envi.toml`, API unreachable — all happen before the command starts.
+</Note>
+
+In CI, set `ENVI_TOKEN` to a [service token](/ci-service-tokens) and `envi run` works the same way, against the one environment that token is scoped to.
+
 ## Collaboration
 
 ### `envi share <email>`
