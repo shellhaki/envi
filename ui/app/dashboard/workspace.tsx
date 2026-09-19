@@ -68,6 +68,9 @@ export default function Workspace({ page }: { page: Page }) {
   const [copied, setCopied] = useState("");
   const [dragging, setDragging] = useState(false);
   const [modal, setModal] = useState<"project" | "secret" | "share" | "import" | "environment">();
+  // The secret being edited, held separately from `modal` because it carries the
+  // row's current value: the dialog is the same one, opened over existing data.
+  const [editing, setEditing] = useState<{ key: string; value: string }>();
   const [deletingEnv, setDeletingEnv] = useState<Env>();
   const [deleting, setDeleting] = useState<Project>();
   // Only projects in the viewer's own org offer delete; the server enforces
@@ -134,6 +137,10 @@ export default function Workspace({ page }: { page: Page }) {
     const id = requestAnimationFrame(() => loadSecrets());
     return () => cancelAnimationFrame(id);
   }, [loadSecrets]);
+  // Revealed keys are tracked by name, so they have to be forgotten when the
+  // environment changes: revealing DATABASE_URL in dev must not silently
+  // un-mask the production one the moment you switch to it.
+  useEffect(() => { setReveal(new Set()); }, [env?.ID]);
 
   const loadEvents = useCallback(() => {
     if (!project) { setEvents([]); setLoadingEvents(false); return; }
@@ -203,10 +210,11 @@ export default function Workspace({ page }: { page: Page }) {
       setNotice(`Created project ${data.name}.`);
     }
     if (type === "secret" && env) {
+      const existed = data.key in snap.values;
       const values = { ...snap.values, [data.key]: data.value ?? "" };
       const x = await api<{ revision: number }>(`/environments/${env.ID}/secrets/snapshot`, { method: "PUT", body: JSON.stringify({ values, expected_revision: snap.revision }) });
       setSnap({ values, revision: x.revision });
-      setNotice(`Saved ${data.key}.`);
+      setNotice(`${existed ? "Updated" : "Added"} ${data.key}.`);
     }
     if (type === "environment" && project) {
       const created = await api<Env>(`/projects/${project.ID}/environments`, { method: "POST", body: JSON.stringify({ name: data.name, is_production: data.is_production === "on" }) });
@@ -220,6 +228,7 @@ export default function Workspace({ page }: { page: Page }) {
       loadCollaborators();
     }
     setModal(undefined);
+    setEditing(undefined);
   }
 
   // importValues merges parsed KEY=VALUE pairs into the current project.
@@ -326,6 +335,7 @@ export default function Workspace({ page }: { page: Page }) {
           <div className="cell-actions">
             <button className="icon-btn" title={reveal.has(k) ? "Hide" : "Reveal"} onClick={() => toggleReveal(k)}>{reveal.has(k) ? <EyeOff /> : <Eye />}</button>
             <button className="icon-btn" title="Copy" onClick={() => copy(k)}>{copied === k ? <Check /> : <Clipboard />}</button>
+            <button className="icon-btn" title="Edit" aria-label={`Edit ${k}`} onClick={() => setEditing({ key: k, value: snap.values[k] })}><Pencil /></button>
             <button className="icon-btn danger" title="Delete" onClick={() => removeKey(k)}><Trash2 /></button>
           </div>
         </div>)}
@@ -393,6 +403,7 @@ export default function Workspace({ page }: { page: Page }) {
       close={() => setDeletingEnv(undefined)} onDelete={() => deleteEnvironment(deletingEnv)} />}
     {modal === "import" && <ImportDialog projectName={project?.Name || ""} close={() => setModal(undefined)} onImport={importValues} />}
     {modal && modal !== "import" && <Dialog type={modal} close={() => setModal(undefined)} submit={(d) => submit(modal, d)} />}
+    {editing && <Dialog type="secret" editing={editing} close={() => setEditing(undefined)} submit={(d) => submit("secret", d)} />}
   </main>;
 }
 
@@ -410,13 +421,13 @@ const DIALOG_META: Record<string, { title: string; sub?: string }> = {
   share: { title: "Invite collaborator", sub: "They'll get an email with a link to accept." },
   environment: { title: "New environment", sub: "A separate set of secrets in this project." },
 };
-function Dialog({ type, close, submit }: { type: "project" | "secret" | "share" | "environment"; close: () => void; submit: (d: Record<string, string>) => Promise<void> }) {
+function Dialog({ type, close, submit, editing }: { type: "project" | "secret" | "share" | "environment"; close: () => void; submit: (d: Record<string, string>) => Promise<void>; editing?: { key: string; value: string } }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   // Controlled so the glass Select can mirror it into a hidden input, which
   // is what keeps this form readable through FormData.
   const [permission, setPermission] = useState("read");
-  const meta = DIALOG_META[type];
+  const meta = editing ? { title: "Edit secret", sub: "Saving writes a new version; the old value stays in the history." } : DIALOG_META[type];
   return <div className="dialog-backdrop" onMouseDown={close}>
     <form className="dialog" onMouseDown={(e) => e.stopPropagation()} onSubmit={async (e: FormEvent<HTMLFormElement>) => {
       e.preventDefault(); setBusy(true); setError("");
@@ -426,7 +437,7 @@ function Dialog({ type, close, submit }: { type: "project" | "secret" | "share" 
       <header><h2>{meta.title}</h2><button type="button" onClick={close}>×</button></header>
       {meta.sub && <p className="dialog-sub">{meta.sub}</p>}
       {type === "project" && <Field name="name" label="Project name" placeholder="acme-api" />}
-      {type === "secret" && <><Field name="key" label="Key" placeholder="API_KEY" /><label>Value<textarea name="value" placeholder="secret value" /></label></>}
+      {type === "secret" && <><Field name="key" label="Key" placeholder="API_KEY" defaultValue={editing?.key} readOnly={!!editing} /><label>Value<textarea name="value" placeholder="secret value" defaultValue={editing?.value} autoFocus={!!editing} /></label></>}
       {type === "environment" && <><Field name="name" label="Name" placeholder="production" /><label className="checkbox-field"><input type="checkbox" name="is_production" /><span><strong>Production environment</strong>Org members lose automatic access — each person needs an explicit grant.</span></label></>}
       {type === "share" && <><Field name="email" label="Email" type="email" placeholder="teammate@company.com" /><div className="field"><span>Permission</span><Select name="permission" ariaLabel="Permission" value={permission} onChange={setPermission} options={[{ value: "read", label: "Read — view and pull" }, { value: "write", label: "Write — push and change" }, { value: "manage", label: "Manage — invite and manage access" }]} /></div></>}
       {error && <p className="form-error">{error}</p>}
@@ -454,8 +465,10 @@ function ConfirmDelete({ title, name, warning, close, onDelete }: { title: strin
     </form>
   </div>;
 }
-function Field({ name, label, type = "text", placeholder }: { name: string; label: string; type?: string; placeholder?: string }) {
-  return <label>{label}<input required name={name} type={type} placeholder={placeholder} /></label>;
+function Field({ name, label, type = "text", placeholder, defaultValue, readOnly }: { name: string; label: string; type?: string; placeholder?: string; defaultValue?: string; readOnly?: boolean }) {
+  // readOnly rather than disabled: a disabled input is left out of FormData, and
+  // the key is exactly what the submit handler needs to know which secret to write.
+  return <label>{label}<input required name={name} type={type} placeholder={placeholder} defaultValue={defaultValue} readOnly={readOnly} /></label>;
 }
 
 function ImportDialog({ projectName, close, onImport }: { projectName: string; close: () => void; onImport: (v: Record<string, string>) => Promise<void> }) {

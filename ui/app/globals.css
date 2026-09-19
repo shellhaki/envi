@@ -270,6 +270,10 @@ footer { min-height: 96px; padding: 0 24px; display: flex; align-items: center; 
 .auth-form input:focus, .dialog input:focus, .dialog select:focus, .dialog textarea:focus, .settings-content input:focus, .context-bar select:focus, .panel-search input:focus {
   outline: none; border-color: var(--text); box-shadow: 0 0 0 3px var(--accent-weak);
 }
+/* The key of a secret being edited: shown for context, not up for changing —
+   retyping it would write a second secret rather than update this one. */
+.dialog input[readonly] { background: var(--surface-2); color: var(--muted); cursor: default; font-family: var(--font-mono), monospace; font-size: 12px; }
+.dialog input[readonly]:focus { border-color: var(--line-strong); box-shadow: none; }
 .form-error { margin: 0; color: var(--danger); font-size: 12px; }
 .link-button, .text-link { border: 0; background: transparent; color: var(--muted); font-size: 12px; cursor: pointer; transition: color .15s ease; }
 .link-button:hover, .text-link:hover { color: var(--text); }
