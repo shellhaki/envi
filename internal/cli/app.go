@@ -129,6 +129,46 @@ func (a App) Run(args []string) int {
 			NewUI(out).Success("Pushed %d secret%s", count, plural(count))
 			return nil
 		})
+	case "run":
+		origin, preserve, argv, e := parseRunArgs(args[1:])
+		if e != nil {
+			fmt.Fprintln(a.Err, e)
+			fmt.Fprintln(a.Err, "usage: envi run [--origin <name>] [--preserve-env] -- <command> [args...]")
+			return ExitUsage
+		}
+		if len(argv) == 0 {
+			fmt.Fprintln(a.Err, "usage: envi run [--origin <name>] [--preserve-env] -- <command> [args...]")
+			return ExitUsage
+		}
+		c, code := a.session()
+		if code != ExitOK {
+			return code
+		}
+		dir, e := os.Getwd()
+		if e != nil {
+			fmt.Fprintln(a.Err, e)
+			return ExitConfig
+		}
+		// Fetch behind a spinner, which Run stops as soon as the network work
+		// is done: it redraws on a timer and would otherwise scribble over the
+		// child's output for as long as the child runs. Stop is idempotent, so
+		// the second call here only matters on the paths that fail early.
+		fetching := NewUI(a.Out).Spinner("Fetching secrets")
+		status, e := Run(context.Background(), c, dir, origin, preserve, argv, a.Err, fetching.Stop)
+		fetching.Stop()
+		if e != nil {
+			fmt.Fprintln(a.Err, e)
+			// A command that could not be started reports the status a shell
+			// would give it, not one of envi's codes.
+			var ee *ExecError
+			if errors.As(e, &ee) {
+				return ee.Status
+			}
+			return ExitCode(e)
+		}
+		// The child's status, not envi's: scripts wrapping a command in
+		// envi run must see exactly what they would have seen without it.
+		return status
 	case "pull", "diff":
 		labels := map[string]string{"pull": "Pulling secrets", "diff": "Comparing with remote"}
 		return a.authenticated(labels[args[0]], func(c Client, out io.Writer) error {
@@ -341,7 +381,7 @@ func (a App) Run(args []string) int {
 	}
 }
 func (a App) help() {
-	fmt.Fprintln(a.Out, "Usage: envi <command> [flags]\n\nCommands:\n  auth       Authenticate this device in the browser (--email for email OTP)\n  logout     Revoke this device's session\n  project    Create a project (project create <name>)\n  origin     This project's origins (origin list | origin switch <name> | origin create <name>)\n  env        Alias for origin create\n  init       Initialize project context\n  pull       Write remote secrets to .env\n  push       Send .env secrets to Envi (push [file] [origin <name>] [--force])\n  diff       Compare local and remote keys\n  activity   Show recent activity for your organization\n  share      Invite a project collaborator\n  invite     Accept an invitation\n  token      Manage service tokens\n  update     Check for or install a new version (update check | update now)\n  uninstall  Remove envi from this machine\n  version    Print version\n  help       Show help")
+	fmt.Fprintln(a.Out, "Usage: envi <command> [flags]\n\nCommands:\n  auth       Authenticate this device in the browser (--email for email OTP)\n  logout     Revoke this device's session\n  project    Create a project (project create <name>)\n  origin     This project's origins (origin list | origin switch <name> | origin create <name>)\n  env        Alias for origin create\n  init       Initialize project context\n  pull       Write remote secrets to .env\n  push       Send .env secrets to Envi (push [file] [origin <name>] [--force])\n  diff       Compare local and remote keys\n  run        Run a command with the secrets injected, no .env on disk (run -- npm start)\n  activity   Show recent activity for your organization\n  share      Invite a project collaborator\n  invite     Accept an invitation\n  token      Manage service tokens\n  update     Check for or install a new version (update check | update now)\n  uninstall  Remove envi from this machine\n  version    Print version\n  help       Show help")
 }
 
 // tokenStore resolves the session store, reporting the exit code to use when it
@@ -376,21 +416,32 @@ func (a App) input() io.Reader {
 // print to: the first write stops the spinner, so commands that stream results
 // need no knowledge of it, and commands that print only at the end get a clean
 // line to print on.
-func (a App) authenticated(label string, run func(Client, io.Writer) error) int {
+// session resolves a ready-to-use client, reporting through the spinner and
+// returning the exit code to use when it cannot. Split out of authenticated so
+// that run, whose exit status belongs to its child process, can get a client
+// without inheriting the rest of that wrapper.
+func (a App) session() (Client, int) {
 	store, code := a.tokenStore()
 	if store == nil {
-		return code
+		return Client{}, code
 	}
-	ui := NewUI(a.Out)
-	connecting := ui.Spinner("Authenticating")
+	connecting := NewUI(a.Out).Spinner("Authenticating")
 	c, err := authorize(a.client(), store)
 	connecting.Stop()
 	if err != nil {
 		fmt.Fprintln(a.Err, err)
-		return ExitAuth
+		return Client{}, ExitAuth
 	}
-	working := ui.Spinner(label)
-	err = run(c, working.Writer(a.Out))
+	return c, ExitOK
+}
+
+func (a App) authenticated(label string, run func(Client, io.Writer) error) int {
+	c, code := a.session()
+	if code != ExitOK {
+		return code
+	}
+	working := NewUI(a.Out).Spinner(label)
+	err := run(c, working.Writer(a.Out))
 	working.Stop()
 	if err != nil {
 		fmt.Fprintln(a.Err, err)

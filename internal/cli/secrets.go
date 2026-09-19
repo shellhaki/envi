@@ -88,6 +88,23 @@ func writeEnv(path string, values map[string]string) error {
 	return nil
 }
 
+// fetchSnapshot reads an environment's current secrets and the revision they
+// were read at. Every command that touches the remote goes through here, so the
+// request shape is stated once.
+func fetchSnapshot(ctx context.Context, c Client, envID string) (map[string]string, int64, error) {
+	var snapshot struct {
+		Values   map[string]string `json:"values"`
+		Revision int64             `json:"revision"`
+	}
+	if e := c.Do(ctx, "GET", "/environments/"+envID+"/secrets/snapshot", nil, &snapshot); e != nil {
+		return nil, 0, e
+	}
+	if snapshot.Values == nil {
+		snapshot.Values = map[string]string{}
+	}
+	return snapshot.Values, snapshot.Revision, nil
+}
+
 // Pull writes the environment's secrets to .env, returning how many were
 // written so the caller can say so rather than just "complete".
 func Pull(ctx context.Context, c Client, dir string) (int, error) {
@@ -95,18 +112,15 @@ func Pull(ctx context.Context, c Client, dir string) (int, error) {
 	if e != nil {
 		return 0, e
 	}
-	var snapshot struct {
-		Values   map[string]string `json:"values"`
-		Revision int64             `json:"revision"`
-	}
-	if e = c.Do(ctx, "GET", "/environments/"+x.Environment.ID+"/secrets/snapshot", nil, &snapshot); e != nil {
+	values, revision, e := fetchSnapshot(ctx, c, x.Environment.ID)
+	if e != nil {
 		return 0, e
 	}
-	if e = writeEnv(envPath(dir), snapshot.Values); e != nil {
+	if e = writeEnv(envPath(dir), values); e != nil {
 		return 0, e
 	}
-	x.Environment.Revision = snapshot.Revision
-	return len(snapshot.Values), projectctx.Write(dir, x)
+	x.Environment.Revision = revision
+	return len(values), projectctx.Write(dir, x)
 }
 
 // Push sends a local env file up, returning how many secrets were sent.
@@ -169,11 +183,8 @@ func readEnvFile(path string) (map[string]string, error) {
 }
 
 func currentRevision(ctx context.Context, c Client, envID string) (int64, error) {
-	var remote struct {
-		Revision int64 `json:"revision"`
-	}
-	e := c.Do(ctx, "GET", "/environments/"+envID+"/secrets/snapshot", nil, &remote)
-	return remote.Revision, e
+	_, revision, e := fetchSnapshot(ctx, c, envID)
+	return revision, e
 }
 
 // withForceHint replaces the server's compare-and-swap rejection with the two
@@ -201,19 +212,17 @@ func Diff(ctx context.Context, c Client, dir string, out io.Writer) error {
 	if e != nil {
 		return e
 	}
-	var remote struct {
-		Values map[string]string `json:"values"`
-	}
-	if e = c.Do(ctx, "GET", "/environments/"+x.Environment.ID+"/secrets/snapshot", nil, &remote); e != nil {
+	remote, _, e := fetchSnapshot(ctx, c, x.Environment.ID)
+	if e != nil {
 		return e
 	}
-	keys := make([]string, 0, len(local)+len(remote.Values))
+	keys := make([]string, 0, len(local)+len(remote))
 	seen := map[string]bool{}
 	for key := range local {
 		seen[key] = true
 		keys = append(keys, key)
 	}
-	for key := range remote.Values {
+	for key := range remote {
 		if !seen[key] {
 			keys = append(keys, key)
 		}
@@ -221,7 +230,7 @@ func Diff(ctx context.Context, c Client, dir string, out io.Writer) error {
 	sort.Strings(keys)
 	for _, key := range keys {
 		lv, lok := local[key]
-		rv, rok := remote.Values[key]
+		rv, rok := remote[key]
 		switch {
 		case !rok:
 			fmt.Fprintln(out, "added", key)

@@ -144,17 +144,15 @@ func localChanges(ctx context.Context, c Client, dir, envID string) (bool, error
 	if err != nil {
 		return false, err
 	}
-	var remote struct {
-		Values map[string]string `json:"values"`
-	}
-	if err = c.Do(ctx, "GET", "/environments/"+envID+"/secrets/snapshot", nil, &remote); err != nil {
+	remote, _, err := fetchSnapshot(ctx, c, envID)
+	if err != nil {
 		return false, err
 	}
-	if len(local) != len(remote.Values) {
+	if len(local) != len(remote) {
 		return true, nil
 	}
 	for k, v := range local {
-		if rv, ok := remote.Values[k]; !ok || rv != v {
+		if rv, ok := remote[k]; !ok || rv != v {
 			return true, nil
 		}
 	}
@@ -190,15 +188,12 @@ func PushToOrigin(ctx context.Context, c Client, in io.Reader, out io.Writer, di
 
 	// The target's own revision, not the cached one for the current origin:
 	// they count independently.
-	var remote struct {
-		Values   map[string]string `json:"values"`
-		Revision int64             `json:"revision"`
-	}
-	if err = c.Do(ctx, "GET", "/environments/"+target.ID+"/secrets/snapshot", nil, &remote); err != nil {
+	remote, revision, err := fetchSnapshot(ctx, c, target.ID)
+	if err != nil {
 		return err
 	}
 
-	added, changed, removed := compare(local, remote.Values)
+	added, changed, removed := compare(local, remote)
 	ui := NewUI(out)
 	if len(added)+len(changed)+len(removed) == 0 {
 		ui.Success("%s already matches %s", target.Name, shown)
@@ -220,7 +215,7 @@ func PushToOrigin(ctx context.Context, c Client, in io.Reader, out io.Writer, di
 	var result struct {
 		Revision int64 `json:"revision"`
 	}
-	body := map[string]any{"values": local, "expected_revision": remote.Revision}
+	body := map[string]any{"values": local, "expected_revision": revision}
 	if err = c.Do(ctx, "PUT", "/environments/"+target.ID+"/secrets/snapshot", body, &result); err != nil {
 		return withForceHint(err)
 	}
