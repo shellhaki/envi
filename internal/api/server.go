@@ -25,6 +25,7 @@ func Build(db *pgxpool.Pool, login auth.LoginSettings, p project.Service, s secr
 	addAuthRoutes(r, db, login)
 	m := RequireAuth(db, st)
 	addDeviceRoutes(r, db, webURL, m)
+	addAPIKeyRoutes(r, db, m)
 	ProjectHandler{Service: p}.RoutesProtected(r, m)
 	SecretHandler{Service: s}.Routes(r, m)
 	AuditHandler{Service: au}.Routes(r, m)

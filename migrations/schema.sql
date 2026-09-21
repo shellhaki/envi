@@ -53,7 +53,12 @@ CREATE TABLE invitations (
 );
 CREATE TABLE sessions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  refresh_token_hash bytea NOT NULL UNIQUE, access_token_hash bytea NOT NULL UNIQUE, access_expires_at timestamptz NOT NULL, expires_at timestamptz NOT NULL, revoked_at timestamptz, created_at timestamptz NOT NULL DEFAULT now()
+  refresh_token_hash bytea NOT NULL UNIQUE, access_token_hash bytea NOT NULL UNIQUE, access_expires_at timestamptz NOT NULL, expires_at timestamptz NOT NULL, revoked_at timestamptz, created_at timestamptz NOT NULL DEFAULT now(),
+  -- NULL for an ordinary login; set when the session came from an API key that
+  -- caps what it may do.
+  permission text CHECK (permission IN ('read','write','manage')),
+  -- The foreign key is added after api_tokens exists, further down.
+  api_key_id uuid
 );
 CREATE TABLE service_identities (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(), project_id uuid NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
@@ -63,7 +68,7 @@ CREATE TABLE service_identities (
 CREATE TABLE api_tokens (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid REFERENCES users(id) ON DELETE CASCADE,
   service_identity_id uuid REFERENCES service_identities(id) ON DELETE CASCADE, token_hash bytea NOT NULL UNIQUE,
-  permission text NOT NULL CHECK (permission IN ('read','write','manage')), expires_at timestamptz, revoked_at timestamptz,
+  name text, permission text NOT NULL CHECK (permission IN ('read','write','manage')), expires_at timestamptz, revoked_at timestamptz,
   last_used_at timestamptz, created_at timestamptz NOT NULL DEFAULT now(), CHECK ((user_id IS NULL) <> (service_identity_id IS NULL))
 );
 CREATE TABLE audit_events (
@@ -82,6 +87,11 @@ CREATE INDEX environments_project_idx ON environments(project_id);
 CREATE INDEX secrets_environment_idx ON secrets(environment_id);
 CREATE INDEX secret_versions_secret_idx ON secret_versions(secret_id);
 CREATE INDEX grants_project_env_idx ON access_grants(project_id, environment_id);
+ALTER TABLE sessions ADD CONSTRAINT sessions_api_key_id_fkey
+  FOREIGN KEY (api_key_id) REFERENCES api_tokens(id) ON DELETE CASCADE;
+
+CREATE INDEX IF NOT EXISTS api_tokens_user_idx ON api_tokens(user_id) WHERE user_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS sessions_api_key_idx ON sessions(api_key_id) WHERE api_key_id IS NOT NULL;
 CREATE INDEX audit_org_created_idx ON audit_events(org_id, created_at DESC);
 CREATE INDEX invitations_email_idx ON invitations(email);
 CREATE INDEX device_authorizations_user_code_idx ON device_authorizations(user_code);

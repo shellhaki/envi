@@ -47,7 +47,7 @@ func TestSessionLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, err := UserForAccessToken(db, access); err != nil || got != user {
+	if got, _, err := UserForAccessToken(db, access); err != nil || got != user {
 		t.Fatalf("new access token: got %q, %v", got, err)
 	}
 
@@ -58,10 +58,10 @@ func TestSessionLifecycle(t *testing.T) {
 	if newAccess == access || newRefresh == refresh {
 		t.Fatal("refreshing must hand out new tokens, not the old ones")
 	}
-	if _, err := UserForAccessToken(db, access); err == nil {
+	if _, _, err := UserForAccessToken(db, access); err == nil {
 		t.Fatal("the old access token still works after a refresh")
 	}
-	if got, err := UserForAccessToken(db, newAccess); err != nil || got != user {
+	if got, _, err := UserForAccessToken(db, newAccess); err != nil || got != user {
 		t.Fatalf("refreshed access token: got %q, %v", got, err)
 	}
 	if _, _, err := RefreshSession(db, refresh); err == nil {
@@ -74,7 +74,7 @@ func TestSessionLifecycle(t *testing.T) {
 	if _, _, err := RefreshSession(db, newRefresh); err == nil {
 		t.Fatal("a logged-out refresh token still works")
 	}
-	if _, err := UserForAccessToken(db, newAccess); err == nil {
+	if _, _, err := UserForAccessToken(db, newAccess); err == nil {
 		t.Fatal("logging out left the access token working")
 	}
 }
@@ -93,7 +93,7 @@ func TestAccessTokenExpiresBeforeTheSession(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := UserForAccessToken(db, access); err == nil {
+	if _, _, err := UserForAccessToken(db, access); err == nil {
 		t.Fatal("an expired access token was accepted")
 	}
 	if _, _, err := RefreshSession(db, refresh); err != nil {

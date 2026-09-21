@@ -39,6 +39,20 @@ var (
 // StartSession logs a user in: it makes a new pair of tokens and saves the
 // session to the database. Every way of logging in ends here.
 func StartSession(db *pgxpool.Pool, userID string) (accessToken string, refreshToken string, err error) {
+	// "" means an ordinary login, which can do everything the user can.
+	return startSession(db, userID, "", "")
+}
+
+// StartLimitedSession logs a user in with a ceiling on what the session may do,
+// one of "read", "write" or "manage". API keys use this: a session made from a
+// read-only key stays read-only, including after it refreshes.
+// apiKeyID ties the session to the key it came from, so revoking that key ends
+// this session too.
+func StartLimitedSession(db *pgxpool.Pool, userID string, permission string, apiKeyID string) (accessToken string, refreshToken string, err error) {
+	return startSession(db, userID, permission, apiKeyID)
+}
+
+func startSession(db *pgxpool.Pool, userID string, permission string, apiKeyID string) (accessToken string, refreshToken string, err error) {
 	accessToken, err = newRandomToken()
 	if err != nil {
 		return "", "", err
@@ -48,14 +62,25 @@ func StartSession(db *pgxpool.Pool, userID string) (accessToken string, refreshT
 		return "", "", err
 	}
 
+	// A blank permission is stored as NULL, meaning "no ceiling".
+	var ceiling *string
+	if permission != "" {
+		ceiling = &permission
+	}
+	var fromKey *string
+	if apiKeyID != "" {
+		fromKey = &apiKeyID
+	}
 	_, err = db.Exec(context.Background(),
-		`INSERT INTO sessions (user_id, refresh_token_hash, access_token_hash, access_expires_at, expires_at)
-		 VALUES ($1, $2, $3, now() + make_interval(secs => $4), now() + make_interval(secs => $5))`,
+		`INSERT INTO sessions (user_id, refresh_token_hash, access_token_hash, access_expires_at, expires_at, permission, api_key_id)
+		 VALUES ($1, $2, $3, now() + make_interval(secs => $4), now() + make_interval(secs => $5), $6, $7)`,
 		userID,
 		HashToken(refreshToken),
 		HashToken(accessToken),
 		AccessTokenLifetime.Seconds(),
 		RefreshTokenLifetime.Seconds(),
+		ceiling,
+		fromKey,
 	)
 	if err != nil {
 		return "", "", err
@@ -65,12 +90,14 @@ func StartSession(db *pgxpool.Pool, userID string) (accessToken string, refreshT
 
 // RefreshSession swaps a refresh token for a brand-new pair of tokens.
 // The old refresh token is used up, so it can never be used again.
+// A session keeps its ceiling when it refreshes, so a read-only key can't be
+// turned into a full session by waiting fifteen minutes.
 func RefreshSession(db *pgxpool.Pool, refreshToken string) (newAccessToken string, newRefreshToken string, err error) {
-	userID, err := useUpRefreshToken(db, refreshToken)
+	userID, permission, apiKeyID, err := useUpRefreshToken(db, refreshToken)
 	if err != nil {
 		return "", "", err
 	}
-	return StartSession(db, userID)
+	return startSession(db, userID, permission, apiKeyID)
 }
 
 // EndSession logs out: the session behind this refresh token stops working,
@@ -84,29 +111,34 @@ func EndSession(db *pgxpool.Pool, refreshToken string) error {
 }
 
 // UserForAccessToken answers "who is making this request?". It returns the
-// user's ID, or an error if the token is unknown, expired, or logged out.
-func UserForAccessToken(db *pgxpool.Pool, accessToken string) (userID string, err error) {
+// user's ID and the session's ceiling ("" for an ordinary login), or an error if
+// the token is unknown, expired, or logged out.
+func UserForAccessToken(db *pgxpool.Pool, accessToken string) (userID string, permission string, err error) {
+	var ceiling *string
 	err = db.QueryRow(context.Background(),
-		`SELECT user_id FROM sessions
+		`SELECT user_id, permission FROM sessions
 		 WHERE access_token_hash = $1 AND revoked_at IS NULL AND access_expires_at > now()`,
 		HashToken(accessToken),
-	).Scan(&userID)
+	).Scan(&userID, &ceiling)
 	if err != nil {
-		return "", errors.New("invalid access token")
+		return "", "", errors.New("invalid access token")
 	}
-	return userID, nil
+	if ceiling != nil {
+		permission = *ceiling
+	}
+	return userID, permission, nil
 }
 
 // useUpRefreshToken checks a refresh token and marks it as used, in one step,
 // and returns the user it belongs to.
-func useUpRefreshToken(db *pgxpool.Pool, refreshToken string) (userID string, err error) {
+func useUpRefreshToken(db *pgxpool.Pool, refreshToken string) (userID string, permission string, apiKeyID string, err error) {
 	ctx := context.Background()
 
 	// A transaction groups the "check" and the "mark as used" together, so
 	// nothing can happen in between.
 	tx, err := db.Begin(ctx)
 	if err != nil {
-		return "", err
+		return "", "", "", err
 	}
 	// If we return early for any reason, undo whatever the transaction did.
 	// (After Commit below succeeds, this does nothing.)
@@ -116,27 +148,34 @@ func useUpRefreshToken(db *pgxpool.Pool, refreshToken string) (userID string, er
 	// expired. FOR UPDATE locks the row: if two browser tabs refresh at the
 	// same moment, the second one waits, then finds the token already used.
 	var sessionID string
+	var ceiling, fromKey *string
 	err = tx.QueryRow(ctx,
-		`SELECT id, user_id FROM sessions
+		`SELECT id, user_id, permission, api_key_id FROM sessions
 		 WHERE refresh_token_hash = $1 AND revoked_at IS NULL AND expires_at > now()
 		 FOR UPDATE`,
 		HashToken(refreshToken),
-	).Scan(&sessionID, &userID)
+	).Scan(&sessionID, &userID, &ceiling, &fromKey)
 	if err != nil {
-		return "", errors.New("invalid refresh token")
+		return "", "", "", errors.New("invalid refresh token")
 	}
 
 	// Mark the session as used, which also kills its access token.
 	_, err = tx.Exec(ctx, `UPDATE sessions SET revoked_at = now() WHERE id = $1`, sessionID)
 	if err != nil {
-		return "", err
+		return "", "", "", err
 	}
 
 	err = tx.Commit(ctx)
 	if err != nil {
-		return "", err
+		return "", "", "", err
 	}
-	return userID, nil
+	if ceiling != nil {
+		permission = *ceiling
+	}
+	if fromKey != nil {
+		apiKeyID = *fromKey
+	}
+	return userID, permission, apiKeyID, nil
 }
 
 // newRandomToken makes 32 random bytes, written as 64 hex characters.

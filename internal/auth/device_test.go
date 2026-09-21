@@ -46,7 +46,7 @@ func TestDeviceLoginApproved(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, err := UserForAccessToken(db, access); err != nil || got != user {
+	if got, _, err := UserForAccessToken(db, access); err != nil || got != user {
 		t.Fatalf("the CLI's new session belongs to %q (%v), want %q", got, err, user)
 	}
 
