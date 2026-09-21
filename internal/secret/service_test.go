@@ -52,14 +52,25 @@ func TestSecretAccessAuditIntegration(t *testing.T) {
 	if e = db.QueryRow(t.Context(), `SELECT ciphertext FROM secret_versions WHERE secret_id IN(SELECT id FROM secrets WHERE environment_id=$1) LIMIT 1`, dev.ID).Scan(&raw); e != nil || string(raw) == "plaintext-value" {
 		t.Fatal("plaintext stored")
 	}
-	if e = s.Put(t.Context(), w.UserID, prod.ID, "API_KEY", "prod"); e != access.ErrForbidden {
+	// Owners reach production by role (see the regression in internal/e2e), so
+	// the grant rule is checked with a plain member of the same org: they get
+	// development through membership, but production only with a grant.
+	var member string
+	if e = db.QueryRow(t.Context(), `INSERT INTO users(email) VALUES('secret-member@example.com') ON CONFLICT (email) DO UPDATE SET email=EXCLUDED.email RETURNING id`).Scan(&member); e != nil {
+		t.Fatal(e)
+	}
+	defer db.Exec(t.Context(), `DELETE FROM users WHERE id=$1`, member)
+	if _, e = db.Exec(t.Context(), `INSERT INTO memberships(user_id,org_id,role) VALUES($1,$2,'member') ON CONFLICT DO NOTHING`, member, w.OrganizationID); e != nil {
+		t.Fatal(e)
+	}
+	if e = s.Put(t.Context(), member, prod.ID, "API_KEY", "prod"); e != access.ErrForbidden {
 		t.Fatal("production allowed without grant")
 	}
-	_, e = db.Exec(t.Context(), `INSERT INTO access_grants(subject_user_id,project_id,environment_id,permission)VALUES($1,$2,$3,'write')`, w.UserID, p.ID, prod.ID)
+	_, e = db.Exec(t.Context(), `INSERT INTO access_grants(subject_user_id,project_id,environment_id,permission)VALUES($1,$2,$3,'write')`, member, p.ID, prod.ID)
 	if e != nil {
 		t.Fatal(e)
 	}
-	if e = s.Put(t.Context(), w.UserID, prod.ID, "API_KEY", "prod"); e != nil {
+	if e = s.Put(t.Context(), member, prod.ID, "API_KEY", "prod"); e != nil {
 		t.Fatal(e)
 	}
 	if e = s.Delete(t.Context(), w.UserID, dev.ID, "API_KEY"); e != nil {

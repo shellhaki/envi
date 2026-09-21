@@ -143,34 +143,30 @@ func TestCLIEndToEndIntegration(t *testing.T) {
 		}
 	}()
 
-	const (
-		accessTTL  = 15 * time.Minute
-		refreshTTL = 30 * 24 * time.Hour
-	)
 	mailer := capturingMailer{codes: make(chan string, 8)}
 	w := workspace.Service{DB: db}
-	authSvc := auth.Service{
-		OTP:        otp.Service{Store: otp.Redis{Client: rc}, TTL: 10 * time.Minute, MaxAttempts: 10, RequestLimit: 20},
-		Mailer:     mailer,
-		Provision:  w.Identity,
-		AccessTTL:  accessTTL,
-		RefreshTTL: refreshTTL,
+	login := auth.LoginSettings{
+		Codes:               otp.Service{Store: otp.Redis{Client: rc}, TTL: 10 * time.Minute, MaxAttempts: 10, RequestLimit: 20},
+		Mailer:              mailer,
+		FindOrCreateAccount: w.Identity,
 	}
 	cipher, err := crypt.New([]byte("01234567890123456789012345678901"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	tokens := &auth.PostgresTokens{DB: db, AccessTTL: accessTTL, RefreshTTL: refreshTTL}
-	deviceSvc := auth.DeviceService{Store: &auth.PostgresDeviceStore{DB: db}, Tokens: tokens, TTL: 10 * time.Minute, Interval: time.Second}
+	// Poll the device login every second rather than every five, so the test
+	// doesn't sit idle.
+	savedPoll := auth.DevicePollInterval
+	auth.DevicePollInterval = time.Second
+	defer func() { auth.DevicePollInterval = savedPoll }()
 	router := api.Build(
-		authSvc, tokens,
+		db, login,
 		project.Service{DB: db},
 		secret.Service{DB: db, Access: access.Service{DB: db}, Cipher: cipher},
 		audit.Service{DB: db},
 		service_token.Service{DB: db},
 		invitation.Service{DB: db},
-		db,
-		deviceSvc, "http://web.test", accessTTL,
+		"http://web.test",
 		false,
 	)
 	ts := httptest.NewServer(router)
@@ -258,13 +254,13 @@ func TestCLIEndToEndIntegration(t *testing.T) {
 	// --- push (fake secrets) ------------------------------------------------
 	const originalEnv = "API_KEY=sk_test_FAKE_do_not_use\nDB_PASSWORD=hunter2\nFEATURE_X=true\n"
 	writeFile(t, filepath.Join(ownerDir, ".env"), originalEnv)
-	if code, out := runCLI(t, base, ownerStore, "push"); code != 0 || !strings.Contains(out, "push complete") {
+	if code, out := runCLI(t, base, ownerStore, "push"); code != 0 || !strings.Contains(out, "Pushed 3 secrets") {
 		t.Fatalf("push exit=%d out=%q", code, out)
 	}
 
 	// --- pull round-trips the secrets back ----------------------------------
 	mustRemove(t, filepath.Join(ownerDir, ".env"))
-	if code, out := runCLI(t, base, ownerStore, "pull"); code != 0 || !strings.Contains(out, "pull complete") {
+	if code, out := runCLI(t, base, ownerStore, "pull"); code != 0 || !strings.Contains(out, "Pulled 3 secrets") {
 		t.Fatalf("pull exit=%d out=%q", code, out)
 	}
 	assertEnvContains(t, filepath.Join(ownerDir, ".env"),
@@ -296,7 +292,12 @@ func TestCLIEndToEndIntegration(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("share exit=%d out=%q", code, out)
 	}
-	inviteToken := strings.TrimSpace(out)
+	// share prints a sentence ending "...: <token>"; the token is the last field.
+	fields := strings.Fields(out)
+	inviteToken := ""
+	if len(fields) > 0 {
+		inviteToken = fields[len(fields)-1]
+	}
 	if len(inviteToken) < 16 {
 		t.Fatalf("invitation token looks invalid: %q", out)
 	}
@@ -403,11 +404,15 @@ func authenticate(t *testing.T, base string, db *pgxpool.Pool, store cli.TokenSt
 // the backgrounded CLI a moment to request one before we approve it.
 func waitForPendingCode(t *testing.T, db *pgxpool.Pool) string {
 	t.Helper()
+	// Only codes created from here on, and still live: a shared database keeps
+	// pending codes from earlier runs, and approving one of those fails with an
+	// expired-code 400 that has nothing to do with the code under test.
+	started := time.Now().Add(-time.Second)
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
 		var code string
 		err := db.QueryRow(context.Background(),
-			`SELECT user_code FROM device_authorizations WHERE status='pending' ORDER BY created_at DESC LIMIT 1`).Scan(&code)
+			`SELECT user_code FROM device_authorizations WHERE status='pending' AND expires_at>now() AND created_at>=$1 ORDER BY created_at DESC LIMIT 1`, started).Scan(&code)
 		if err == nil && code != "" {
 			return code
 		}
