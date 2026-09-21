@@ -9,6 +9,7 @@ import (
 	"os"
 	projectctx "shellhaki/envi/internal/cli/project"
 	"strings"
+	"time"
 )
 
 const (
@@ -38,6 +39,7 @@ func (a App) Run(args []string) int {
 		fs := flag.NewFlagSet("auth", flag.ContinueOnError)
 		fs.SetOutput(a.Err)
 		email := fs.String("email", "", "authenticate with email OTP instead of the browser")
+		key := fs.String("key", "", "authenticate with a personal API key instead of the browser")
 		noBrowser := fs.Bool("no-browser", false, "print the URL instead of opening a browser")
 		if e := fs.Parse(args[1:]); e != nil {
 			return ExitUsage
@@ -47,7 +49,9 @@ func (a App) Run(args []string) int {
 			return code
 		}
 		var e error
-		if *email != "" {
+		if *key != "" {
+			e = LoginWithKey(context.Background(), a.client(), store, *key, a.Out)
+		} else if *email != "" {
 			e = Authenticate(context.Background(), a.client(), store, a.input(), a.Out, *email)
 		} else {
 			e = AuthenticateDevice(context.Background(), a.client(), store, a.Out, !*noBrowser)
@@ -169,6 +173,44 @@ func (a App) Run(args []string) int {
 		// The child's status, not envi's: scripts wrapping a command in
 		// envi run must see exactly what they would have seen without it.
 		return status
+	case "key":
+		sub := ""
+		if len(args) > 1 {
+			sub = args[1]
+		}
+		switch sub {
+		case "create":
+			fs := flag.NewFlagSet("key create", flag.ContinueOnError)
+			fs.SetOutput(a.Err)
+			name := fs.String("name", "", "what this key is for, e.g. laptop or ci")
+			permission := fs.String("permission", "read", "read, write or manage")
+			days := fs.Int("days", 90, "days until the key expires; 0 never expires")
+			if e := fs.Parse(args[2:]); e != nil {
+				return ExitUsage
+			}
+			if *name == "" {
+				fmt.Fprintln(a.Err, "usage: envi key create --name <name> [--permission read|write|manage] [--days 90]")
+				return ExitUsage
+			}
+			return a.authenticated("Creating API key", func(c Client, out io.Writer) error {
+				return CreateAPIKey(context.Background(), c, *name, *permission, time.Duration(*days)*24*time.Hour, out)
+			})
+		case "list":
+			return a.authenticated("Loading API keys", func(c Client, out io.Writer) error {
+				return ListAPIKeys(context.Background(), c, out)
+			})
+		case "revoke":
+			if len(args) < 3 {
+				fmt.Fprintln(a.Err, "usage: envi key revoke <id>")
+				return ExitUsage
+			}
+			return a.authenticated("Revoking API key", func(c Client, out io.Writer) error {
+				return RevokeAPIKey(context.Background(), c, args[2], out)
+			})
+		default:
+			fmt.Fprintln(a.Err, "usage: envi key create --name <name> | envi key list | envi key revoke <id>")
+			return ExitUsage
+		}
 	case "pull", "diff":
 		labels := map[string]string{"pull": "Pulling secrets", "diff": "Comparing with remote"}
 		return a.authenticated(labels[args[0]], func(c Client, out io.Writer) error {
@@ -381,7 +423,7 @@ func (a App) Run(args []string) int {
 	}
 }
 func (a App) help() {
-	fmt.Fprintln(a.Out, "Usage: envi <command> [flags]\n\nCommands:\n  auth       Authenticate this device in the browser (--email for email OTP)\n  logout     Revoke this device's session\n  project    Create a project (project create <name>)\n  origin     This project's origins (origin list | origin switch <name> | origin create <name>)\n  env        Alias for origin create\n  init       Initialize project context\n  pull       Write remote secrets to .env\n  push       Send .env secrets to Envi (push [file] [origin <name>] [--force])\n  diff       Compare local and remote keys\n  run        Run a command with the secrets injected, no .env on disk (run -- npm start)\n  activity   Show recent activity for your organization\n  share      Invite a project collaborator\n  invite     Accept an invitation\n  token      Manage service tokens\n  update     Check for or install a new version (update check | update now)\n  uninstall  Remove envi from this machine\n  version    Print version\n  help       Show help")
+	fmt.Fprintln(a.Out, "Usage: envi <command> [flags]\n\nCommands:\n  auth       Authenticate this device in the browser (--email for a code, --key for an API key)\n  logout     Revoke this device's session\n  key        Personal API keys (key create --name <name> | key list | key revoke <id>)\n  project    Create a project (project create <name>)\n  origin     This project's origins (origin list | origin switch <name> | origin create <name>)\n  env        Alias for origin create\n  init       Initialize project context\n  pull       Write remote secrets to .env\n  push       Send .env secrets to Envi (push [file] [origin <name>] [--force])\n  diff       Compare local and remote keys\n  run        Run a command with the secrets injected, no .env on disk (run -- npm start)\n  activity   Show recent activity for your organization\n  share      Invite a project collaborator\n  invite     Accept an invitation\n  token      Manage service tokens\n  update     Check for or install a new version (update check | update now)\n  uninstall  Remove envi from this machine\n  version    Print version\n  help       Show help")
 }
 
 // tokenStore resolves the session store, reporting the exit code to use when it
