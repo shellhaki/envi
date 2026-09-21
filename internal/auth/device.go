@@ -1,140 +1,221 @@
 package auth
 
+// This file is logging in the CLI through the browser ("envi auth").
+//
+// A terminal can't show a login page, so the CLI borrows the browser:
+//
+//  1. StartDeviceLogin: the CLI asks for a code. It gets two back:
+//     - a long secret DEVICE code that only the CLI knows, and
+//     - a short USER code like "WXYZ-ABCD" that it shows on screen.
+//  2. The user opens the website (already logged in there), types the user
+//     code, and clicks Approve: ApproveDeviceLogin (or Deny: DenyDeviceLogin).
+//  3. Meanwhile the CLI keeps asking "is it approved yet?" with its device
+//     code: FinishDeviceLogin. Once approved, that returns tokens and the CLI
+//     is logged in as that user.
+//
+// Each request is a row in the device_authorizations table, with a status:
+//
+//	pending -> approved -> redeemed      (the normal path)
+//	pending -> denied                    (the user clicked Deny)
+//
+// This is a standard called RFC 8628, which is where names like
+// "authorization_pending" below come from.
+
 import (
+	"context"
 	"crypto/rand"
 	"errors"
 	"strings"
-	"sync"
 	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// DeviceStore persists device authorizations for the device-code login flow.
-// Redeem must be single-use: only the first caller to observe an approved
-// authorization receives the user; every later poll sees it already redeemed.
-type DeviceStore interface {
-	Create(deviceHash []byte, userCode string, expiresAt time.Time) error
-	Approve(userCode, userID string) error
-	Deny(userCode string) error
-	Redeem(deviceHash []byte) (userID string, err error)
+// How long a code stays valid, and how often the CLI should ask whether it's
+// been approved.
+var (
+	DeviceCodeLifetime = 10 * time.Minute
+	DevicePollInterval = 5 * time.Second
+)
+
+// DevicePending means "not logged in yet", with a reason the CLI understands:
+//
+//	"authorization_pending"  still waiting for the user; keep asking
+//	"access_denied"          the user clicked Deny; stop
+//	"expired_token"          the code ran out or was already used; stop
+type DevicePending struct {
+	Reason string
 }
 
-// DevicePending is a non-fatal poll outcome. Reason carries an RFC 8628 error
-// code: authorization_pending and slow_down mean "keep polling", access_denied
-// and expired_token mean "stop". The CLI branches on the reason.
-type DevicePending struct{ Reason string }
+// Error lets a DevicePending be returned as an error. Go requires this exact
+// method for anything used as an error, which is why it's written this way.
+func (pending DevicePending) Error() string {
+	return pending.Reason
+}
 
-func (e DevicePending) Error() string { return e.Reason }
-
-// ErrDeviceNotFound means a device code matched no authorization at all.
+// ErrDeviceNotFound means the CLI sent a device code we've never seen.
 var ErrDeviceNotFound = errors.New("device code not found")
 
-// ErrDeviceCode means a user code could not be approved or denied: unknown,
-// already handled, or expired.
+// ErrDeviceCode means a user code couldn't be approved or denied: it's wrong,
+// expired, or was already handled.
 var ErrDeviceCode = errors.New("invalid or expired code")
 
-// DeviceService runs the device authorization grant. Sessions minted on redeem
-// go through the same TokenStore the OTP path uses, so refresh behaves identically.
-type DeviceService struct {
-	Store         DeviceStore
-	Tokens        TokenStore
-	TTL, Interval time.Duration
-}
+// The letters a user code is made from. I, O, 0 and 1 are left out because
+// they're easy to confuse when copying a code off a screen. There are exactly
+// 32 of them, which matters in newUserCode below.
+const userCodeLetters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
-// userCodeAlphabet omits I, O, 0, and 1 so a code copied off a screen is
-// unambiguous when typed back. Its length divides 256, keeping newUserCode's
-// byte-to-index mapping unbiased.
-const userCodeAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-
-// Start creates a pending authorization and returns the device code (polled by
-// the CLI), the display user code (typed by the human), and the poll parameters.
-func (s DeviceService) Start() (deviceCode, userCode string, expiresIn, interval int, err error) {
-	if s.Store == nil {
-		return "", "", 0, 0, errors.New("device store is required")
-	}
-	ttl := s.TTL
-	if ttl <= 0 {
-		ttl = 10 * time.Minute
-	}
-	poll := s.Interval
-	if poll <= 0 {
-		poll = 5 * time.Second
-	}
-	deviceCode, err = token()
+// StartDeviceLogin creates a new pending login and returns the codes the CLI
+// needs, plus how long they last and how often to check back (in seconds).
+func StartDeviceLogin(db *pgxpool.Pool) (deviceCode string, userCode string, expiresInSeconds int, pollEverySeconds int, err error) {
+	deviceCode, err = newRandomToken()
 	if err != nil {
 		return "", "", 0, 0, err
 	}
-	// The stored user_code is UNIQUE among live rows; retry on the rare clash.
-	for attempt := 0; attempt < 5; attempt++ {
-		var raw string
-		if raw, err = newUserCode(); err != nil {
+	expiresAt := time.Now().Add(DeviceCodeLifetime)
+
+	// Two live requests can't share a user code (the database enforces it).
+	// Clashes are very rare, so just try again with a new code a few times.
+	for attempt := 1; attempt <= 5; attempt++ {
+		var rawCode string
+		rawCode, err = newUserCode()
+		if err != nil {
 			return "", "", 0, 0, err
 		}
-		if err = s.Store.Create(HashToken(deviceCode), raw, time.Now().Add(ttl)); err == nil {
-			return deviceCode, formatUserCode(raw), int(ttl.Seconds()), int(poll.Seconds()), nil
+
+		_, err = db.Exec(context.Background(),
+			`INSERT INTO device_authorizations (device_code_hash, user_code, expires_at) VALUES ($1, $2, $3)`,
+			HashToken(deviceCode), rawCode, expiresAt,
+		)
+		if err == nil {
+			return deviceCode, formatUserCode(rawCode), int(DeviceCodeLifetime.Seconds()), int(DevicePollInterval.Seconds()), nil
 		}
 	}
 	return "", "", 0, 0, err
 }
 
-// Approve binds an authenticated user to a pending user code.
-func (s DeviceService) Approve(userCode, userID string) error {
-	if s.Store == nil {
-		return errors.New("device store is required")
-	}
+// ApproveDeviceLogin is the user clicking Approve on the website. It links the
+// pending login to their account.
+func ApproveDeviceLogin(db *pgxpool.Pool, userCode string, userID string) error {
 	if userID == "" {
 		return errors.New("user is required")
 	}
-	return s.Store.Approve(NormalizeUserCode(userCode), userID)
+	result, err := db.Exec(context.Background(),
+		`UPDATE device_authorizations SET status = 'approved', user_id = $2, approved_at = now()
+		 WHERE user_code = $1 AND status = 'pending' AND expires_at > now()`,
+		NormalizeUserCode(userCode), userID,
+	)
+	if err != nil {
+		return err
+	}
+	// If no row changed, the code was wrong, expired, or already handled.
+	if result.RowsAffected() == 0 {
+		return ErrDeviceCode
+	}
+	return nil
 }
 
-// Deny rejects a pending user code so the CLI stops polling with access_denied.
-func (s DeviceService) Deny(userCode string) error {
-	if s.Store == nil {
-		return errors.New("device store is required")
+// DenyDeviceLogin is the user clicking Deny. The CLI stops waiting and fails.
+func DenyDeviceLogin(db *pgxpool.Pool, userCode string) error {
+	result, err := db.Exec(context.Background(),
+		`UPDATE device_authorizations SET status = 'denied'
+		 WHERE user_code = $1 AND status = 'pending' AND expires_at > now()`,
+		NormalizeUserCode(userCode),
+	)
+	if err != nil {
+		return err
 	}
-	return s.Store.Deny(NormalizeUserCode(userCode))
+	if result.RowsAffected() == 0 {
+		return ErrDeviceCode
+	}
+	return nil
 }
 
-// Redeem is the CLI poll step: it returns a fresh session once the authorization
-// is approved, or a DevicePending explaining why it is not ready.
-func (s DeviceService) Redeem(deviceCode string) (access, refresh string, err error) {
-	if s.Store == nil {
-		return "", "", errors.New("device store is required")
-	}
-	if s.Tokens == nil {
-		return "", "", errors.New("token store is required")
-	}
-	userID, err := s.Store.Redeem(HashToken(deviceCode))
+// FinishDeviceLogin is the CLI checking in. If the login has been approved it
+// returns tokens, and the login can't be used again. Otherwise it returns a
+// DevicePending saying why not.
+func FinishDeviceLogin(db *pgxpool.Pool, deviceCode string) (accessToken string, refreshToken string, err error) {
+	userID, err := useUpDeviceCode(db, deviceCode)
 	if err != nil {
 		return "", "", err
 	}
-	if access, err = token(); err != nil {
-		return "", "", err
-	}
-	if refresh, err = token(); err != nil {
-		return "", "", err
-	}
-	if err = s.Tokens.Save(userID, refresh, access); err != nil {
-		return "", "", err
-	}
-	return access, refresh, nil
+	return StartSession(db, userID)
 }
 
-// newUserCode returns eight raw alphabet characters (no separator). len(alphabet)
-// is 32 and 256%32==0, so mapping each random byte modulo the length is unbiased.
-func newUserCode() (string, error) {
-	b := make([]byte, 8)
-	if _, err := rand.Read(b); err != nil {
+// useUpDeviceCode looks up a device login and, if it's approved, marks it as
+// redeemed so it only ever logs someone in once. It returns the approving user.
+func useUpDeviceCode(db *pgxpool.Pool, deviceCode string) (userID string, err error) {
+	ctx := context.Background()
+	tx, err := db.Begin(ctx)
+	if err != nil {
 		return "", err
 	}
-	out := make([]byte, len(b))
-	for i, v := range b {
-		out[i] = userCodeAlphabet[int(v)%len(userCodeAlphabet)]
+	defer tx.Rollback(ctx)
+
+	var rowID string
+	var status string
+	var approvedBy *string // a pointer, because it's empty (NULL) until someone approves
+	var expiresAt time.Time
+	// FOR UPDATE locks the row, so if the CLI checks twice at the same moment,
+	// only the first check can use the code.
+	err = tx.QueryRow(ctx,
+		`SELECT id, status, user_id, expires_at FROM device_authorizations
+		 WHERE device_code_hash = $1 FOR UPDATE`,
+		HashToken(deviceCode),
+	).Scan(&rowID, &status, &approvedBy, &expiresAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrDeviceNotFound
 	}
-	return string(out), nil
+	if err != nil {
+		return "", err
+	}
+
+	if time.Now().After(expiresAt) {
+		return "", DevicePending{Reason: "expired_token"}
+	}
+	if status == "pending" {
+		return "", DevicePending{Reason: "authorization_pending"}
+	}
+	if status == "denied" {
+		return "", DevicePending{Reason: "access_denied"}
+	}
+	if status != "approved" {
+		// Already redeemed: each code logs someone in only once.
+		return "", DevicePending{Reason: "expired_token"}
+	}
+	if approvedBy == nil {
+		return "", DevicePending{Reason: "authorization_pending"}
+	}
+
+	_, err = tx.Exec(ctx, `UPDATE device_authorizations SET status = 'redeemed' WHERE id = $1`, rowID)
+	if err != nil {
+		return "", err
+	}
+	err = tx.Commit(ctx)
+	if err != nil {
+		return "", err
+	}
+	return *approvedBy, nil
 }
 
-// formatUserCode renders the stored eight-character code for display as XXXX-XXXX.
+// newUserCode makes 8 random characters from userCodeLetters, like "WXYZABCD".
+func newUserCode() (string, error) {
+	randomBytes := make([]byte, 8)
+	_, err := rand.Read(randomBytes)
+	if err != nil {
+		return "", err
+	}
+	code := make([]byte, 8)
+	for i, b := range randomBytes {
+		// A byte is 0-255. There are 32 letters and 256 divides evenly by 32,
+		// so every letter is equally likely.
+		code[i] = userCodeLetters[int(b)%len(userCodeLetters)]
+	}
+	return string(code), nil
+}
+
+// formatUserCode adds a dash in the middle for display: "WXYZABCD" -> "WXYZ-ABCD".
 func formatUserCode(raw string) string {
 	if len(raw) != 8 {
 		return raw
@@ -142,84 +223,14 @@ func formatUserCode(raw string) string {
 	return raw[:4] + "-" + raw[4:]
 }
 
-// NormalizeUserCode upper-cases input and drops anything outside the alphabet, so
-// "wxyz-abcd", "WXYZ ABCD", and "WXYZABCD" all resolve to the stored form.
-func NormalizeUserCode(s string) string {
-	var b strings.Builder
-	for _, r := range strings.ToUpper(s) {
-		if strings.ContainsRune(userCodeAlphabet, r) {
-			b.WriteRune(r)
+// NormalizeUserCode cleans up what the user typed so it matches what we stored:
+// "wxyz-abcd", "WXYZ ABCD" and "WXYZABCD" all become "WXYZABCD".
+func NormalizeUserCode(typed string) string {
+	var cleaned strings.Builder
+	for _, letter := range strings.ToUpper(typed) {
+		if strings.ContainsRune(userCodeLetters, letter) {
+			cleaned.WriteRune(letter)
 		}
 	}
-	return b.String()
-}
-
-// MemoryDeviceStore is an in-process DeviceStore for tests, mirroring
-// PostgresDeviceStore's state machine and single-use redeem.
-type MemoryDeviceStore struct {
-	mu     sync.Mutex
-	byHash map[string]*memoryDevice
-	byCode map[string]*memoryDevice
-}
-type memoryDevice struct {
-	userID    string
-	status    string
-	expiresAt time.Time
-}
-
-func NewMemoryDeviceStore() *MemoryDeviceStore {
-	return &MemoryDeviceStore{byHash: map[string]*memoryDevice{}, byCode: map[string]*memoryDevice{}}
-}
-func (m *MemoryDeviceStore) Create(deviceHash []byte, userCode string, expiresAt time.Time) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if _, ok := m.byCode[userCode]; ok {
-		return errors.New("user code already exists")
-	}
-	d := &memoryDevice{status: "pending", expiresAt: expiresAt}
-	m.byHash[string(deviceHash)] = d
-	m.byCode[userCode] = d
-	return nil
-}
-func (m *MemoryDeviceStore) Approve(userCode, userID string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	d, ok := m.byCode[userCode]
-	if !ok || d.status != "pending" || time.Now().After(d.expiresAt) {
-		return ErrDeviceCode
-	}
-	d.status, d.userID = "approved", userID
-	return nil
-}
-func (m *MemoryDeviceStore) Deny(userCode string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	d, ok := m.byCode[userCode]
-	if !ok || d.status != "pending" {
-		return ErrDeviceCode
-	}
-	d.status = "denied"
-	return nil
-}
-func (m *MemoryDeviceStore) Redeem(deviceHash []byte) (string, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	d, ok := m.byHash[string(deviceHash)]
-	if !ok {
-		return "", ErrDeviceNotFound
-	}
-	if time.Now().After(d.expiresAt) {
-		return "", DevicePending{"expired_token"}
-	}
-	switch d.status {
-	case "pending":
-		return "", DevicePending{"authorization_pending"}
-	case "denied":
-		return "", DevicePending{"access_denied"}
-	case "approved":
-		d.status = "redeemed"
-		return d.userID, nil
-	default: // redeemed or anything unexpected
-		return "", DevicePending{"expired_token"}
-	}
+	return cleaned.String()
 }

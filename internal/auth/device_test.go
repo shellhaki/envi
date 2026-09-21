@@ -5,108 +5,121 @@ import (
 	"regexp"
 	"testing"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func newDeviceService() DeviceService {
-	return DeviceService{Store: NewMemoryDeviceStore(), Tokens: NewMemoryTokens(), TTL: 10 * time.Minute, Interval: 5 * time.Second}
+// forgetDeviceCode deletes a device login row when the test ends, since a
+// pending one isn't linked to any user that would clean it up.
+func forgetDeviceCode(t *testing.T, db *pgxpool.Pool, deviceCode string) {
+	t.Cleanup(func() {
+		db.Exec(t.Context(), `DELETE FROM device_authorizations WHERE device_code_hash = $1`, HashToken(deviceCode))
+	})
 }
 
-func TestDeviceFlowApproveAndRedeem(t *testing.T) {
-	s := newDeviceService()
-	deviceCode, userCode, expiresIn, interval, err := s.Start()
+func TestDeviceLoginApproved(t *testing.T) {
+	db := testDB(t)
+	user := testUser(t, db)
+
+	deviceCode, userCode, expiresIn, pollEvery, err := StartDeviceLogin(db)
 	if err != nil {
-		t.Fatalf("Start: %v", err)
+		t.Fatal(err)
 	}
-	if expiresIn != 600 || interval != 5 {
-		t.Fatalf("expiresIn=%d interval=%d, want 600/5", expiresIn, interval)
+	forgetDeviceCode(t, db, deviceCode)
+	if expiresIn != 600 || pollEvery != 5 {
+		t.Fatalf("expiresIn=%d pollEvery=%d, want 600 and 5", expiresIn, pollEvery)
 	}
 	if !regexp.MustCompile(`^[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$`).MatchString(userCode) {
-		t.Fatalf("user code %q not in XXXX-XXXX form", userCode)
+		t.Fatalf("user code %q isn't in XXXX-XXXX form", userCode)
 	}
 
-	// Before approval the CLI must keep polling.
-	if _, _, err = s.Redeem(deviceCode); !isPending(err, "authorization_pending") {
-		t.Fatalf("pre-approval redeem = %v, want authorization_pending", err)
+	// Before approval, the CLI is told to keep waiting.
+	if _, _, err := FinishDeviceLogin(db, deviceCode); !isPending(err, "authorization_pending") {
+		t.Fatalf("before approval: got %v, want authorization_pending", err)
 	}
 
-	// The web sends the displayed code (with the dash); Approve normalises it.
-	if err = s.Approve(userCode, "user-1"); err != nil {
-		t.Fatalf("Approve: %v", err)
+	// The website sends the code as displayed, with the dash.
+	if err := ApproveDeviceLogin(db, userCode, user); err != nil {
+		t.Fatal(err)
 	}
-	access, refresh, err := s.Redeem(deviceCode)
-	if err != nil {
-		t.Fatalf("Redeem after approve: %v", err)
-	}
-	if access == "" || refresh == "" {
-		t.Fatal("Redeem returned empty tokens")
-	}
-	// The minted session is a normal session usable for authentication.
-	if u, e := s.Tokens.Authenticate(access); e != nil || u != "user-1" {
-		t.Fatalf("Authenticate(access) = %q,%v; want user-1,nil", u, e)
-	}
-	// A device code is single-use: a second poll must not mint again.
-	if _, _, err = s.Redeem(deviceCode); !isPending(err, "expired_token") {
-		t.Fatalf("second redeem = %v, want expired_token", err)
-	}
-}
-
-func TestDeviceFlowDenied(t *testing.T) {
-	s := newDeviceService()
-	deviceCode, userCode, _, _, err := s.Start()
+	access, _, err := FinishDeviceLogin(db, deviceCode)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = s.Deny(userCode); err != nil {
-		t.Fatalf("Deny: %v", err)
+	if got, err := UserForAccessToken(db, access); err != nil || got != user {
+		t.Fatalf("the CLI's new session belongs to %q (%v), want %q", got, err, user)
 	}
-	if _, _, err = s.Redeem(deviceCode); !isPending(err, "access_denied") {
-		t.Fatalf("redeem after deny = %v, want access_denied", err)
+
+	// A code only logs someone in once.
+	if _, _, err := FinishDeviceLogin(db, deviceCode); !isPending(err, "expired_token") {
+		t.Fatalf("second use: got %v, want expired_token", err)
 	}
 }
 
-func TestDeviceApproveUnknownCode(t *testing.T) {
-	s := newDeviceService()
-	if err := s.Approve("ZZZZ-ZZZZ", "user-1"); !errors.Is(err, ErrDeviceCode) {
-		t.Fatalf("Approve unknown = %v, want ErrDeviceCode", err)
-	}
-}
-
-func TestDeviceRedeemUnknownCode(t *testing.T) {
-	s := newDeviceService()
-	if _, _, err := s.Redeem("not-a-real-device-code"); !errors.Is(err, ErrDeviceNotFound) {
-		t.Fatalf("Redeem unknown = %v, want ErrDeviceNotFound", err)
-	}
-}
-
-func TestDeviceExpiry(t *testing.T) {
-	store := NewMemoryDeviceStore()
-	s := DeviceService{Store: store, Tokens: NewMemoryTokens(), TTL: 10 * time.Minute, Interval: 5 * time.Second}
-	// Seed a row that has already expired, bypassing Start's TTL floor.
-	if err := store.Create(HashToken("dc"), "EXPIREDX", time.Now().Add(-time.Minute)); err != nil {
+func TestDeviceLoginDenied(t *testing.T) {
+	db := testDB(t)
+	deviceCode, userCode, _, _, err := StartDeviceLogin(db)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Approve("EXPIREDX", "user-1"); !errors.Is(err, ErrDeviceCode) {
-		t.Fatalf("Approve expired = %v, want ErrDeviceCode", err)
+	forgetDeviceCode(t, db, deviceCode)
+
+	if err := DenyDeviceLogin(db, userCode); err != nil {
+		t.Fatal(err)
 	}
-	if _, _, err := s.Redeem("dc"); !isPending(err, "expired_token") {
-		t.Fatalf("Redeem expired = %v, want expired_token", err)
+	if _, _, err := FinishDeviceLogin(db, deviceCode); !isPending(err, "access_denied") {
+		t.Fatalf("got %v, want access_denied", err)
+	}
+}
+
+func TestDeviceLoginUnknownCodes(t *testing.T) {
+	db := testDB(t)
+	user := testUser(t, db)
+
+	if err := ApproveDeviceLogin(db, "ZZZZ-ZZZZ", user); !errors.Is(err, ErrDeviceCode) {
+		t.Fatalf("approving an unknown code: got %v, want ErrDeviceCode", err)
+	}
+	if _, _, err := FinishDeviceLogin(db, "not-a-real-device-code"); !errors.Is(err, ErrDeviceNotFound) {
+		t.Fatalf("an unknown device code: got %v, want ErrDeviceNotFound", err)
+	}
+}
+
+func TestDeviceLoginExpires(t *testing.T) {
+	db := testDB(t)
+	user := testUser(t, db)
+
+	saved := DeviceCodeLifetime
+	DeviceCodeLifetime = -time.Minute
+	t.Cleanup(func() { DeviceCodeLifetime = saved })
+
+	deviceCode, userCode, _, _, err := StartDeviceLogin(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	forgetDeviceCode(t, db, deviceCode)
+
+	if err := ApproveDeviceLogin(db, userCode, user); !errors.Is(err, ErrDeviceCode) {
+		t.Fatalf("approving an expired code: got %v, want ErrDeviceCode", err)
+	}
+	if _, _, err := FinishDeviceLogin(db, deviceCode); !isPending(err, "expired_token") {
+		t.Fatalf("got %v, want expired_token", err)
 	}
 }
 
 func TestNormalizeUserCode(t *testing.T) {
-	for _, tc := range []struct{ in, want string }{
+	for _, tc := range []struct{ typed, want string }{
 		{"wxyz-abcd", "WXYZABCD"},
 		{"WXYZ ABCD", "WXYZABCD"},
 		{"WXYZABCD", "WXYZABCD"},
 		{"  wx yz-ab cd  ", "WXYZABCD"},
 	} {
-		if got := NormalizeUserCode(tc.in); got != tc.want {
-			t.Errorf("NormalizeUserCode(%q) = %q, want %q", tc.in, got, tc.want)
+		if got := NormalizeUserCode(tc.typed); got != tc.want {
+			t.Errorf("NormalizeUserCode(%q) = %q, want %q", tc.typed, got, tc.want)
 		}
 	}
 }
 
 func isPending(err error, reason string) bool {
-	var p DevicePending
-	return errors.As(err, &p) && p.Reason == reason
+	var pending DevicePending
+	return errors.As(err, &pending) && pending.Reason == reason
 }

@@ -1,29 +1,44 @@
 package api
 
 import (
+	"strings"
+
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"shellhaki/envi/internal/auth"
 	"shellhaki/envi/internal/service_token"
-	"strings"
 )
 
-func RequireAuth(tokens auth.TokenStore, services service_token.Service) gin.HandlerFunc {
+// RequireAuth guards the web addresses that need someone logged in. It runs
+// before the real handler, reads the "Authorization: Bearer <token>" header, and
+// works out who is calling:
+//
+//   - a person, via an access token from logging in: stores "user_id"
+//   - a machine, via a service token (CI, envi run in Docker): stores
+//     "service_id", "service_env" and "service_permission"
+//
+// If the token is neither, the request stops here with a 401.
+func RequireAuth(db *pgxpool.Pool, serviceTokens service_token.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		v := strings.TrimPrefix(c.GetHeader("Authorization"), "Bearer ")
-		u, e := tokens.Authenticate(v)
-		if e != nil {
-			id, env, permission, x := services.Authenticate(c, v)
-			if x != nil {
-				c.AbortWithStatusJSON(401, gin.H{"code": "unauthenticated", "error": "authentication required"})
-				return
-			}
-			c.Set("service_id", id)
-			c.Set("service_env", env)
+		token := strings.TrimPrefix(c.GetHeader("Authorization"), "Bearer ")
+
+		userID, err := auth.UserForAccessToken(db, token)
+		if err == nil {
+			c.Set("user_id", userID)
+			c.Next()
+			return
+		}
+
+		serviceID, environmentID, permission, err := serviceTokens.Authenticate(c, token)
+		if err == nil {
+			c.Set("service_id", serviceID)
+			c.Set("service_env", environmentID)
 			c.Set("service_permission", permission)
 			c.Next()
 			return
 		}
-		c.Set("user_id", u)
-		c.Next()
+
+		c.AbortWithStatusJSON(401, gin.H{"code": "unauthenticated", "error": "authentication required"})
 	}
 }
