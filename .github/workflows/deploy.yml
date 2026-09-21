@@ -1,0 +1,159 @@
+name: Deploy
+
+# Tests gate the deploy: Coolify's own "auto deploy on push" builds whatever
+# lands on main regardless of whether it works, so that switch is turned off for
+# these three resources and this workflow triggers them instead.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      all:
+        description: "Redeploy everything, ignoring which paths changed"
+        type: boolean
+        default: false
+
+# One deploy at a time, and never cancel one that is already running: a build
+# killed halfway can leave a Coolify resource stopped.
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    # Login, sessions and the end-to-end CLI test run against a real database
+    # rather than fakes, so the job gets its own throwaway Postgres and Redis.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: envi
+          POSTGRES_PASSWORD: envi
+          POSTGRES_DB: envi
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U envi" --health-interval 2s
+          --health-timeout 5s --health-retries 20
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 2s
+          --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: postgres://envi:envi@localhost:5432/envi?sslmode=disable
+      REDIS_URL: redis://localhost:6379/0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Go and dashboard
+        run: ./scripts/ci.sh
+      - name: Database tests
+        run: |
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q < migrations/schema.sql
+          ENVI_INTEGRATION=1 go test -count=1 ./internal/...
+      - name: Docs
+        working-directory: docs
+        run: |
+          bun install --frozen-lockfile
+          bun run lint
+          bun run build
+
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      api: ${{ steps.filter.outputs.api }}
+      ui: ${{ steps.filter.outputs.ui }}
+      docs: ${{ steps.filter.outputs.docs }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: filter
+        env:
+          BEFORE: ${{ github.event.before }}
+          MANUAL_ALL: ${{ inputs.all }}
+        run: |
+          set -euo pipefail
+          # A force-push or a first push leaves BEFORE as all zeros, and a
+          # manual run has none at all. Redeploying everything is the safe
+          # answer when the previous commit is unknown: deploying too much
+          # costs minutes, deploying too little ships a half-updated site.
+          if [ "$MANUAL_ALL" = "true" ] || [ -z "${BEFORE:-}" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            echo "no usable diff base; deploying everything"
+            changed=""
+            all=true
+          else
+            changed=$(git diff --name-only "$BEFORE" "${{ github.sha }}")
+            all=false
+            echo "changed files:"; echo "$changed"
+          fi
+          match() {
+            if [ "$all" = true ]; then echo true; return; fi
+            if echo "$changed" | grep -qE "$1"; then echo true; else echo false; fi
+          }
+          # The backend image is built from the Go tree plus its Dockerfiles, so
+          # anything outside ui/ and docs/ is treated as touching it.
+          {
+            echo "api=$(match '^(cmd/|internal/|migrations/|go\.(mod|sum)$|Dockerfile|scripts/docker-entrypoint\.sh)')"
+            echo "ui=$(match '^ui/')"
+            echo "docs=$(match '^docs/')"
+          } >> "$GITHUB_OUTPUT"
+          cat "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: [test, changes]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Coolify
+        env:
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          API_UUID: ${{ secrets.COOLIFY_API_UUID }}
+          UI_UUID: ${{ secrets.COOLIFY_UI_UUID }}
+          DOCS_UUID: ${{ secrets.COOLIFY_DOCS_UUID }}
+          DEPLOY_API: ${{ needs.changes.outputs.api }}
+          DEPLOY_UI: ${{ needs.changes.outputs.ui }}
+          DEPLOY_DOCS: ${{ needs.changes.outputs.docs }}
+        run: |
+          set -euo pipefail
+          deploy() {
+            name=$1 uuid=$2 want=$3
+            if [ "$want" != "true" ]; then echo "$name: unchanged, skipping"; return; fi
+            if [ -z "$uuid" ]; then echo "$name: no UUID configured, skipping"; return; fi
+            echo "$name: deploying"
+            code=$(curl -sS -o /tmp/$name.json -w '%{http_code}' \
+              -H "Authorization: Bearer $COOLIFY_TOKEN" \
+              "$COOLIFY_URL/api/v1/deploy?uuid=$uuid&force=false")
+            cat /tmp/$name.json; echo
+            # Coolify answers 200 with a deployment id; anything else means the
+            # build was never queued, and a silent failure here would leave the
+            # workflow green while production stayed on the old image.
+            [ "$code" = "200" ] || { echo "$name: deploy request failed with HTTP $code"; exit 1; }
+          }
+          deploy api "$API_UUID" "$DEPLOY_API"
+          deploy ui "$UI_UUID" "$DEPLOY_UI"
+          deploy docs "$DOCS_UUID" "$DEPLOY_DOCS"
+
+  smoke:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      # Coolify's API returns as soon as the build is queued, so this waits for
+      # the new container to actually answer rather than assuming it did.
+      - name: Wait for the API to come back
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS --max-time 5 https://api.envisecrets.com/health >/dev/null; then
+              echo "api healthy after ${i} attempt(s)"; exit 0
+            fi
+            sleep 10
+          done
+          echo "api did not return a healthy /health within five minutes"
+          exit 1
