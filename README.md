@@ -114,6 +114,8 @@ The CLI and the dashboard are two clients of the same API — neither one is a s
 | `envi diff` | Show what's changed between local and remote before you push |
 | `envi run -- <command>` | Run a command with the secrets injected, without writing a `.env` |
 | `envi project create <name>` | Create a project |
+| `envi key create --name <name>` | Create a personal API key |
+| `envi auth --key <key>` | Sign in with an API key instead of the browser |
 | `envi origin list` | List the project's environments, marking the current one |
 | `envi origin switch <name>` | Point this directory at another environment and pull it |
 | `envi origin create <name>` | Create an environment under the current project |

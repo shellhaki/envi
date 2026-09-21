@@ -25,6 +25,16 @@ envi auth
 envi auth --email you@company.com
 ```
 
+### `envi auth --key <key>`
+
+Signs in with a [personal API key](#personal-api-keys) instead of the browser. Useful on a machine where opening a browser isn't practical, and in scripts.
+
+```bash
+envi auth --key envi_...
+```
+
+The key is traded for an ordinary session, which is what gets stored. The key itself is never written to disk.
+
 ### `envi logout`
 
 Revokes the current device's session.
@@ -206,6 +216,34 @@ Accepts an invitation using the token from an invitation link. You must already 
 ```bash
 envi invite accept <token>
 ```
+
+## Personal API keys
+
+A key is your own credential, not a project's. It acts as you, across everything you can reach, up to the permission you give it. For a credential scoped to a single environment, use a [service token](/ci-service-tokens) instead.
+
+### `envi key create --name <name>`
+
+<ParamField query="--name" type="string" required>What the key is for, such as `laptop` or `ci`</ParamField>
+<ParamField query="--permission" type="string" default="read">`read`, `write`, or `manage`. A `read` key cannot change anything; a `write` key can change secrets but cannot hand out access or create credentials.</ParamField>
+<ParamField query="--days" type="int" default="90">Days until it expires. `0` never expires.</ParamField>
+
+```bash
+envi key create --name laptop --permission read
+```
+
+The key is printed once and never again, because only a hash of it is stored.
+
+### `envi key list`
+
+Your keys, with what each may do, when it expires, and when it was last used.
+
+### `envi key revoke <id>`
+
+Stops a key working. Any session started with it is signed out at the same time, so a leaked key stops being useful immediately rather than when its session happens to run out.
+
+<Note>
+  The permission on a key is a ceiling, not a grant. It never gives you access you don't already have, and the usual per-environment permissions still apply underneath it.
+</Note>
 
 ## CI/CD
 
