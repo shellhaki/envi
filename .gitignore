@@ -1,5 +1,5 @@
 .local
-rules.txt
+rules.txt 
 query.sql
 .env
 dist/
@@ -13,3 +13,8 @@ node_modules/
 envi.toml
 .env.prod
 .env.cli
+brag-output/
+.claude
+npm/dist/
+sdk/dist/
+sdk/node_modules/
