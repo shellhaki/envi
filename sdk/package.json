@@ -1,6 +1,6 @@
 {
   "name": "@shellhaki/envi-sdk",
-  "version": "0.4.0",
+  "version": "1.0.0",
   "description": "Read your Envi secrets at runtime, from Node, Bun, or any serverless platform.",
   "license": "MIT",
   "repository": {
