@@ -43,3 +43,11 @@ A live feed of reads, writes, and deletes across your organization — the same 
 ## Settings
 
 Your account email, a sign-out button for the current device, and light/dark theme — the theme choice is stored per-device, not per-account.
+
+### API keys
+
+Create, list and revoke [personal API keys](/cli#personal-api-keys) here. A key signs you in without a browser: on a server, in a script, or through the [SDK](/sdk).
+
+Creating one asks for a name, a permission (`read`, `write` or `manage`) and an expiry. The key is shown **once**, immediately after creation, because only a hash of it is stored — copy it then or create another.
+
+The list shows what each key may do, when it expires and when it was last used, so a key nobody uses is easy to spot. Revoking one takes effect immediately, and also signs out any session that key created — a leaked key stops being useful the moment you revoke it, not whenever its session happens to run out.

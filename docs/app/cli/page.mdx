@@ -193,7 +193,7 @@ envi run --origin production -- ./migrate.sh
   `envi run` exits with the status of the command it ran, not with one of Envi's own exit codes, so scripts wrapping a command in `envi run` see exactly what they would have seen without it. A command that cannot be found exits `127`; one killed by a signal exits `128` plus the signal number. Envi's own failures — not signed in, no `envi.toml`, API unreachable — all happen before the command starts.
 </Note>
 
-In CI, set `ENVI_TOKEN` to a [service token](/ci-service-tokens) and `envi run` works the same way, against the one environment that token is scoped to.
+In CI or a container, set `ENVI_TOKEN` to a [service token](/ci-service-tokens) and `envi run` works with no `envi.toml` at all — the token names the environment. `ENVI_PROJECT` and `ENVI_ENVIRONMENT` say which to read when the credential isn't scoped to one. See [Docker](/docker).
 
 ## Collaboration
 

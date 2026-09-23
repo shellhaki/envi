@@ -1,0 +1,117 @@
+Your image carries no secrets and no `.env`. It gets one credential from wherever you deploy it, fetches everything else at startup, and runs your app.
+
+```dockerfile
+FROM oven/bun:1-alpine
+
+RUN bun add -g @shellhaki/envi-cli
+ENV PATH="/root/.bun/bin:${PATH}"
+
+WORKDIR /app
+COPY . .
+RUN bun install --frozen-lockfile
+
+ENTRYPOINT ["envi", "run", "--"]
+EXPOSE 3000
+CMD ["bun", "index.ts"]
+```
+
+```bash
+docker build -t myapp .
+docker run -p 3000:3000 -e ENVI_TOKEN=st_live_xxxxx myapp
+```
+
+`envi run` fetches the environment's secrets, puts them in the process environment, and execs your command. Your app reads `process.env.DATABASE_URL` and knows nothing about Envi.
+
+<Note>
+  `bun add -g` installs binaries to `/root/.bun/bin`, which is not on `PATH` in that image. Without the `ENV PATH` line you get `envi: not found`. With npm, `npm install -g @shellhaki/envi-cli` needs no `PATH` change.
+</Note>
+
+## Settings
+
+Everything is an environment variable, so it works the same in `docker run`, Compose, Coolify, Railway, Fly, or Kubernetes.
+
+| Variable | Purpose |
+|---|---|
+| `ENVI_TOKEN` | The credential. A [service token](/ci-service-tokens), scoped to one environment |
+| `ENVI_PROJECT` | Which project, when the credential isn't a service token |
+| `ENVI_ENVIRONMENT` | Which environment, same |
+| `ENVI_API_URL` | Only if you self-host |
+
+A service token already belongs to one environment, so `ENVI_TOKEN` on its own is enough — no `envi.toml`, no `envi init`, and no environment id baked into the image. The same image runs in staging or production depending on the token you give it.
+
+```bash
+envi token create --name myapp-production --permission read
+```
+
+Use a `read` token for deployments. It can fetch secrets and nothing else.
+
+## Node instead of Bun
+
+```dockerfile
+FROM node:22-alpine
+RUN npm install -g @shellhaki/envi-cli
+
+WORKDIR /app
+COPY . .
+RUN npm ci --omit=dev
+
+ENTRYPOINT ["envi", "run", "--"]
+CMD ["node", "server.js"]
+```
+
+## Deploy platforms that only take a Dockerfile
+
+On Coolify, Railway, Render and Fly there is no `docker run` to pass flags to: the same Dockerfile applies, and the variables go in the platform's own environment-variable panel. `ENTRYPOINT` and `CMD` compose, so a platform that overrides the start command still gets wrapped.
+
+If a platform replaces the **entrypoint** rather than the command, the wrapper disappears silently and your app starts with no secrets. A script is the defensive version, and it also lets the image run without Envi at all, which is useful locally:
+
+```dockerfile
+COPY docker-entrypoint.sh /usr/local/bin/
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+CMD ["bun", "index.ts"]
+```
+
+```sh
+#!/bin/sh
+set -eu
+# No token: run anyway, so local builds and CI smoke tests need no credential.
+[ -n "${ENVI_TOKEN:-}" ] || exec "$@"
+exec envi run -- "$@"
+```
+
+## Things that will bite
+
+<Warning>
+  **Never fetch secrets during the build.** `RUN envi pull` writes a `.env` into an image layer, where it stays forever and is readable by anyone who pulls the image. Build-time is also the wrong moment — your platform builds without runtime variables. `ENTRYPOINT` runs at container start, which is the right one.
+</Warning>
+
+**Add a `.dockerignore`.** `COPY . .` will copy your local `.env` into the image otherwise, which is the exact thing this setup exists to prevent:
+
+```
+node_modules
+.env
+.git
+```
+
+**Signals work.** `envi run` becomes PID 1 and forwards `SIGTERM`, `SIGINT` and `SIGHUP` to your process, then exits with its status. `docker stop` shuts the app down cleanly instead of force-killing it after the ten-second grace period.
+
+**Health checks** should hit your app, not Envi:
+
+```dockerfile
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget -qO- http://127.0.0.1:3000/health >/dev/null || exit 1
+```
+
+## Reading key-value entries instead
+
+If your application uses the [SDK](/sdk) rather than environment variables, it needs the same one credential and no wrapper:
+
+```dockerfile
+ENTRYPOINT ["bun", "index.ts"]
+```
+
+```bash
+docker run -e ENVI_TOKEN=st_live_xxxxx myapp
+```
+
+`envi run` and the SDK do different jobs: the wrapper injects an environment's **secrets** before your process starts, the SDK reads and writes the project's **key-value store** while it runs. You can use either, or both.

@@ -51,6 +51,7 @@ No install script runs: the binary arrives as an optional dependency chosen by `
 - **Service tokens** — long-lived, scoped credentials for CI/CD pipelines and deploy scripts, independent of any human's session.
 - **Multiple environments** — dev, staging, prod as separate sets of secrets in one project. `envi origin switch prod` repoints your working directory; `envi push .env origin prod` writes to one you aren't on.
 - **No `.env` on disk** — `envi run -- npm start` injects secrets into the process that needs them and exits with that process's own status. Nothing plaintext is written to your filesystem.
+- **Runs in a container** — `ENTRYPOINT ["envi", "run", "--"]` and one `ENVI_TOKEN` variable. No `.env` in the image, no environment id baked into a layer, same image in every environment.
 - **Key-value store** — a project-wide store your application reads and writes at runtime through `@shellhaki/envi-sdk`, encrypted like everything else. Separate from your secrets: if your code writes it, it goes here; if you deploy it, it's a secret.
 - **Full audit trail** — every write and delete is logged against the org, the actor, and the exact secret touched. Reads are logged once per environment with the number of secrets they covered, so a command you run all day stays readable in the feed.
 - **Email invitations** — invite a teammate by address; they click through, sign in (or sign up on the spot if they're new), and land with access already waiting.
@@ -84,7 +85,8 @@ Prefer running the binaries directly under a process manager instead? See the [d
 flowchart LR
     CLI["envi CLI"] -->|bearer token| API["Go API"]
     Web["Next.js dashboard"] -->|session cookie| API
-    API --> PG[("Postgres\nencrypted secrets")]
+    SDK["@shellhaki/envi-sdk"] -->|service token| API
+    API --> PG[("Postgres\nencrypted secrets\n+ key-value store")]
     API --> Redis[("Redis\nOTP codes")]
     API --> Mail["Resend\nemail delivery"]
 ```
@@ -99,6 +101,8 @@ The CLI and the dashboard are two clients of the same API — neither one is a s
 | `cmd/envi` | The CLI, released for macOS, Linux, Termux, and Windows |
 | `cmd/install` | Tiny server for the `curl \| sh` install scripts |
 | `internal/` | Domain packages: secrets, auth, access, invitations, audit, mail |
+| `sdk/` | `@shellhaki/envi-sdk`, the JavaScript client for the key-value store |
+| `npm/` | Builds the npm packages that install the CLI binary |
 | `ui/` | The Next.js dashboard (deployable separately, e.g. to Vercel) |
 | `docs/` | The documentation site, its own Next.js app |
 | `migrations/` | `schema.sql` for a fresh database, numbered files to catch one up |
@@ -133,6 +137,8 @@ The CLI and the dashboard are two clients of the same API — neither one is a s
 | `envi token create --name <name>` | Mint a scoped service token for CI/CD |
 | `envi activity` | Recent reads and writes across your org |
 | `envi logout` | Revoke the current session |
+| `envi update` | Check for or install a new version |
+| `envi uninstall` | Remove envi from this machine |
 
 Full reference, including flags and exit codes: [docs.envisecrets.com/cli](https://docs.envisecrets.com/cli).
 

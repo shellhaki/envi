@@ -1,5 +1,7 @@
 Envi is an environment-secret manager: encrypted `.env` values, scoped access, an audit trail, and a CLI that gets a secret from your database into a running process without anyone typing it into Slack.
 
+It also holds a key-value store your application reads and writes while it runs, which is a separate thing from your secrets — see [Key-Value Store](/concepts/key-value-store).
+
 The CLI and the web dashboard are two clients of one API — neither is a special case. Pull and push `.env` files from a terminal, or manage the same projects visually. Same backend, same permissions, your choice of interface.
 
 <CardGroup cols={2}>
@@ -11,6 +13,12 @@ The CLI and the web dashboard are two clients of one API — neither is a specia
   </Card>
   <Card title="CLI reference" href="/cli">
     Every command — `auth`, `push`, `pull`, `diff`, `share`, and the rest.
+  </Card>
+  <Card title="Run it in Docker" href="/docker">
+    One credential in your container, no `.env` in the image.
+  </Card>
+  <Card title="JavaScript SDK" href="/sdk">
+    Read and write project values from code, at runtime.
   </Card>
   <Card title="Self-host it" href="/self-hosting">
     Run the entire stack yourself. Nothing is held back for a separate build.
@@ -37,6 +45,15 @@ The CLI and the web dashboard are two clients of one API — neither is a specia
   </Accordion>
   <Accordion title="No .env on disk">
     `envi run -- npm start` injects secrets into the process that needs them and exits with that process's own status. Nothing plaintext is written to your filesystem, so there is no file to leak, to commit by accident, or to go stale.
+  </Accordion>
+  <Accordion title="Key-value store">
+    A project-wide store your application reads and writes at runtime through the [SDK](/sdk), encrypted like everything else. Separate from your secrets: if your code writes it, it goes here; if you deploy it, it is a secret.
+  </Accordion>
+  <Accordion title="Runs in a container">
+    `ENTRYPOINT ["envi", "run", "--"]` and one `ENVI_TOKEN` variable. No `.env` in the image, no environment id baked into a layer, and the same image runs in staging or production depending on the token. See [Docker](/docker).
+  </Accordion>
+  <Accordion title="API keys">
+    A personal key signs you in without a browser, for a server or a script. It is exchanged for an ordinary session and capped at read, write or manage.
   </Accordion>
   <Accordion title="Full audit trail">
     Every write and delete is logged against the org, the actor, and the exact secret touched. Reads are logged once per environment, with the number of secrets they covered, so a command you run all day stays readable in the feed.

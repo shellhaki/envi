@@ -34,6 +34,7 @@ export const docsNav: DocGroup[] = [
       { slug: "/cli", title: "CLI Reference", description: "Every envi command." },
       { slug: "/web-dashboard", title: "Web Dashboard", description: "Manage projects and secrets visually." },
       { slug: "/sdk", title: "JavaScript SDK", description: "A key-value store your application reads and writes at runtime." },
+      { slug: "/docker", title: "Docker", description: "Run your app in a container with no .env and one credential." },
       { slug: "/ci-service-tokens", title: "Service Tokens & CI/CD", description: "Pull secrets in a pipeline without a human's session." },
       { slug: "/invitations", title: "Invitations", description: "Invite a collaborator, even if they don't have an account yet." },
     ],

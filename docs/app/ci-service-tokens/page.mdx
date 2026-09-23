@@ -60,6 +60,23 @@ Returns the current secrets and revision as JSON:
 { "values": { "DATABASE_URL": "...", "STRIPE_KEY": "..." }, "revision": 4 }
 ```
 
+## In a container
+
+A service token is what makes a deployment work with no `envi.toml` and no configuration file of any kind — the token already names its environment:
+
+```dockerfile
+ENTRYPOINT ["envi", "run", "--"]
+CMD ["bun", "index.ts"]
+```
+
+```bash
+docker run -e ENVI_TOKEN=st_live_xxxxx myapp
+```
+
+The same image then runs in staging or production depending on which token you give it. See [Docker](/docker).
+
+The [SDK](/sdk) takes the same token for the key-value store, and needs no project named for the same reason.
+
 ## Revoking
 
 Rotate by creating a new token and revoking the old one — there's no "renew" operation, since a token that can renew itself is a token that never really expires.
