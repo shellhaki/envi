@@ -11,6 +11,7 @@
     "ci": "bun test && bun run lint && bun run build --webpack"
   },
   "dependencies": {
+    "loading-dev": "0.3.4",
     "lucide-react": "^1.35.0",
     "next": "16.3.3",
     "react": "19.2.8",
