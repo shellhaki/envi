@@ -3,6 +3,8 @@ package project
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -111,4 +113,106 @@ func (s Service) projectViewer(ctx context.Context, u, p string) bool {
 	var ok bool
 	_ = s.DB.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM projects p LEFT JOIN memberships m ON m.org_id=p.org_id AND m.user_id=$2 LEFT JOIN access_grants g ON g.project_id=p.id AND g.subject_user_id=$2 WHERE p.id=$1 AND (m.id IS NOT NULL OR g.id IS NOT NULL))`, p, u).Scan(&ok)
 	return ok
+}
+
+// FindByName resolves a project by name among the ones a user can see. It goes
+// through List so the "can see" rule is defined in exactly one place.
+//
+// On a miss the error names the projects they do have: the likely cause is a
+// typo or the wrong account, and the list is the quickest way to spot which.
+func (s Service) FindByName(ctx context.Context, userID, name string) (Project, error) {
+	projects, err := s.List(ctx, userID)
+	if err != nil {
+		return Project{}, err
+	}
+	available := make([]string, 0, len(projects))
+	for _, p := range projects {
+		if p.Name == name {
+			return p, nil
+		}
+		available = append(available, p.Name)
+	}
+	if len(available) == 0 {
+		return Project{}, fmt.Errorf("no project named %q, and this account has no projects", name)
+	}
+	return Project{}, fmt.Errorf("no project named %q; this account can see: %s", name, strings.Join(available, ", "))
+}
+
+// FindEnvironmentByName resolves an environment within a project by name. An
+// empty name is allowed when the project has exactly one environment, so a
+// single-environment project needs no configuration.
+func (s Service) FindEnvironmentByName(ctx context.Context, userID, projectID, name string) (Environment, error) {
+	environments, err := s.ListEnvironments(ctx, userID, projectID)
+	if err != nil {
+		return Environment{}, err
+	}
+	if len(environments) == 0 {
+		return Environment{}, errors.New("this project has no environments yet")
+	}
+	if name == "" {
+		if len(environments) == 1 {
+			return environments[0], nil
+		}
+		return Environment{}, fmt.Errorf("this project has several environments, so one must be named: %s", strings.Join(environmentNames(environments), ", "))
+	}
+	for _, e := range environments {
+		if e.Name == name {
+			return e, nil
+		}
+	}
+	return Environment{}, fmt.Errorf("no environment named %q in this project; it has: %s", name, strings.Join(environmentNames(environments), ", "))
+}
+
+// DescribeEnvironment names an environment and its project, with no permission
+// check: it answers "what is this id?" for a caller that already holds a
+// credential bound to that exact environment.
+func (s Service) DescribeEnvironment(ctx context.Context, environmentID string) (environmentName string, projectName string, err error) {
+	err = s.DB.QueryRow(ctx,
+		`SELECT e.name, p.name FROM environments e JOIN projects p ON p.id = e.project_id WHERE e.id = $1`,
+		environmentID,
+	).Scan(&environmentName, &projectName)
+	return environmentName, projectName, err
+}
+
+func environmentNames(environments []Environment) []string {
+	names := make([]string, 0, len(environments))
+	for _, e := range environments {
+		names = append(names, e.Name)
+	}
+	return names
+}
+
+// CanView reports whether a user may read a project at all: a member of its
+// organization, or someone holding any grant on it.
+func (s Service) CanView(ctx context.Context, userID, projectID string) bool {
+	return s.projectViewer(ctx, userID, projectID)
+}
+
+// CanWrite reports whether a user may change project-wide data, such as the
+// key-value store. Org membership is enough — the same bar as reading and
+// writing a non-production environment — plus anyone with a write or manage
+// grant on the project.
+//
+// This deliberately does not use access.Allow: that answers a question about
+// one environment, and these values belong to the whole project.
+func (s Service) CanWrite(ctx context.Context, userID, projectID string) bool {
+	var ok bool
+	_ = s.DB.QueryRow(ctx,
+		`SELECT EXISTS(
+		   SELECT 1 FROM projects p
+		   LEFT JOIN memberships m ON m.org_id = p.org_id AND m.user_id = $2
+		   LEFT JOIN access_grants g ON g.project_id = p.id AND g.subject_user_id = $2 AND g.permission IN ('write','manage')
+		   WHERE p.id = $1 AND (m.id IS NOT NULL OR g.id IS NOT NULL))`,
+		projectID, userID).Scan(&ok)
+	return ok
+}
+
+// ProjectForEnvironment names the project an environment belongs to. A service
+// token is bound to an environment but the key-value store is project-wide, so
+// this is how a token finds the project it may act on.
+func (s Service) ProjectForEnvironment(ctx context.Context, environmentID string) (id string, name string, err error) {
+	err = s.DB.QueryRow(ctx,
+		`SELECT p.id, p.name FROM projects p JOIN environments e ON e.project_id = p.id WHERE e.id = $1`,
+		environmentID).Scan(&id, &name)
+	return id, name, err
 }

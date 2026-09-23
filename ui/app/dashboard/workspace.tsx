@@ -1,7 +1,11 @@
 "use client";
-import { Activity, Check, Clipboard, Clock, Eye, EyeOff, Folder, FolderPlus, KeyRound, Pencil, Plus, RefreshCw, Search, Shield, Trash2, UploadCloud, UserPlus } from "lucide-react";
+import { Activity, ArrowRight, Check, Clipboard, Clock, Eye, EyeOff, Folder, FolderPlus, KeyRound, Layers, Pencil, Plus, RefreshCw, Search, Shield, Trash2, UploadCloud, UserPlus } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import Greeting from "@/components/greeting";
 import Select from "@/components/select";
+import Toast from "@/components/toast";
 import { filterKeys, parseDotenv, relativeTime } from "../utils";
 
 type Project = { ID: string; OrgID: string; Name: string };
@@ -50,7 +54,13 @@ function actionLabel(a: string) {
   return m[a] || a.replace(/[._]/g, " ").replace(/^\w/, (c) => c.toUpperCase());
 }
 
-export default function Workspace({ page }: { page: Page }) {
+// The dashboard pages are thin routes; Workspace lives in the layout and reads
+// the path, so switching pages keeps every loaded list instead of refetching
+// the project -> environment -> secrets waterfall from scratch.
+const PAGES: Record<string, Page> = { "/dashboard": "overview", "/dashboard/secrets": "secrets", "/dashboard/projects": "projects", "/dashboard/sharing": "sharing", "/dashboard/activity": "activity" };
+
+export default function Workspace({ name }: { name: string }) {
+  const page = PAGES[usePathname().replace(/\/$/, "")] ?? "overview";
   const [projects, setProjects] = useState<Project[]>([]);
   const [project, setProject] = useState<Project>();
   // A project has many environments — dev, prod, whatever you name them — each
@@ -149,7 +159,7 @@ export default function Workspace({ page }: { page: Page }) {
       .catch((e) => setError(e.message)).finally(() => setLoadingEvents(false));
   }, [project]);
   useEffect(() => {
-    if (page !== "activity") return;
+    if (page !== "activity" && page !== "overview") return;
     const id = requestAnimationFrame(() => loadEvents());
     return () => cancelAnimationFrame(id);
   }, [page, loadEvents]);
@@ -172,6 +182,9 @@ export default function Workspace({ page }: { page: Page }) {
   // Project and environment resolve as a waterfall, so anything downstream of
   // them is still loading while either is in flight.
   const contextLoading = loadingProjects || loadingEnv;
+  // Events are org-wide and refetched on each visit to overview or activity.
+  // Keep showing the last list while that runs; only an empty one waits.
+  const eventsPending = (contextLoading || loadingEvents) && !events.length;
 
   async function deleteEnvironment(e: Env) {
     await api(`/environments/${e.ID}`, { method: "DELETE" });
@@ -264,10 +277,12 @@ export default function Workspace({ page }: { page: Page }) {
     : null;
 
   return <main className="product-page">
-    <div className="page-title">
-      <div><span className="eyebrow">Workspace</span><h1>{TITLES[page]}</h1><p>{SUBTITLES[page]}</p></div>
-      {titleAction}
-    </div>
+    {page === "overview"
+      ? <div className="page-title overview-title"><Greeting name={name} /></div>
+      : <div className="page-title">
+        <div><span className="eyebrow">Workspace</span><h1>{TITLES[page]}</h1><p>{SUBTITLES[page]}</p></div>
+        {titleAction}
+      </div>}
 
     {showContext && <div className="context-bar">
       {/* a plain div, not a <label>: clicking a label forwards the click to
@@ -276,7 +291,7 @@ export default function Workspace({ page }: { page: Page }) {
         <span>Project</span>
         <Select
           ariaLabel="Project"
-          placeholder={projects.length ? "Select a project" : "No projects yet"}
+          placeholder={loadingProjects ? "Loading…" : projects.length ? "Select a project" : "No projects yet"}
           value={project?.ID || ""}
           options={projects.map((p) => ({ value: p.ID, label: p.Name }))}
           onChange={(id) => setProject(projects.find((p) => p.ID === id))}
@@ -286,7 +301,7 @@ export default function Workspace({ page }: { page: Page }) {
         <span>Environment{env?.Production && <span className="badge prod">Production</span>}</span>
         <Select
           ariaLabel="Environment"
-          placeholder={envs.length ? "Select an environment" : "No environments yet"}
+          placeholder={contextLoading ? "Loading…" : envs.length ? "Select an environment" : "No environments yet"}
           value={env?.ID || ""}
           options={envs.map((e) => ({ value: e.ID, label: e.Name }))}
           onChange={(id) => setEnv(envs.find((e) => e.ID === id))}
@@ -298,19 +313,43 @@ export default function Workspace({ page }: { page: Page }) {
       </div>
     </div>}
 
-    {error && <div className="alert error"><button className="alert-dismiss" onClick={() => setError("")}>×</button>{error}</div>}
-    {notice && <div className="alert notice"><button className="alert-dismiss" onClick={() => setNotice("")}>×</button>{notice}</div>}
+    <div className="toast-stack">
+      {error && <Toast key={"e" + error} kind="error" message={error} onClose={() => setError("")} />}
+      {notice && <Toast key={"n" + notice} kind="notice" message={notice} onClose={() => setNotice("")} />}
+    </div>
 
     {page === "overview" && <>
       <div className="stat-cards">
-        <div className="stat-card"><div className="stat-icon"><Folder /></div><span>Projects</span>{loadingProjects ? <span className="spinner" /> : <strong>{projects.length}</strong>}</div>
-        <div className="stat-card"><div className="stat-icon"><KeyRound /></div><span>Secrets in {project?.Name || "project"}</span>{contextLoading || loadingSecrets ? <span className="spinner" /> : <strong>{Object.keys(snap.values).length}</strong>}</div>
+        <Stat icon={<Folder />} label="Projects" value={projects.length} loading={loadingProjects} />
+        <Stat icon={<Layers />} label="Environments" value={envs.length} loading={contextLoading} />
+        <Stat icon={<KeyRound />} label="Secrets" value={Object.keys(snap.values).length} loading={contextLoading || loadingSecrets} />
+        <Stat icon={<Activity />} label="Last change" value={events[0] ? relativeTime(events[0].created_at) : "None yet"} loading={eventsPending} />
       </div>
-      <div className="quick-actions">
-        <button className="button primary" onClick={() => setModal("project")}><Plus />New project</button>
-        <button className="button secondary" onClick={() => setModal("secret")} disabled={!project}><Plus />Add secret</button>
-        <button className="button secondary" onClick={() => setModal("import")} disabled={!project}><UploadCloud />Import .env</button>
-        <button className="button secondary" onClick={() => setModal("share")} disabled={!project}><UserPlus />Invite collaborator</button>
+      <div className="overview-grid">
+        <section className="panel">
+          <div className="panel-head"><h2>Recent activity</h2><Link className="button ghost" href="/dashboard/activity">View all<ArrowRight /></Link></div>
+          {eventsPending ? <Skeleton rows={4} label="Loading activity" /> : events.length ? <Timeline events={events.slice(0, 5)} />
+            : <Empty icon={<Activity />} title="No activity yet" text="Reads, writes, and deletes on your secrets will show up here." />}
+        </section>
+        <div className="overview-side">
+          <section className="panel">
+            <div className="panel-head"><h2>Environments</h2><button className="button ghost" onClick={() => setModal("environment")} disabled={!project}><Plus />New</button></div>
+            {contextLoading ? <Skeleton rows={3} label="Loading environments" /> : envs.length ? <div className="env-list">
+              {envs.map((e) => <button key={e.ID} className={"env-item" + (e.ID === env?.ID ? " active" : "")} onClick={() => setEnv(e)} aria-pressed={e.ID === env?.ID}>
+                <span className="env-dot" />{e.Name}{e.Production && <span className="badge prod">Production</span>}
+              </button>)}
+            </div> : <Empty icon={<Layers />} title="No environments" text="Create a project to get a default environment." />}
+          </section>
+          <section className="panel quick-panel">
+            <div className="panel-head"><h2>Quick actions</h2></div>
+            <div className="quick-list">
+              <button onClick={() => setModal("secret")} disabled={!project}><Plus />Add a secret</button>
+              <button onClick={() => setModal("import")} disabled={!project}><UploadCloud />Import a .env file</button>
+              <button onClick={() => setModal("share")} disabled={!project}><UserPlus />Invite a collaborator</button>
+              <button onClick={() => setModal("project")}><FolderPlus />New project</button>
+            </div>
+          </section>
+        </div>
       </div>
     </>}
 
@@ -327,7 +366,7 @@ export default function Workspace({ page }: { page: Page }) {
         </div>
       </div>
       {dragging && <div className="drop-hint"><UploadCloud />Drop a .env file to import its keys</div>}
-      {contextLoading || loadingSecrets ? <Loading label="Loading secrets" /> : keys.length ? <div className="data-table">
+      {contextLoading || loadingSecrets ? <Skeleton rows={6} label="Loading secrets" /> : keys.length ? <div className="data-table">
         <div className="thead"><span>Key</span><span>Value</span><span /></div>
         {keys.map((k) => <div className="trow" key={k}>
           <code>{k}</code>
@@ -343,7 +382,7 @@ export default function Workspace({ page }: { page: Page }) {
         text={project ? "Add a secret, or drag a .env file anywhere on this panel to import it." : "Choose a project above to view its secrets."} />}
     </section>}
 
-    {page === "projects" && (loadingProjects ? <Loading label="Loading projects" /> : <div className="project-grid">
+    {page === "projects" && (loadingProjects ? <div className="project-grid">{[0, 1, 2].map((i) => <div key={i} className="project-card skeleton-card"><span className="skeleton" /><span className="skeleton" /></div>)}</div> : <div className="project-grid">
       {projects.map((p) => {
         const deletable = p.OrgID === myOrg;
         return <div key={p.ID} className={"project-card item" + (p.ID === project?.ID ? " active" : "") + (deletable ? " deletable" : "")}>
@@ -360,7 +399,7 @@ export default function Workspace({ page }: { page: Page }) {
     </div>)}
 
     {page === "sharing" && <section className="plain-section">
-      {contextLoading || loadingCollaborators ? <Loading label="Loading collaborators" /> : collaborators.length ? <div className="data-table">
+      {contextLoading || loadingCollaborators ? <Skeleton rows={3} label="Loading collaborators" /> : collaborators.length ? <div className="data-table">
         <div className="thead"><span>Collaborator</span><span>Access</span><span /></div>
         {collaborators.map((c) => <div className="trow" key={c.id}>
           <span>{c.email}</span>
@@ -379,20 +418,8 @@ export default function Workspace({ page }: { page: Page }) {
     </section>}
 
     {page === "activity" && <section className="panel">
-      {contextLoading || loadingEvents ? <Loading label="Loading activity" /> : events.length ? <div className="timeline">
-        {events.map((x, i) => {
-          const kind = x.action.includes("delete") ? "delete" : x.action.includes("write") ? "write" : "read";
-          const Icon = kind === "delete" ? Trash2 : kind === "write" ? Pencil : Eye;
-          return <div className="activity-item" key={i}>
-            <div className={"activity-icon " + kind}><Icon /></div>
-            <div className="activity-body">
-              <strong>{actionLabel(x.action)}</strong>
-              <small>{x.actor || "Service token"} · {x.target_type}{x.target_id && <> · <code>{x.target_id.slice(0, 8)}</code></>}</small>
-            </div>
-            <span className="activity-when">{relativeTime(x.created_at)}</span>
-          </div>;
-        })}
-      </div> : <Empty icon={<Activity />} title="No activity yet" text="Reads, writes, and deletes on your secrets will show up here." />}
+      {eventsPending ? <Skeleton rows={6} label="Loading activity" /> : events.length ? <Timeline events={events} />
+         : <Empty icon={<Activity />} title="No activity yet" text="Reads, writes, and deletes on your secrets will show up here." />}
     </section>}
 
     {deleting && <ConfirmDelete title={`Delete ${deleting.Name}`} name={deleting.Name}
@@ -411,8 +438,34 @@ function Empty({ icon, title, text }: { icon: React.ReactNode; title: string; te
   return <div className="empty"><div className="empty-icon">{icon}</div><strong>{title}</strong><p>{text}</p></div>;
 }
 
-function Loading({ label }: { label: string }) {
-  return <div className="loading-state" role="status" aria-live="polite"><span className="spinner" /><p>{label}</p></div>;
+// Placeholder rows shaped like the content they stand in for, so the page
+// reads as "arriving" rather than stalled, and nothing shifts when it lands.
+function Skeleton({ rows, label }: { rows: number; label: string }) {
+  return <div className="skeleton-list" role="status" aria-live="polite">
+    <span className="sr-only">{label}</span>
+    {Array.from({ length: rows }, (_, i) => <div className="skeleton-row" key={i}><span className="skeleton" /><span className="skeleton" /></div>)}
+  </div>;
+}
+
+function Stat({ icon, label, value, loading }: { icon: React.ReactNode; label: string; value: React.ReactNode; loading: boolean }) {
+  return <div className="stat-card"><div className="stat-icon">{icon}</div><span>{label}</span>{loading ? <span className="skeleton stat-skeleton" /> : <strong>{value}</strong>}</div>;
+}
+
+function Timeline({ events }: { events: Event[] }) {
+  return <div className="timeline">
+    {events.map((x, i) => {
+      const kind = x.action.includes("delete") ? "delete" : x.action.includes("write") ? "write" : "read";
+      const Icon = kind === "delete" ? Trash2 : kind === "write" ? Pencil : Eye;
+      return <div className="activity-item" key={i}>
+        <div className={"activity-icon " + kind}><Icon /></div>
+        <div className="activity-body">
+          <strong>{actionLabel(x.action)}</strong>
+          <small>{x.actor || "Service token"} · {x.target_type}{x.target_id && <> · <code>{x.target_id.slice(0, 8)}</code></>}</small>
+        </div>
+        <span className="activity-when">{relativeTime(x.created_at)}</span>
+      </div>;
+    })}
+  </div>;
 }
 
 const DIALOG_META: Record<string, { title: string; sub?: string }> = {

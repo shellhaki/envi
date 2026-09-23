@@ -1,1 +1,1 @@
-import Workspace from "./workspace"; export default function Page(){return <Workspace page="overview"/>}
+export default function Page() { return null; }

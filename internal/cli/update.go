@@ -103,10 +103,7 @@ func UpdateNow(ctx context.Context, ui UI, current string, force bool) error {
 	if resolved, err := filepath.EvalSymlinks(self); err == nil {
 		self = resolved
 	}
-	dir := filepath.Dir(self)
-	if err = checkWritable(dir); err != nil {
-		return err
-	}
+	install := DetectInstall(self)
 
 	ui.Step("Checking for updates...")
 	release, err := LatestRelease(ctx)
@@ -117,6 +114,18 @@ func UpdateNow(ctx context.Context, ui UI, current string, force bool) error {
 	if !force && !IsDevBuild(current) && CompareVersions(current, latest) >= 0 {
 		ui.Success("Already up to date (%s).", current)
 		return nil
+	}
+
+	// An npm install is owned by the package manager. Swapping the file
+	// underneath it would leave npm still reporting the old version, and the
+	// next install or update would undo the change, so hand the job over.
+	if install.Kind == "npm" {
+		return updateThroughPackageManager(ctx, ui, install, current, latest)
+	}
+
+	dir := filepath.Dir(self)
+	if err = checkWritable(dir); err != nil {
+		return err
 	}
 	ui.Step("Updating %s → %s", current, ui.Bold(latest))
 
@@ -191,5 +200,30 @@ func verifyBinary(ctx context.Context, path, want string) error {
 	if strings.TrimPrefix(got, "v") != strings.TrimPrefix(want, "v") {
 		return fmt.Errorf("the downloaded binary reports version %q, expected %q; update abandoned", got, want)
 	}
+	return nil
+}
+
+// updateThroughPackageManager runs the package manager's own upgrade, so npm's
+// metadata and the binary stay in step. If it can't be run, the command is
+// printed instead of guessed at.
+func updateThroughPackageManager(ctx context.Context, ui UI, install InstallMethod, current, latest string) error {
+	command := install.UpdateCommand(latest)
+	printable := strings.Join(command, " ")
+
+	if !install.Available() {
+		ui.Warn("Envi was installed with %s, which isn't on your PATH.", install.Manager)
+		ui.Print("Update it with:\n  %s", ui.Bold(printable))
+		return nil
+	}
+
+	ui.Step("Updating %s → %s with %s", current, ui.Bold(latest), install.Manager)
+	run := exec.CommandContext(ctx, command[0], command[1:]...)
+	run.Stdout, run.Stderr = ui.Out, ui.Out
+	if err := run.Run(); err != nil {
+		ui.Warn("%s did not finish: %v", install.Manager, err)
+		ui.Print("Try it yourself with:\n  %s", ui.Bold(printable))
+		return err
+	}
+	ui.Success("Updated to %s", ui.Bold(latest))
 	return nil
 }

@@ -6,6 +6,7 @@ import (
 	"shellhaki/envi/internal/audit"
 	"shellhaki/envi/internal/auth"
 	"shellhaki/envi/internal/invitation"
+	"shellhaki/envi/internal/kv"
 	"shellhaki/envi/internal/project"
 	"shellhaki/envi/internal/secret"
 	"shellhaki/envi/internal/service_token"
@@ -16,7 +17,7 @@ func New() *gin.Engine {
 	r.GET("/health", func(c *gin.Context) { c.JSON(200, gin.H{"status": "ok"}) })
 	return r
 }
-func Build(db *pgxpool.Pool, login auth.LoginSettings, p project.Service, s secret.Service, au audit.Service, st service_token.Service, i invitation.Service, webURL string, beta bool) *gin.Engine {
+func Build(db *pgxpool.Pool, login auth.LoginSettings, p project.Service, s secret.Service, values kv.Store, au audit.Service, st service_token.Service, i invitation.Service, webURL string, beta bool) *gin.Engine {
 	r := New()
 	// Public, unauthenticated: the web app checks this before a user has
 	// signed in, to show "private beta" messaging rather than a bare
@@ -26,6 +27,8 @@ func Build(db *pgxpool.Pool, login auth.LoginSettings, p project.Service, s secr
 	m := RequireAuth(db, st)
 	addDeviceRoutes(r, db, webURL, m)
 	addAPIKeyRoutes(r, db, m)
+	addConfigRoutes(r, p, s, m)
+	addKVRoutes(r, p, values, m)
 	ProjectHandler{Service: p}.RoutesProtected(r, m)
 	SecretHandler{Service: s}.Routes(r, m)
 	AuditHandler{Service: au}.Routes(r, m)

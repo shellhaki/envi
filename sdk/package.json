@@ -1,0 +1,47 @@
+{
+  "name": "@shellhaki/envi-sdk",
+  "version": "0.4.0",
+  "description": "Read your Envi secrets at runtime, from Node, Bun, or any serverless platform.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shellhaki/envi.git",
+    "directory": "sdk"
+  },
+  "homepage": "https://docs.envisecrets.com/sdk",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "envi",
+    "secrets",
+    "environment",
+    "config",
+    "dotenv"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "bun test",
+    "prepublishOnly": "bun run build"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "@types/node": "^22.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

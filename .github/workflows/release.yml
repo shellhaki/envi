@@ -42,3 +42,61 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CLI_LDFLAGS: ${{ env.CLI_LDFLAGS }}
+
+  # npm packages, published after the GitHub release so a failure here never
+  # leaves a half-made release behind.
+  npm:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write          # lets npm attach build provenance
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      # Same build settings the CLI release uses, so an npm-installed binary
+      # talks to the same API as one from the install script.
+      - name: Write CLI build settings
+        env:
+          ENV_CLI: ${{ secrets.ENV_CLI }}
+        run: |
+          if [ -n "$ENV_CLI" ]; then printf '%s\n' "$ENV_CLI" > .env.cli; fi
+          echo "CLI_LDFLAGS=$(make -s cli-ldflags)" >> "$GITHUB_ENV"
+
+      - name: Build the packages
+        run: node npm/build.mjs "${GITHUB_REF_NAME}"
+
+      # Order matters: the wrapper depends on exact versions of the platform
+      # packages, so those have to exist on the registry first.
+      - name: Publish platform packages
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          for dir in npm/dist/envi-cli-*/; do
+            echo "publishing $dir"
+            npm publish "$dir" --access public --provenance
+          done
+
+      - name: Publish the CLI wrapper
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish npm/dist/envi-cli --access public --provenance
+
+      - name: Publish the SDK
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          cd sdk
+          npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version --allow-same-version
+          npm install
+          npm run build
+          npm publish --access public --provenance

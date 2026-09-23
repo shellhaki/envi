@@ -194,20 +194,82 @@ html[data-theme=dark] .brand-logo-dark { display: block; }
 /* ============================================================================
    Marketing site
    ========================================================================== */
-.site-page { min-height: 100vh; }
-.site-header { height: 68px; max-width: 1200px; margin: auto; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
-.site-header nav { display: flex; gap: 28px; font-size: 13px; color: var(--muted); }
+.site-page { min-height: 100vh; width: 100%; }
+/* Sticky, translucent header: the page scrolls under it rather than away
+   from the only navigation on the page. */
+.site-header { position: sticky; top: 0; z-index: 30; border-bottom: 1px solid var(--line); background: var(--topbar); backdrop-filter: saturate(1.4) blur(12px); -webkit-backdrop-filter: saturate(1.4) blur(12px); }
+.site-header-inner { height: 64px; max-width: 1200px; margin: auto; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.site-header nav { display: flex; gap: 26px; font-size: 13px; color: var(--muted); }
 .site-header nav a { transition: color .15s ease; }
 .site-header nav a:hover { color: var(--text); }
 .header-actions { display: flex; align-items: center; gap: 10px; }
 .welcome { font-size: 13px; color: var(--muted); }
-.hero { max-width: 1200px; min-height: 620px; margin: auto; padding: 88px 24px 72px; display: grid; grid-template-columns: 1.05fr .95fr; align-items: center; gap: 64px; }
-.hero h1 { max-width: 680px; margin: 14px 0 20px; font-size: clamp(42px, 5.6vw, 68px); font-weight: 600; line-height: 1.04; letter-spacing: var(--tracking-tighter); }
-.hero-copy > p { max-width: 560px; margin: 0; color: var(--muted); font-size: 17px; line-height: 1.6; }
-.hero-actions { display: flex; gap: 10px; margin: 30px 0 24px; }
-.proof { display: flex; flex-wrap: wrap; gap: 18px; color: var(--muted); font-size: 12px; }
-.proof span { display: flex; align-items: center; gap: 6px; }
-.proof svg { width: 14px; color: var(--text); }
+
+/* ---- Hero: left-aligned, then the demo at full width -------------------- */
+.lp-hero { max-width: 1200px; margin: auto; padding: 96px 24px 0; }
+.lp-hero h1 { max-width: 880px; margin: 0; font-size: clamp(40px, 6.4vw, 76px); font-weight: 650; line-height: 1.02; letter-spacing: -.045em; }
+/* Rotating headline: the current line ("on") and the one it replaced ("off")
+   share one grid cell. Keyframes rather than transitions, because each line
+   mounts fresh and has no earlier style to transition from. The min-height
+   (two lines) keeps the copy below from jumping as line lengths vary. */
+.lp-rotator { display: grid; min-height: 2.04em; align-content: start; }
+.lp-rotator > span, .greeting h1 > span { grid-area: 1 / 1; }
+.lp-rotator > span.on, .greeting h1 > span.on { animation: swap-in .7s cubic-bezier(.16, 1, .3, 1) both; }
+.lp-rotator > span.off, .greeting h1 > span.off { animation: swap-out .45s ease both; pointer-events: none; }
+@keyframes swap-in { from { opacity: 0; transform: translateY(.45em); filter: blur(8px); } }
+@keyframes swap-out { to { opacity: 0; transform: translateY(-.45em); filter: blur(8px); } }
+@media (prefers-reduced-motion: reduce) {
+  .lp-rotator > span, .greeting h1 > span { animation: none !important; }
+}
+/* Yellow as a fill with near-black on top, never as text colour. */
+.lp-rotator mark { padding: 0 .1em; border-radius: .1em; background: var(--accent); color: var(--accent-on); font-family: var(--font-mono), monospace; font-size: .86em; font-weight: 600; letter-spacing: -.04em; }
+.lp-hero-row { margin: 28px 0 56px; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 24px 48px; }
+.lp-hero-row p { max-width: 520px; margin: 0; color: var(--muted); font-size: 18px; line-height: 1.55; }
+.lp-hero-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.lp-demo .demo-frame { border-color: var(--line-strong); }
+
+/* ---- Feature rows: copy on one side, a real piece of the product on the
+   other. The shot is cropped by its frame, the way a screenshot would be. */
+.lp-row { max-width: 1200px; margin: auto; padding: 128px 24px 0; display: grid; grid-template-columns: 5fr 7fr; align-items: center; gap: 64px; scroll-margin-top: 64px; }
+.lp-row.flip { grid-template-columns: 7fr 5fr; }
+.lp-row.flip .lp-copy { order: 2; }
+.lp-copy h2 { margin: 12px 0 16px; font-size: clamp(28px, 3.4vw, 40px); font-weight: 650; line-height: 1.1; letter-spacing: var(--tracking-tighter); }
+.lp-copy p { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.65; }
+.lp-copy ul { margin: 24px 0 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+.lp-copy li { position: relative; padding-left: 18px; color: var(--text-2); font-size: 14px; }
+.lp-copy li::before { content: ""; position: absolute; left: 0; top: .55em; width: 6px; height: 6px; border-radius: 2px; background: var(--accent); }
+
+.lp-shot { position: relative; min-width: 0; padding: 36px 36px 0; overflow: hidden; border: 1px solid var(--line); border-radius: var(--r-xl); background: var(--surface-2); }
+.lp-shot-inner { padding: 16px 16px 0; border: 1px solid var(--line-strong); border-bottom: 0; border-radius: var(--r-lg) var(--r-lg) 0 0; background: var(--bg); box-shadow: var(--shadow-lg); }
+.lp-shot-inner .panel { border-bottom: 0; border-radius: var(--r-lg) var(--r-lg) 0 0; }
+.lp-shot-inner .trow { grid-template-columns: minmax(150px, 1fr) minmax(160px, 1.3fr) auto; }
+.lp-shot .panel-head { flex-wrap: nowrap; }
+.lp-shot .panel-head .button { min-height: 32px; font-size: 12px; }
+.lp-context { margin-bottom: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 12px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); }
+.lp-context > div > span { margin-bottom: 7px; display: flex; align-items: center; gap: 7px; font-size: 11px; font-weight: 500; color: var(--muted); }
+.lp-context em { font-style: normal; }
+.lp-select { height: 36px; padding: 0 12px; display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--line-strong); border-radius: var(--r); background: var(--surface); font-size: 13px; }
+.lp-select svg { width: 15px; color: var(--faint); }
+.lp-search { width: 240px; height: 34px; padding: 0 11px; display: flex; align-items: center; gap: 8px; border: 1px solid var(--line-strong); border-radius: var(--r); color: var(--faint); font-size: 13px; }
+.lp-search svg { width: 15px; }
+
+/* ---- Facts --------------------------------------------------------------- */
+.lp-facts { max-width: 1200px; margin: 128px auto 0; padding: 0 24px; display: grid; grid-template-columns: repeat(4, 1fr); }
+.lp-facts > div { padding: 28px 28px 28px 0; display: grid; gap: 8px; align-content: start; border-top: 1px solid var(--line); }
+.lp-facts > div + div { padding-left: 28px; border-left: 1px solid var(--line); }
+.lp-facts strong { font-size: 15px; font-weight: 600; }
+.lp-facts span { color: var(--muted); line-height: 1.6; }
+
+/* ---- Closing CTA --------------------------------------------------------- */
+.lp-cta { max-width: 1200px; margin: 128px auto; padding: 0 24px; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 28px; scroll-margin-top: 64px; }
+.lp-cta h2 { margin: 0; font-size: clamp(30px, 4.4vw, 52px); font-weight: 650; line-height: 1.06; letter-spacing: var(--tracking-tighter); }
+.lp-cta h2 span { color: var(--muted); }
+
+.lp-footer { max-width: 1200px; width: 100%; margin: auto; min-height: 96px; padding: 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+.lp-footer > div { display: flex; align-items: center; gap: 16px; }
+.lp-footer nav { display: flex; gap: 22px; font-size: 13px; }
+.lp-footer nav a:hover { color: var(--text); }
+
 .product-preview { border: 1px solid var(--line); border-radius: var(--r-xl); background: var(--surface); box-shadow: var(--shadow-lg); overflow: hidden; }
 .preview-top, .preview-row { min-height: 54px; padding: 0 18px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
 .preview-row:last-child { border-bottom: 0; }
@@ -228,27 +290,6 @@ html[data-theme=dark] .brand-logo-dark { display: block; }
   background: var(--surface-2); box-shadow: var(--shadow-lg);
 }
 .demo-video { display: block; width: 100%; height: 100%; object-fit: cover; background: var(--surface-2); }
-.feature-band { border-block: 1px solid var(--line); display: grid; grid-template-columns: repeat(3, 1fr); }
-.feature-band article { min-height: 248px; padding: 46px; border-right: 1px solid var(--line); }
-.feature-band article:last-child { border: 0; }
-.feature-band svg { width: 21px; color: var(--text); }
-.feature-band h2 { margin: 28px 0 8px; font-size: 19px; font-weight: 600; }
-.feature-band p { max-width: 380px; margin: 0; color: var(--muted); line-height: 1.6; }
-.workflow { max-width: 1200px; margin: auto; padding: 96px 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 80px; }
-.workflow h2, .pricing h2 { margin: 12px 0; font-size: clamp(30px, 4vw, 44px); font-weight: 600; line-height: 1.12; letter-spacing: var(--tracking-tighter); }
-.workflow ol { margin: 0; padding: 0; list-style: none; }
-.workflow li { padding: 22px 0; display: grid; grid-template-columns: 48px 1fr; gap: 15px; border-bottom: 1px solid var(--line); }
-.workflow li b { font: 500 12px var(--font-mono), monospace; letter-spacing: 0; color: var(--muted); }
-/* block, not grid: the description is inline prose containing <code> and
-   punctuation — grid would drop each of those onto its own row. */
-.workflow li span { display: block; color: var(--muted); line-height: 1.55; }
-.workflow li strong { display: block; margin-bottom: 3px; color: var(--text); font-weight: 600; }
-.workflow code { font-family: var(--font-mono), monospace; letter-spacing: 0; }
-.pricing { padding: 88px 24px; text-align: center; border-top: 1px solid var(--line); }
-.pricing > div { margin: 32px auto 0; display: flex; align-items: center; justify-content: center; gap: 16px; }
-.pricing strong { font-size: 40px; font-weight: 600; letter-spacing: var(--tracking-tighter); }
-.pricing span { color: var(--muted); }
-footer { min-height: 96px; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
 
 /* ============================================================================
    Auth + device
@@ -415,15 +456,84 @@ footer { min-height: 96px; padding: 0 24px; display: flex; align-items: center; 
 .cookie-consent p { flex: 1 1 240px; margin: 0; font-size: 13px; line-height: 1.5; color: var(--text-2); }
 .cookie-consent .button { flex-shrink: 0; margin-left: auto; }
 
+/* ---- Toasts: the cookie notice's shape, smaller and self-dismissing ------ */
+.toast-stack {
+  position: fixed; z-index: 60; left: 16px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom));
+  margin-inline: auto; max-width: 420px; display: grid; gap: 8px; pointer-events: none;
+}
+.toast {
+  display: flex; align-items: flex-start; gap: 10px; padding: 11px 10px 11px 14px; pointer-events: auto;
+  border: 1px solid var(--line-strong); border-radius: var(--r-lg); background: var(--surface); box-shadow: var(--shadow-lg);
+  animation: toast-in .38s cubic-bezier(.16, 1, .3, 1);
+}
+.toast.leaving { opacity: 0; transform: translateY(6px) scale(.98); transition: opacity .2s ease, transform .2s ease; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(14px) scale(.98); } }
+.toast-icon { flex: none; width: 17px; height: 17px; margin-top: 1px; }
+.toast.notice .toast-icon { color: var(--success); }
+.toast.error .toast-icon { color: var(--danger); }
+.toast p { flex: 1; margin: 0; font-size: 13px; line-height: 1.5; color: var(--text-2); overflow-wrap: anywhere; }
+.toast-close { flex: none; width: 24px; height: 24px; margin: -2px 0; display: grid; place-items: center; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--faint); cursor: pointer; transition: background .12s ease, color .12s ease; }
+.toast-close:hover { background: var(--surface-2); color: var(--text); }
+.toast-close svg { width: 14px; }
+@media (prefers-reduced-motion: reduce) {
+  .toast { animation: none; }
+  .toast.leaving { transform: none; }
+}
+
 /* auto-fill (not a fixed column count) so 2 cards sit at their natural width
    instead of stretching to fill a 3-column row with an empty gap. */
-.stat-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 256px)); gap: 14px; margin-bottom: 22px; }
-.stat-card { padding: 18px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); transition: border-color .15s ease; }
+.stat-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 16px; }
+.stat-card { position: relative; padding: 16px 18px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); transition: border-color .15s ease; }
 .stat-card:hover { border-color: var(--line-strong); }
-.stat-card .stat-icon { width: 32px; height: 32px; display: grid; place-items: center; border-radius: var(--r-sm); background: var(--surface-2); color: var(--text-2); margin-bottom: 14px; }
+.stat-card .stat-icon { position: absolute; top: 14px; right: 14px; width: 30px; height: 30px; display: grid; place-items: center; border-radius: var(--r-sm); background: var(--surface-2); color: var(--text-2); }
 .stat-card .stat-icon svg { width: 16px; }
-.stat-card span { font-size: 12.5px; color: var(--muted); }
-.stat-card strong { display: block; margin-top: 4px; font-size: 28px; font-weight: 600; letter-spacing: var(--tracking-tighter); font-variant-numeric: tabular-nums; }
+.stat-card > span { display: block; padding-right: 40px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; color: var(--muted); }
+.stat-card strong { display: block; margin-top: 10px; font-size: 28px; line-height: 28px; font-weight: 600; letter-spacing: var(--tracking-tighter); font-variant-numeric: tabular-nums; }
+
+/* ---- Overview ------------------------------------------------------------ */
+.overview-title { margin-bottom: 28px; }
+.greeting h1 { margin: 0; display: grid; font-size: clamp(26px, 3.4vw, 36px); font-weight: 650; line-height: 1.15; letter-spacing: var(--tracking-tighter); }
+.greeting h1 b { font-weight: inherit; color: var(--muted); }
+/* The swipe itself is shared with the landing headline (.lp-rotator). */
+.greeting p { margin: 8px 0 0; color: var(--faint); font-size: 12.5px; }
+.greeting-lang { display: inline-block; padding: 1px 8px; border-radius: 999px; background: var(--accent); color: var(--accent-on); font-size: 11px; font-weight: 600; animation: greeting-in .5s cubic-bezier(.16, 1, .3, 1); }
+@keyframes greeting-in { from { opacity: 0; transform: translateY(4px); } }
+
+.overview-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.overview-side { display: grid; gap: 16px; }
+.panel-head .button.ghost { min-height: 30px; padding: 0 10px; font-size: 12px; }
+.env-list { padding: 6px; display: grid; gap: 2px; }
+.env-item { min-height: 40px; padding: 0 10px; display: flex; align-items: center; gap: 10px; border: 0; border-radius: var(--r); background: transparent; color: var(--text-2); font-size: 13px; font-weight: 500; text-align: left; cursor: pointer; transition: background .12s ease, color .12s ease; }
+.env-item:hover { background: var(--surface-2); color: var(--text); }
+.env-item.active { background: var(--surface-2); color: var(--text); }
+.env-item .badge { margin-left: auto; }
+.env-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; border: 1.5px solid var(--line-strong); }
+.env-item.active .env-dot { border-color: transparent; background: var(--accent); box-shadow: 0 0 0 3px var(--accent-weak); }
+.quick-list { padding: 6px; display: grid; gap: 2px; }
+.quick-list button { min-height: 38px; padding: 0 10px; display: flex; align-items: center; gap: 10px; border: 0; border-radius: var(--r); background: transparent; color: var(--text-2); font-size: 13px; text-align: left; cursor: pointer; transition: background .12s ease, color .12s ease; }
+.quick-list button:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
+.quick-list button:disabled { opacity: .45; cursor: not-allowed; }
+.quick-list svg { width: 15px; color: var(--muted); }
+
+/* ---- Skeletons ----------------------------------------------------------- */
+.skeleton { display: block; height: 10px; border-radius: 999px; background: linear-gradient(90deg, var(--surface-2) 0%, var(--surface-3) 50%, var(--surface-2) 100%); background-size: 200% 100%; animation: shimmer 1.3s ease-in-out infinite; }
+@keyframes shimmer { from { background-position: 150% 0; } to { background-position: -50% 0; } }
+.skeleton-list { display: grid; }
+.skeleton-row { min-height: 52px; padding: 0 16px; display: grid; grid-template-columns: minmax(120px, 1fr) minmax(140px, 1.5fr); align-items: center; gap: 16px; border-bottom: 1px solid var(--line); }
+.skeleton-row:last-child { border-bottom: 0; }
+.skeleton-row .skeleton:first-child { width: 70%; }
+.skeleton-row:nth-child(3n) .skeleton:first-child { width: 50%; }
+.skeleton-row .skeleton:last-child { width: 45%; opacity: .7; }
+/* Same box as the number it stands in for, so the card height holds. */
+.stat-skeleton { width: 56px; height: 28px; margin: 10px 0 0; border-radius: var(--r-sm); }
+.skeleton-card { display: grid; align-content: end; gap: 10px; min-height: 120px; padding: 18px; }
+.skeleton-card .skeleton:first-child { width: 60%; height: 12px; }
+.skeleton-card .skeleton:last-child { width: 35%; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; }
+  .greeting-lang { animation: none; }
+}
 
 .quick-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
@@ -480,7 +590,6 @@ footer { min-height: 96px; padding: 0 24px; display: flex; align-items: center; 
 .loading-state { min-height: 230px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 13px; padding: 30px; color: var(--muted); text-align: center; }
 .loading-state .spinner { width: 22px; height: 22px; }
 .loading-state p { margin: 0; font-size: 13px; }
-.stat-card .spinner { width: 18px; height: 18px; margin: 4px 0; }
 .button .spinner { width: 13px; height: 13px; border-width: 1.5px; border-color: color-mix(in srgb, currentColor 30%, transparent); border-top-color: currentColor; }
 @media (prefers-reduced-motion: reduce) {
   /* Slowed, not stopped: a frozen spinner reads as a hung page. */
@@ -618,10 +727,12 @@ footer { min-height: 96px; padding: 0 24px; display: flex; align-items: center; 
   .select-trigger, .select-option { font-size: 16px; }
 
   .site-header nav, .welcome { display: none; }
-  .hero { grid-template-columns: 1fr; padding-top: 56px; gap: 44px; }
-  .feature-band { grid-template-columns: 1fr; }
-  .feature-band article { min-height: 0; border-right: 0; border-bottom: 1px solid var(--line); }
-  .workflow { grid-template-columns: 1fr; gap: 48px; padding: 72px 24px; }
+  .lp-hero { padding-top: 64px; }
+  .lp-row { grid-template-columns: 1fr; gap: 36px; padding-top: 96px; }
+  .lp-row.flip { grid-template-columns: 1fr; }
+  .lp-row.flip .lp-copy { order: 0; }
+  .lp-facts { grid-template-columns: 1fr 1fr; }
+  .lp-facts > div:nth-child(3) { padding-left: 0; border-left: 0; }
   /* grid-template-rows matters here: with two auto rows and min-height:100vh,
      the default align-content: stretch hands the leftover viewport height to
      the nav strip, padding it out to ~140px of mostly empty space. Pinning
@@ -661,19 +772,25 @@ footer { min-height: 96px; padding: 0 24px; display: flex; align-items: center; 
   /* The edge marker moves to the bottom when the rail becomes a strip. */
   .sidebar-nav a.active::before { left: 50%; top: auto; bottom: 0; transform: translateX(-50%); width: 16px; height: 2px; border-radius: 2px 2px 0 0; }
   .sidebar-foot { display: none; }
-  .stat-cards { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+  .stat-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .overview-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 560px) {
-  .site-header { padding: 0 16px; }
+  .site-header-inner { padding: 0 16px; }
+  .lp-hero { padding: 48px 16px 0; }
+  .lp-hero-row { margin: 20px 0 36px; }
+  .lp-hero-row p { font-size: 16px; }
+  .lp-hero-actions { width: 100%; flex-direction: column; }
+  .lp-row { padding: 80px 16px 0; }
+  .lp-shot { padding: 20px 0 0 20px; }
+  .lp-shot-inner { width: 560px; border-radius: var(--r-lg) 0 0 0; }
+  .lp-shot .thead, .lp-shot .trow { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(160px, 1.3fr) auto; padding: 0 16px; }
+  .lp-shot .trow .val, .lp-shot .cell-actions { grid-column: auto; grid-row: auto; }
+  .lp-facts { grid-template-columns: 1fr; margin-top: 80px; padding: 0 16px; }
+  .lp-facts > div, .lp-facts > div + div { padding: 22px 0; border-left: 0; }
+  .lp-cta { margin: 80px auto; padding: 0 16px; }
+  .lp-footer { padding: 24px 16px; }
   .header-actions .ghost { display: none; }
-  .hero { padding: 44px 16px 56px; }
-  .hero h1 { font-size: 38px; }
-  .hero-copy > p { font-size: 16px; }
-  .hero-actions, .proof { flex-direction: column; align-items: stretch; }
-  .feature-band article { padding: 32px 20px; }
-  .workflow { padding: 60px 16px; }
-  .pricing { padding: 64px 16px; }
-  .pricing > div { flex-direction: column; }
   .product-topbar { padding: 0 16px; }
   .product-page { padding: 24px 16px 60px; }
   .page-title { display: block; }
@@ -701,3 +818,46 @@ footer { min-height: 96px; padding: 0 24px; display: flex; align-items: center; 
 .theme-toggle .sun { display: none; }
 html[data-theme=dark] .theme-toggle .moon { display: none; }
 html[data-theme=dark] .theme-toggle .sun { display: block; }
+
+/* ============================================================================
+   API keys (settings)
+   ========================================================================== */
+.key-form { margin: 16px 0 20px; padding: 16px; display: grid; gap: 14px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); }
+.key-form .field { display: grid; gap: 7px; }
+.key-form .field > span { font-size: 12px; font-weight: 500; color: var(--text-2); }
+.key-form-actions { display: flex; gap: 8px; }
+
+/* The one moment the key exists in readable form, so it stays put until it is
+   dismissed rather than vanishing on a timer. */
+.key-reveal { margin: 16px 0 20px; padding: 16px; display: grid; gap: 10px; border: 1px solid var(--accent-line); border-radius: var(--r-lg); background: var(--accent-weak); }
+.key-reveal strong { font-size: 14px; }
+.key-reveal p { margin: 0; font-size: 12.5px; color: var(--text-2); }
+.key-reveal > .button.ghost { justify-self: start; }
+.key-secret { display: flex; align-items: center; gap: 8px; }
+.key-secret code {
+  flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: var(--r);
+  background: var(--surface); font: 500 12.5px var(--font-mono), monospace; letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+
+.key-list { margin: 16px 0 0; padding: 0; list-style: none; display: grid; border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; }
+.key-list li { padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--line); background: var(--surface); }
+.key-list li:last-child { border-bottom: 0; }
+.key-list li.expired { opacity: .6; }
+.key-name { display: grid; gap: 3px; min-width: 0; }
+.key-name strong { font-size: 13px; }
+.key-name small { font-size: 11.5px; color: var(--muted); }
+.button.danger-text { color: var(--danger); }
+.button.danger-text:hover:not(:disabled) { background: var(--danger-weak); }
+
+.key-empty { margin: 16px 0 0; display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.key-empty svg { width: 16px; }
+
+@media (max-width: 640px) {
+  .key-list li { flex-direction: column; align-items: flex-start; }
+  .key-secret { flex-direction: column; align-items: stretch; }
+}
+
+/* A focal loading indicator: centred, with room around it. Lists use skeletons
+   and buttons use .spinner — see components/loader.tsx. */
+.loader { display: grid; place-items: center; padding: 32px 0; color: var(--text-2); }

@@ -8,6 +8,7 @@ import SidebarToggle from "@/components/sidebar-toggle";
 import ThemeToggle from "@/components/theme-toggle";
 import { account, firstName } from "@/lib/server-api";
 import { initials } from "@/app/utils";
+import Workspace from "./workspace";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const user = await account();
@@ -34,7 +35,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <span className="topbar-workspace">{firstName(user.Email)}&rsquo;s workspace</span>
           <ThemeToggle />
         </header>
+        {/* Pages render nothing; Workspace reads the path and persists across them. */}
         {children}
+        <Workspace name={firstName(user.Email)} />
       </div>
     </div>
   );
