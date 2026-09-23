@@ -294,3 +294,90 @@ func count(env []string, name string) int {
 	}
 	return n
 }
+
+// A container has no envi.toml. A service token already names one environment,
+// so that is all it should need; anything else has to be told which to read.
+func TestRunWithoutEnviToml(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses sh")
+	}
+	var asked []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		asked = append(asked, r.URL.String())
+		if r.URL.Path != "/values" {
+			w.WriteHeader(404)
+			return
+		}
+		// Stands in for a service token, which knows its own environment.
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"project": "acme-api", "environment": "production",
+			"values": map[string]string{"FROM": "values-endpoint"},
+		})
+	}))
+	defer srv.Close()
+
+	// An empty directory: no envi.toml anywhere.
+	dir := t.TempDir()
+	stdout := captureStdout(t)
+	var errOut bytes.Buffer
+	code, err := Run(context.Background(), Client{BaseURL: srv.URL}, dir, "", false,
+		[]string{"sh", "-c", "printf %s \"$FROM\""}, &errOut, nil)
+	got := stdout()
+
+	if err != nil || code != 0 {
+		t.Fatalf("code=%d err=%v stderr=%q", code, err, errOut.String())
+	}
+	if got != "values-endpoint" {
+		t.Fatalf("child saw %q, want the values fetched by name", got)
+	}
+	if len(asked) != 1 || asked[0] != "/values" {
+		t.Fatalf("asked for %v, want a single /values with no query", asked)
+	}
+}
+
+// ENVI_PROJECT and ENVI_ENVIRONMENT are how a credential that is not bound to
+// one environment says which to read, which is what a Dockerfile sets.
+func TestRunReadsProjectFromEnvironment(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses sh")
+	}
+	var asked string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		asked = r.URL.String()
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"project": r.URL.Query().Get("project"), "environment": r.URL.Query().Get("environment"),
+			"values": map[string]string{"OK": "1"},
+		})
+	}))
+	defer srv.Close()
+
+	t.Setenv("ENVI_PROJECT", "acme-api")
+	t.Setenv("ENVI_ENVIRONMENT", "production")
+	var errOut bytes.Buffer
+	if _, err := Run(context.Background(), Client{BaseURL: srv.URL}, t.TempDir(), "", false,
+		[]string{"true"}, &errOut, nil); err != nil {
+		t.Fatal(err)
+	}
+	if asked != "/values?environment=production&project=acme-api" {
+		t.Fatalf("asked for %q", asked)
+	}
+}
+
+// Without a config file or anything naming a project, the message has to say
+// what to do rather than "not initialized", which is useless in a container.
+func TestRunWithoutAnythingToGoOn(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(400)
+		_ = json.NewEncoder(w).Encode(map[string]string{"code": "invalid_request", "error": "a project is required"})
+	}))
+	defer srv.Close()
+
+	t.Setenv("ENVI_PROJECT", "")
+	t.Setenv("ENVI_ENVIRONMENT", "")
+	var errOut bytes.Buffer
+	_, err := Run(context.Background(), Client{BaseURL: srv.URL}, t.TempDir(), "", false,
+		[]string{"true"}, &errOut, nil)
+	if err == nil || !strings.Contains(err.Error(), "ENVI_PROJECT") {
+		t.Fatalf("got %v, want a message naming ENVI_PROJECT", err)
+	}
+}

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -241,4 +242,40 @@ func Diff(ctx context.Context, c Client, dir string, out io.Writer) error {
 		}
 	}
 	return nil
+}
+
+// fetchValues reads secrets by name rather than by environment id, for callers
+// with no envi.toml. A service token names its own environment, so both
+// arguments may be empty; anything else must say which project it means.
+//
+// It returns the values and a "project · environment" label for display.
+func fetchValues(ctx context.Context, c Client, project, environment string) (map[string]string, string, error) {
+	query := url.Values{}
+	if project != "" {
+		query.Set("project", project)
+	}
+	if environment != "" {
+		query.Set("environment", environment)
+	}
+	path := "/values"
+	if len(query) > 0 {
+		path += "?" + query.Encode()
+	}
+
+	var reply struct {
+		Project     string            `json:"project"`
+		Environment string            `json:"environment"`
+		Values      map[string]string `json:"values"`
+	}
+	if e := c.Do(ctx, "GET", path, nil, &reply); e != nil {
+		var api *APIError
+		if errors.As(e, &api) && api.Status == 400 {
+			return nil, "", errors.New("no envi.toml here, so envi needs to be told what to read: set ENVI_PROJECT (and ENVI_ENVIRONMENT), or use a service token, or run envi init")
+		}
+		return nil, "", e
+	}
+	if reply.Values == nil {
+		reply.Values = map[string]string{}
+	}
+	return reply.Values, reply.Project + " · " + reply.Environment, nil
 }

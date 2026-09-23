@@ -33,25 +33,7 @@ func Run(ctx context.Context, c Client, dir, originName string, preserve bool, a
 	if len(argv) == 0 {
 		return 0, errors.New("no command given; usage: envi run [flags] -- <command> [args...]")
 	}
-	x, err := loadContext(dir)
-	if err != nil {
-		return 0, err
-	}
-
-	envID, envName := x.Environment.ID, x.Environment.Name
-	if originName != "" {
-		origins, err := listOrigins(ctx, c, x.Project.ID)
-		if err != nil {
-			return 0, err
-		}
-		target, err := findOrigin(origins, originName)
-		if err != nil {
-			return 0, err
-		}
-		envID, envName = target.ID, target.Name
-	}
-
-	secrets, _, err := fetchSnapshot(ctx, c, envID)
+	secrets, source, err := secretsToInject(ctx, c, dir, originName)
 	if err != nil {
 		return 0, err
 	}
@@ -67,10 +49,45 @@ func Run(ctx context.Context, c Client, dir, originName string, preserve bool, a
 	// Which origin you are about to run against is worth knowing, but it is not
 	// the command's output: stderr only, and only for a human watching.
 	if ui.Style {
-		fmt.Fprintln(errOut, ui.Dim(fmt.Sprintf("%s · %s · %d secret%s injected",
-			x.Project.Name, envName, injected, plural(injected))))
+		fmt.Fprintln(errOut, ui.Dim(fmt.Sprintf("%s · %d secret%s injected", source, injected, plural(injected))))
 	}
 	return execute(argv, env)
+}
+
+// secretsToInject finds the secrets to hand the command, and names where they
+// came from for the line printed above.
+//
+// A linked directory is the normal case: envi.toml says which environment, and
+// --origin can point at another. Without one — a container, most often — the
+// credential and the environment say it instead, which is what lets an image
+// carry no configuration at all.
+func secretsToInject(ctx context.Context, c Client, dir, originName string) (map[string]string, string, error) {
+	x, err := loadContext(dir)
+	if err == nil {
+		envID, envName := x.Environment.ID, x.Environment.Name
+		if originName != "" {
+			origins, err := listOrigins(ctx, c, x.Project.ID)
+			if err != nil {
+				return nil, "", err
+			}
+			target, err := findOrigin(origins, originName)
+			if err != nil {
+				return nil, "", err
+			}
+			envID, envName = target.ID, target.Name
+		}
+		secrets, _, err := fetchSnapshot(ctx, c, envID)
+		return secrets, x.Project.Name + " · " + envName, err
+	}
+
+	// No envi.toml. A service token already names one environment, so it needs
+	// nothing else; anything else has to be told, by flag or by environment.
+	project := strings.TrimSpace(os.Getenv("ENVI_PROJECT"))
+	environment := strings.TrimSpace(os.Getenv("ENVI_ENVIRONMENT"))
+	if originName != "" {
+		environment = originName
+	}
+	return fetchValues(ctx, c, project, environment)
 }
 
 // composeEnv lays the fetched secrets over the environment envi itself was given.
