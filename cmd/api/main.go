@@ -15,6 +15,7 @@ import (
 	"shellhaki/envi/internal/config"
 	crypt "shellhaki/envi/internal/crypto"
 	"shellhaki/envi/internal/invitation"
+	"shellhaki/envi/internal/kv"
 	"shellhaki/envi/internal/mailer"
 	"shellhaki/envi/internal/otp"
 	"shellhaki/envi/internal/project"
@@ -89,7 +90,7 @@ func main() {
 	}
 	ac := access.Service{DB: db}
 	invitations := invitation.Service{DB: db, Mailer: mail, WebURL: c.WebURL}
-	s := &http.Server{Addr: c.Address, Handler: api.Build(db, login, project.Service{DB: db}, secret.Service{DB: db, Access: ac, Cipher: cipher}, audit.Service{DB: db}, service_token.Service{DB: db}, invitations, c.WebURL, isBeta), ReadHeaderTimeout: 5 * time.Second}
+	s := &http.Server{Addr: c.Address, Handler: api.Build(db, login, project.Service{DB: db}, secret.Service{DB: db, Access: ac, Cipher: cipher}, kv.Store{DB: db, Cipher: cipher}, audit.Service{DB: db}, service_token.Service{DB: db}, invitations, c.WebURL, isBeta), ReadHeaderTimeout: 5 * time.Second}
 	go func() {
 		log.Printf("API listening on %s", c.Address)
 		if e := s.ListenAndServe(); e != nil && e != http.ErrServerClosed {

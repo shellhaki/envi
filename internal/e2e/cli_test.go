@@ -37,6 +37,7 @@ import (
 	"shellhaki/envi/internal/cli/session"
 	crypt "shellhaki/envi/internal/crypto"
 	"shellhaki/envi/internal/invitation"
+	"shellhaki/envi/internal/kv"
 	"shellhaki/envi/internal/otp"
 	"shellhaki/envi/internal/project"
 	"shellhaki/envi/internal/secret"
@@ -163,6 +164,7 @@ func TestCLIEndToEndIntegration(t *testing.T) {
 		db, login,
 		project.Service{DB: db},
 		secret.Service{DB: db, Access: access.Service{DB: db}, Cipher: cipher},
+		kv.Store{DB: db, Cipher: cipher},
 		audit.Service{DB: db},
 		service_token.Service{DB: db},
 		invitation.Service{DB: db},

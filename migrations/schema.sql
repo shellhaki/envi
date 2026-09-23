@@ -71,6 +71,12 @@ CREATE TABLE api_tokens (
   name text, permission text NOT NULL CHECK (permission IN ('read','write','manage')), expires_at timestamptz, revoked_at timestamptz,
   last_used_at timestamptz, created_at timestamptz NOT NULL DEFAULT now(), CHECK ((user_id IS NULL) <> (service_identity_id IS NULL))
 );
+CREATE TABLE kv_entries (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), project_id uuid NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  key_name text NOT NULL, ciphertext bytea NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (project_id, key_name)
+);
 CREATE TABLE audit_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(), org_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   actor_id uuid REFERENCES users(id) ON DELETE SET NULL, action text NOT NULL, target_type text NOT NULL,
@@ -90,6 +96,7 @@ CREATE INDEX grants_project_env_idx ON access_grants(project_id, environment_id)
 ALTER TABLE sessions ADD CONSTRAINT sessions_api_key_id_fkey
   FOREIGN KEY (api_key_id) REFERENCES api_tokens(id) ON DELETE CASCADE;
 
+CREATE INDEX IF NOT EXISTS kv_entries_project_idx ON kv_entries(project_id);
 CREATE INDEX IF NOT EXISTS api_tokens_user_idx ON api_tokens(user_id) WHERE user_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS sessions_api_key_idx ON sessions(api_key_id) WHERE api_key_id IS NOT NULL;
 CREATE INDEX audit_org_created_idx ON audit_events(org_id, created_at DESC);
