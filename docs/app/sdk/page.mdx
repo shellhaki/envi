@@ -1,0 +1,114 @@
+Read your secrets at runtime, from code, with no `.env` file involved.
+
+```bash
+npm install @shellhaki/envi-sdk
+```
+
+```ts
+import { Envi } from "@shellhaki/envi-sdk";
+
+const envi = new Envi({ token: process.env.ENVI_TOKEN! });
+await envi.ready();
+
+const databaseUrl = envi.require("DATABASE_URL");
+```
+
+## When to use this instead of `envi run`
+
+[`envi run`](/cli) is the better choice whenever you control the process: it needs no code, no dependency, and no change to how your app reads configuration.
+
+The SDK is for the cases `envi run` cannot reach:
+
+- **Serverless and edge platforms** — Vercel, Netlify, Lambda, Cloudflare Workers. You never start the process, so there is nothing to wrap.
+- **Values that change while the app runs** — call `refresh()` and carry on, with no redeploy.
+
+<Warning>
+  The SDK is server-side only, and refuses to construct if `window` exists. A credential in browser code would ship to every visitor, along with every secret it can read. Read secrets on the server and pass down only what the page needs.
+</Warning>
+
+## Choosing a credential
+
+### A service token, for anything deployed
+
+A [service token](/ci-service-tokens) is tied to one environment, so a leaked one exposes that environment and nothing else. It already knows which environment it belongs to, so there is nothing else to configure:
+
+```ts
+const envi = new Envi({ token: process.env.ENVI_TOKEN! });
+```
+
+```bash
+envi token create --name vercel-production --permission read
+```
+
+### A personal API key, while developing
+
+An [API key](/cli#personal-api-keys) acts as you, across everything you can reach, so it also needs to know which project you mean:
+
+```ts
+const envi = new Envi({
+  apiKey: process.env.ENVI_API_KEY!,
+  project: "acme-api",
+  environment: "development",
+});
+```
+
+`environment` can be left out when the project has exactly one.
+
+<Note>
+  The SDK does not remove the need for one secret in your environment: `ENVI_TOKEN` or `ENVI_API_KEY` still has to reach the process from your platform's own secret store. What it removes is every *other* secret, and the file they used to live in.
+</Note>
+
+## The API
+
+<ParamField query="await envi.ready()" type="Promise<void>">
+  Fetches the values. Call it once at start-up. Calling it again does nothing, and concurrent calls share a single request.
+</ParamField>
+<ParamField query="envi.get(key)" type="string | undefined">
+  A value, read from memory. Never touches the network.
+</ParamField>
+<ParamField query="envi.require(key)" type="string">
+  The same, but throws `EnviMissingKeyError` naming the key. Useful at start-up, so a missing secret fails immediately rather than at the first request that needs it.
+</ParamField>
+<ParamField query="envi.all()" type="Readonly<Record<string, string>>">
+  Every value, frozen.
+</ParamField>
+<ParamField query="await envi.refresh()" type="Promise<void>">
+  Fetches again and replaces what's held.
+</ParamField>
+<ParamField query="envi.source" type="{ project, environment, revision }">
+  Which environment the values came from. Worth logging at boot to confirm a deploy is reading what you think it is.
+</ParamField>
+
+Options also include `baseUrl` if you self-host, `timeoutMs` (default 10000), and `fetch` to supply your own.
+
+## Failures
+
+Each kind is its own error class, because the fix differs:
+
+| Error | Means |
+|---|---|
+| `EnviAuthError` | The credential is missing, wrong, expired, or revoked |
+| `EnviNotFoundError` | No such project or environment. The message lists what exists |
+| `EnviUnreachableError` | Envi could not be reached, or did not answer in time |
+| `EnviMissingKeyError` | `require()` asked for a key that is not set |
+
+The SDK fetches once, so these surface at `ready()` — at start-up, where you can decide what to do — rather than in the middle of serving a request.
+
+## A complete example
+
+```ts
+import { Envi } from "@shellhaki/envi-sdk";
+
+const envi = new Envi({ token: process.env.ENVI_TOKEN! });
+
+export async function start() {
+  await envi.ready();
+  console.log(`config: ${envi.source.project}/${envi.source.environment} @ rev ${envi.source.revision}`);
+
+  // Fail at boot rather than on the first request that needs it.
+  const databaseUrl = envi.require("DATABASE_URL");
+  const stripeKey = envi.require("STRIPE_SECRET_KEY");
+
+  return connect({ databaseUrl, stripeKey });
+}
+```

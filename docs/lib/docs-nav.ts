@@ -32,6 +32,7 @@ export const docsNav: DocGroup[] = [
     pages: [
       { slug: "/cli", title: "CLI Reference", description: "Every envi command." },
       { slug: "/web-dashboard", title: "Web Dashboard", description: "Manage projects and secrets visually." },
+      { slug: "/sdk", title: "JavaScript SDK", description: "Read secrets at runtime, on serverless and anywhere else." },
       { slug: "/ci-service-tokens", title: "Service Tokens & CI/CD", description: "Pull secrets in a pipeline without a human's session." },
       { slug: "/invitations", title: "Invitations", description: "Invite a collaborator, even if they don't have an account yet." },
     ],
