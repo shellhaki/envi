@@ -25,6 +25,7 @@ export const docsNav: DocGroup[] = [
       { slug: "/concepts/projects-and-environments", title: "Projects & Environments", description: "How secrets are organized." },
       { slug: "/concepts/secrets-and-encryption", title: "Secrets & Encryption", description: "How values are stored, versioned, and read." },
       { slug: "/concepts/access-and-permissions", title: "Access & Permissions", description: "Read, write, manage — and why production is different." },
+      { slug: "/concepts/key-value-store", title: "Key-Value Store", description: "Project-wide values your application owns, beside your secrets." },
     ],
   },
   {
@@ -32,7 +33,7 @@ export const docsNav: DocGroup[] = [
     pages: [
       { slug: "/cli", title: "CLI Reference", description: "Every envi command." },
       { slug: "/web-dashboard", title: "Web Dashboard", description: "Manage projects and secrets visually." },
-      { slug: "/sdk", title: "JavaScript SDK", description: "Read secrets at runtime, on serverless and anywhere else." },
+      { slug: "/sdk", title: "JavaScript SDK", description: "A key-value store your application reads and writes at runtime." },
       { slug: "/ci-service-tokens", title: "Service Tokens & CI/CD", description: "Pull secrets in a pipeline without a human's session." },
       { slug: "/invitations", title: "Invitations", description: "Invite a collaborator, even if they don't have an account yet." },
     ],

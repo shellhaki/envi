@@ -65,6 +65,8 @@ not in the CLI or the UI.
 | [internal/api](internal/api/) | The web addresses (routes). Each file reads a request, calls the matching package below, and writes JSON back. |
 | [internal/auth](internal/auth/) | Logging in and staying logged in: email codes, sessions, and CLI browser login. |
 | [internal/secret](internal/secret/service.go) | Reading and writing secrets: encryption, versions, conflict detection, audit logging. |
+| [internal/kv](internal/kv/kv.go) | The project-wide key-value store the SDK reads and writes. Encrypted like secrets, but no environments and no history. |
+| [internal/apikey](internal/apikey/apikey.go) | Personal API keys: created by a user, exchanged for a session. |
 | [internal/access](internal/access/service.go) | The one function that decides "may this user do this to this environment?" |
 | [internal/project](internal/project/service.go) | Projects and their environments. |
 | [internal/invitation](internal/invitation/service.go) | Inviting a collaborator by email, and accepting or revoking that. |
@@ -82,6 +84,8 @@ not in the CLI or the UI.
 | [internal/e2e](internal/e2e/cli_test.go) | One big test that runs the real CLI against a real server. |
 | [migrations](migrations/) | The database layout. `schema.sql` is the whole thing; the numbered files are changes, in order. |
 | [ui](ui/) | The dashboard and landing page. |
+| [sdk](sdk/) | `@shellhaki/envi-sdk`, the JavaScript client for the key-value store. |
+| [npm](npm/) | Builds the npm packages that install the CLI binary. |
 | [docs](docs/) | The documentation site. |
 
 ## 4. Follow one request: `envi pull`
@@ -317,6 +321,8 @@ gets the numbered files it hasn't had yet. `make db-init` does the right one.
 | Add an API endpoint | the matching file in [internal/api](internal/api/), registered from [server.go](internal/api/server.go) |
 | Change who may access what | [internal/access/service.go](internal/access/service.go) |
 | Change the database | a new numbered file in [migrations/](migrations/), and the same change in `schema.sql` |
+| Add or change a key-value rule | [internal/kv/kv.go](internal/kv/kv.go), with the endpoints in [internal/api/kv.go](internal/api/kv.go) |
+| Change the SDK | [sdk/src/envi.ts](sdk/src/envi.ts), tests in [sdk/test](sdk/test/) |
 | Change a dashboard page | [ui/app/dashboard/workspace.tsx](ui/app/dashboard/workspace.tsx) (every dashboard page is this one component) |
 | Change the landing page | [ui/app/page.tsx](ui/app/page.tsx) |
 | Change the docs | [docs/app](docs/app/), and the sidebar in [docs/lib/docs-nav.ts](docs/lib/docs-nav.ts) |

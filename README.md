@@ -35,6 +35,14 @@ irm https://install.envisecrets.com/install.ps1 | iex
 
 The script detects your OS and CPU architecture, verifies a SHA-256 checksum before installing, and works on macOS, Linux, Termux, and Windows.
 
+Or through a package manager, if Node is already in your stack:
+
+```bash
+npm install -g @shellhaki/envi-cli     # or: bun add -g / pnpm add -g / yarn global add
+```
+
+No install script runs: the binary arrives as an optional dependency chosen by `os` and `cpu`, so it works under `npm ci --ignore-scripts` and pnpm's defaults. `envi update` knows which way you installed and uses the matching route.
+
 ## What it does
 
 - **Encrypted at rest** — every secret is sealed with AES-256-GCM before it touches Postgres. Nothing is ever stored in plaintext, including in the version history kept for every change.
@@ -43,7 +51,7 @@ The script detects your OS and CPU architecture, verifies a SHA-256 checksum bef
 - **Service tokens** — long-lived, scoped credentials for CI/CD pipelines and deploy scripts, independent of any human's session.
 - **Multiple environments** — dev, staging, prod as separate sets of secrets in one project. `envi origin switch prod` repoints your working directory; `envi push .env origin prod` writes to one you aren't on.
 - **No `.env` on disk** — `envi run -- npm start` injects secrets into the process that needs them and exits with that process's own status. Nothing plaintext is written to your filesystem.
-- **Runtime SDK** — `@shellhaki/envi-sdk` reads your secrets from code on platforms where you don't control the process, like Vercel, Lambda and Cloudflare Workers.
+- **Key-value store** — a project-wide store your application reads and writes at runtime through `@shellhaki/envi-sdk`, encrypted like everything else. Separate from your secrets: if your code writes it, it goes here; if you deploy it, it's a secret.
 - **Full audit trail** — every write and delete is logged against the org, the actor, and the exact secret touched. Reads are logged once per environment with the number of secrets they covered, so a command you run all day stays readable in the feed.
 - **Email invitations** — invite a teammate by address; they click through, sign in (or sign up on the spot if they're new), and land with access already waiting.
 - **CLI and dashboard, one API** — `envi pull`/`push`/`diff` your `.env` files from the terminal, or manage everything visually. Same backend, same permissions, your choice of interface.

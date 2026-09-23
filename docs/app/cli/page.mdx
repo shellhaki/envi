@@ -291,3 +291,17 @@ Scripts checking `envi`'s exit status can distinguish failure kinds without pars
 | `4` | Forbidden — authenticated, but not permitted |
 | `5` | Configuration error — e.g. not initialized, run `envi init` |
 | `6` | API error |
+
+## Updating
+
+### `envi update check`
+
+Reports whether a newer release exists, without changing anything.
+
+### `envi update now`
+
+Installs it. The route depends on how Envi was installed: a script install replaces its own binary after verifying the checksum, and a package-manager install hands over to `npm`, `bun`, `pnpm` or `yarn`, whichever owns it. Overwriting the file directly would leave the package manager still reporting the old version.
+
+<ParamField query="--force" type="boolean">
+  Update even from a development build, or when already current.
+</ParamField>

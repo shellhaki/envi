@@ -1,4 +1,8 @@
-The install script detects your OS and CPU architecture at runtime and grabs the right build from the [latest release](https://github.com/shellhaki/envi/releases/latest) — there's nothing to configure.
+Two ways to install, both giving you the same single static binary.
+
+## With the install script
+
+It detects your OS and CPU architecture at runtime and grabs the right build from the [latest release](https://github.com/shellhaki/envi/releases/latest) — there's nothing to configure, and no Node required.
 
 <Tabs>
   <Tab title="macOS / Linux / Termux">
@@ -17,6 +21,42 @@ The install script detects your OS and CPU architecture at runtime and grabs the
   </Tab>
 </Tabs>
 
+## With a package manager
+
+If Node is already part of your stack, install it the same way as everything else:
+
+<Tabs>
+  <Tab title="npm">
+    ```bash
+    npm install -g @shellhaki/envi-cli
+    ```
+  </Tab>
+  <Tab title="bun">
+    ```bash
+    bun add -g @shellhaki/envi-cli
+    ```
+  </Tab>
+  <Tab title="pnpm">
+    ```bash
+    pnpm add -g @shellhaki/envi-cli
+    ```
+  </Tab>
+  <Tab title="yarn">
+    ```bash
+    yarn global add @shellhaki/envi-cli
+    ```
+  </Tab>
+</Tabs>
+
+There is **no install script in the package**. The binary for your platform arrives as an optional dependency that your package manager picks by `os` and `cpu`, so this works under `npm ci --ignore-scripts` and pnpm's default settings, where a package that downloads on install would quietly leave you with no working command.
+
+Adding it to a project rather than installing globally works too, which pins the CLI version alongside everything else your project depends on:
+
+```bash
+npm install --save-dev @shellhaki/envi-cli
+npx envi pull
+```
+
 Every download is checked against a SHA-256 checksum before anything is installed — if it doesn't match, the script fails loudly rather than installing a corrupted or tampered binary.
 
 ## Verify it
@@ -24,6 +64,15 @@ Every download is checked against a SHA-256 checksum before anything is installe
 ```bash
 envi version
 ```
+
+## Keeping it up to date
+
+```bash
+envi update check     # is there a newer release?
+envi update now       # install it
+```
+
+`envi update` knows how it was installed. A script install replaces its own binary, verifying the checksum first. A package-manager install hands the job to whichever manager owns it — `npm`, `bun`, `pnpm` or `yarn` — because overwriting the file directly would leave the package manager still reporting the old version.
 
 ## Installing a specific version
 
@@ -65,3 +114,14 @@ sudo mv envi /usr/local/bin/
 <Card title="Quickstart" href="/quickstart">
   Authenticate and push your first `.env` file.
 </Card>
+
+```bash
+npm install -g @shellhaki/envi-cli@0.4.0
+```
+
+## Uninstalling
+
+```bash
+envi uninstall                          # script installs
+npm uninstall -g @shellhaki/envi-cli    # or your package manager
+```

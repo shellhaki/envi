@@ -1,4 +1,4 @@
-Read your secrets at runtime, from code, with no `.env` file involved.
+A key-value store for your project, read and written from code.
 
 ```bash
 npm install @shellhaki/envi-sdk
@@ -8,78 +8,102 @@ npm install @shellhaki/envi-sdk
 import { Envi } from "@shellhaki/envi-sdk";
 
 const envi = new Envi({ token: process.env.ENVI_TOKEN! });
-await envi.ready();
 
-const databaseUrl = envi.require("DATABASE_URL");
+await envi.set("THEME", "dark");
+await envi.get("THEME");        // "dark"
 ```
 
-## When to use this instead of `envi run`
+## This is not your secrets
 
-[`envi run`](/cli) is the better choice whenever you control the process: it needs no code, no dependency, and no change to how your app reads configuration.
+The two live side by side and are deliberately different things:
 
-The SDK is for the cases `envi run` cannot reach:
+| | Secrets | Key-value store |
+|---|---|---|
+| Belongs to | One environment | The whole project |
+| History | Every version kept | Current value only |
+| Written by | You, through the CLI or dashboard | Your application, while it runs |
+| Read by | `envi pull`, `envi run`, the dashboard | This SDK |
+| Encrypted | Yes | Yes, same cipher |
 
-- **Serverless and edge platforms** — Vercel, Netlify, Lambda, Cloudflare Workers. You never start the process, so there is nothing to wrap.
-- **Values that change while the app runs** — call `refresh()` and carry on, with no redeploy.
+Use secrets for the credentials your app needs to start: database URLs, API keys, signing keys. Use the key-value store for things your app decides while running — a feature flag, a cached setting, the last time a job ran.
 
-<Warning>
-  The SDK is server-side only, and refuses to construct if `window` exists. A credential in browser code would ship to every visitor, along with every secret it can read. Read secrets on the server and pass down only what the page needs.
-</Warning>
+<Note>
+  Both are encrypted at rest with AES-256-GCM. The split is about lifecycle, not sensitivity: secrets are configuration you deploy, key-value entries are state your code owns.
+</Note>
 
 ## Choosing a credential
 
 ### A service token, for anything deployed
 
-A [service token](/ci-service-tokens) is tied to one environment, so a leaked one exposes that environment and nothing else. It already knows which environment it belongs to, so there is nothing else to configure:
+A [service token](/ci-service-tokens) belongs to one environment, and the store belongs to the project that environment is in — so the token already knows which project to act on, and there's nothing else to configure:
 
 ```ts
 const envi = new Envi({ token: process.env.ENVI_TOKEN! });
 ```
 
 ```bash
-envi token create --name vercel-production --permission read
+envi token create --name my-app --permission write
 ```
+
+A `read` token can read the store but not write to it.
 
 ### A personal API key, while developing
 
-An [API key](/cli#personal-api-keys) acts as you, across everything you can reach, so it also needs to know which project you mean:
+An [API key](/cli#personal-api-keys) can reach every project you can, so it has to be told which one:
 
 ```ts
 const envi = new Envi({
   apiKey: process.env.ENVI_API_KEY!,
   project: "acme-api",
-  environment: "development",
 });
 ```
 
-`environment` can be left out when the project has exactly one.
+A `read` key can read but not write, the same as a read-only token.
 
-<Note>
-  The SDK does not remove the need for one secret in your environment: `ENVI_TOKEN` or `ENVI_API_KEY` still has to reach the process from your platform's own secret store. What it removes is every *other* secret, and the file they used to live in.
-</Note>
+<Warning>
+  The SDK is server-side only, and refuses to construct if `window` exists. A credential in browser code would ship to every visitor along with everything it can read. Read values on the server and pass down only what the page needs.
+</Warning>
 
 ## The API
 
-<ParamField query="await envi.ready()" type="Promise<void>">
-  Fetches the values. Call it once at start-up. Calling it again does nothing, and concurrent calls share a single request.
+<ParamField query="await envi.get(key)" type="string | undefined">
+  A value, or undefined if it isn't set. Loads the store on first use and reads from memory after that.
 </ParamField>
-<ParamField query="envi.get(key)" type="string | undefined">
-  A value, read from memory. Never touches the network.
+<ParamField query="await envi.require(key)" type="string">
+  The same, but throws `EnviMissingKeyError` naming the key. Useful at start-up, so a missing value fails immediately rather than at the first request that needs it.
 </ParamField>
-<ParamField query="envi.require(key)" type="string">
-  The same, but throws `EnviMissingKeyError` naming the key. Useful at start-up, so a missing secret fails immediately rather than at the first request that needs it.
+<ParamField query="await envi.set(key, value)" type="Promise<void>">
+  Writes a value, replacing anything already under that key. Values are strings, up to 64KB.
 </ParamField>
-<ParamField query="envi.all()" type="Readonly<Record<string, string>>">
-  Every value, frozen.
+<ParamField query="await envi.delete(key)" type="Promise<void>">
+  Removes a key. Deleting one that isn't there is not an error.
+</ParamField>
+<ParamField query="await envi.all()" type="Record<string, string>">
+  Every value, as a plain object.
+</ParamField>
+<ParamField query="await envi.keys()" type="string[]">
+  The keys currently set, sorted.
 </ParamField>
 <ParamField query="await envi.refresh()" type="Promise<void>">
-  Fetches again and replaces what's held.
+  Fetches again, picking up changes made elsewhere.
 </ParamField>
-<ParamField query="envi.source" type="{ project, environment, revision }">
-  Which environment the values came from. Worth logging at boot to confirm a deploy is reading what you think it is.
+<ParamField query="envi.project" type="string">
+  Which project these values belong to. Worth logging at boot to confirm a deploy is talking to what you think it is.
 </ParamField>
 
 Options also include `baseUrl` if you self-host, `timeoutMs` (default 10000), and `fetch` to supply your own.
+
+## How reads and writes behave
+
+The store is fetched **once**, on the first read, and held in memory. After that `get`, `all` and `keys` cost nothing and never touch the network. `set` and `delete` go to the server and update what's held, so a value you just wrote reads back immediately without another fetch.
+
+Values changed elsewhere won't appear until you ask:
+
+```ts
+await envi.refresh();
+```
+
+There is no background polling and no timer, which matters on serverless platforms where a process can be frozen between requests.
 
 ## Failures
 
@@ -87,12 +111,23 @@ Each kind is its own error class, because the fix differs:
 
 | Error | Means |
 |---|---|
-| `EnviAuthError` | The credential is missing, wrong, expired, or revoked |
-| `EnviNotFoundError` | No such project or environment. The message lists what exists |
+| `EnviAuthError` | The credential is missing, wrong, expired, revoked, or not allowed to write |
+| `EnviNotFoundError` | No such project. The message lists what you can see |
 | `EnviUnreachableError` | Envi could not be reached, or did not answer in time |
 | `EnviMissingKeyError` | `require()` asked for a key that is not set |
 
-The SDK fetches once, so these surface at `ready()` — at start-up, where you can decide what to do — rather than in the middle of serving a request.
+```ts
+import { Envi, EnviAuthError } from "@shellhaki/envi-sdk";
+
+try {
+  await envi.set("THEME", "dark");
+} catch (error) {
+  if (error instanceof EnviAuthError) {
+    // a read-only token, or one that has been revoked
+  }
+  throw error;
+}
+```
 
 ## A complete example
 
@@ -101,14 +136,18 @@ import { Envi } from "@shellhaki/envi-sdk";
 
 const envi = new Envi({ token: process.env.ENVI_TOKEN! });
 
-export async function start() {
-  await envi.ready();
-  console.log(`config: ${envi.source.project}/${envi.source.environment} @ rev ${envi.source.revision}`);
+export async function lastRun(): Promise<Date | null> {
+  const value = await envi.get("JOB_LAST_RUN");
+  return value ? new Date(value) : null;
+}
 
-  // Fail at boot rather than on the first request that needs it.
-  const databaseUrl = envi.require("DATABASE_URL");
-  const stripeKey = envi.require("STRIPE_SECRET_KEY");
-
-  return connect({ databaseUrl, stripeKey });
+export async function recordRun() {
+  await envi.set("JOB_LAST_RUN", new Date().toISOString());
 }
 ```
+
+## Where this fits
+
+- Secrets your app needs at boot: [`envi run`](/cli) injects them with no code and no dependency, or the dashboard shows them.
+- On Vercel, Netlify, Lambda or Cloudflare Workers you can't wrap the process, so `envi run` is not an option — set one credential in the platform's own secret store and read the rest from here.
+- The SDK still needs that one credential in the environment. It turns many values into one, which is the same trade `envi run` makes.

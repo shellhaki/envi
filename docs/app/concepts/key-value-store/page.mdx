@@ -1,0 +1,50 @@
+Envi holds two kinds of data, and the difference is worth understanding before you pick one.
+
+<Diagram
+  nodes={[
+    { from: "Project", label: "contains", to: "Environments" },
+    { from: "Environment", label: "contains", to: "Secrets" },
+    { from: "Project", label: "also contains", to: "Key-value entries" },
+  ]}
+/>
+
+**Secrets** belong to an environment. `development` and `production` each have their own, every change keeps its previous version, and access is granted per environment. They are the values your application needs in order to start, and you set them: from the CLI, the dashboard, or a `.env` file you push.
+
+**Key-value entries** belong to the whole project. There is one set, no environment split, and only the current value — no history. They are values your application owns and changes while it runs.
+
+## Which one do I want?
+
+| You want to store | Use |
+|---|---|
+| A database URL, an API key, a signing key | Secrets |
+| Anything you would put in `.env` | Secrets |
+| A feature flag your admin page toggles | Key-value |
+| The timestamp of the last successful job | Key-value |
+| A cached value your code computes | Key-value |
+
+The test is simple: **if your code writes it, it's a key-value entry. If you deploy it, it's a secret.**
+
+## Both are encrypted
+
+Key-value entries are sealed with the same AES-256-GCM cipher as secrets, with the same key, before they reach Postgres. The split is about lifecycle, not sensitivity — a stolen database backup gives up neither.
+
+That said, secrets carry protections the key-value store does not: version history, per-environment access grants, and the production rule described in [Access & Permissions](/concepts/access-and-permissions). Credentials belong in secrets.
+
+## Reaching them
+
+Key-value entries are read and written by the [JavaScript SDK](/sdk):
+
+```ts
+await envi.set("FEATURE_X", "on");
+await envi.get("FEATURE_X");
+```
+
+A [service token](/ci-service-tokens) acts on the project its environment belongs to, so nothing else needs naming. A `read` token or a `read` API key can read the store but not write to it.
+
+## Limits
+
+- Keys: up to 255 characters, no newlines or null bytes.
+- Values: strings, up to 64KB each.
+- No history: writing over a value replaces it, and the old one is gone.
+
+Anything larger, or anything you need a record of changes for, belongs somewhere built for it.
