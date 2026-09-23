@@ -11,19 +11,17 @@ import {
  *
  * Give either a service token or an API key, not both:
  *
- *   token   A service token, which is already tied to one environment. Nothing
- *           else to configure, and a leaked one exposes that environment only.
- *           This is the one to use in production.
+ *   token   A service token. It already belongs to one project, so there is
+ *           nothing else to configure, and a leaked one reaches that project
+ *           only. Use this in production.
  *
- *   apiKey  Your personal key, which can reach everything you can, so it also
- *           needs `project` and (unless the project has exactly one)
- *           `environment`. Handy while developing.
+ *   apiKey  Your personal key, which can reach every project you can, so it
+ *           also needs `project`. Handy while developing.
  */
 export type EnviOptions = {
   token?: string;
   apiKey?: string;
   project?: string;
-  environment?: string;
   /** Defaults to the hosted API; point this at your own instance if you self-host. */
   baseUrl?: string;
   /** How long to wait for a response, in milliseconds. Default 10000. */
@@ -32,29 +30,26 @@ export type EnviOptions = {
   fetch?: typeof globalThis.fetch;
 };
 
-type Snapshot = {
-  project: string;
-  environment: string;
-  values: Record<string, string>;
-  revision: number;
-};
-
 const DEFAULT_BASE_URL = "https://api.envisecrets.com";
 const DEFAULT_TIMEOUT_MS = 10_000;
 
 /**
- * Reads the secrets of one Envi environment.
+ * A key-value store for one Envi project.
  *
  *   const envi = new Envi({ token: process.env.ENVI_TOKEN! });
- *   await envi.ready();
- *   envi.get("DATABASE_URL");
+ *   await envi.set("THEME", "dark");
+ *   await envi.get("THEME");        // "dark"
  *
- * Values are fetched once and held in memory, so `get` never waits on the
- * network and there are no timers running in the background. Call `refresh()`
- * when you want to pick up changes.
+ * This is not your secrets. Secrets belong to an environment, keep a version
+ * history, and are pulled into a process by `envi run` or `envi pull`. These are
+ * plain project-wide values an application reads and writes while it runs.
  *
- * Server-side only. Constructing this in code that reaches a browser would put
- * your credential, and every secret it can read, into the bundle you ship to
+ * Values are loaded once and held in memory, so repeated reads cost nothing.
+ * Writes go to the server and update what's held. Call `refresh()` to pick up
+ * changes made elsewhere.
+ *
+ * Server-side only. Constructing this where a browser can reach it would put
+ * your credential, and everything it can read, into the bundle you ship to
  * visitors, so it refuses to run there.
  */
 export class Envi {
@@ -63,10 +58,9 @@ export class Envi {
   readonly #fetch: typeof globalThis.fetch;
   readonly #timeoutMs: number;
 
-  #snapshot: Snapshot | null = null;
-  /** The in-flight first load, so concurrent ready() calls share one request. */
+  #values: Map<string, string> | null = null;
+  #project = "";
   #loading: Promise<void> | null = null;
-  /** A session obtained by exchanging an API key, and the refresh in flight. */
   #session: { access: string; refresh: string } | null = null;
   #refreshing: Promise<boolean> | null = null;
 
@@ -98,9 +92,50 @@ export class Envi {
     this.#fetch = fetchImpl;
   }
 
+  /** A value, or undefined if it isn't set. Loads on first use. */
+  async get(key: string): Promise<string | undefined> {
+    await this.ready();
+    return this.#values!.get(key);
+  }
+
+  /** The same, but throws naming the key. For checks at start-up. */
+  async require(key: string): Promise<string> {
+    const value = await this.get(key);
+    if (value === undefined) {
+      throw new EnviMissingKeyError(`${key} is not set in ${this.#project}.`);
+    }
+    return value;
+  }
+
+  /** Writes a value, replacing anything already under that key. */
+  async set(key: string, value: string): Promise<void> {
+    await this.ready();
+    await this.request("PUT", "/kv", { project: this.#options.project, key, value });
+    this.#values!.set(key, value);
+  }
+
+  /** Removes a key. Deleting one that isn't there is not an error. */
+  async delete(key: string): Promise<void> {
+    await this.ready();
+    await this.request("DELETE", "/kv", { project: this.#options.project, key });
+    this.#values!.delete(key);
+  }
+
+  /** Every value, as a plain object that can be modified freely. */
+  async all(): Promise<Record<string, string>> {
+    await this.ready();
+    return Object.fromEntries(this.#values!);
+  }
+
+  /** The keys currently set, sorted. */
+  async keys(): Promise<string[]> {
+    await this.ready();
+    return [...this.#values!.keys()].sort();
+  }
+
   /** Loads the values. Safe to call repeatedly; only the first one fetches. */
   async ready(): Promise<void> {
-    if (this.#snapshot) return;
+    if (this.#values) return;
     this.#loading ??= this.#load().finally(() => {
       this.#loading = null;
     });
@@ -112,76 +147,45 @@ export class Envi {
     await this.#load();
   }
 
-  /** A value, or undefined. Reads memory; call ready() first. */
-  get(key: string): string | undefined {
-    return this.#loaded().values[key];
-  }
-
-  /** A value, or an error naming the key. For checks at start-up. */
-  require(key: string): string {
-    const value = this.get(key);
-    if (value === undefined) {
-      throw new EnviMissingKeyError(
-        `${key} is not set in ${this.#loaded().project}/${this.#loaded().environment}.`,
-      );
-    }
-    return value;
-  }
-
-  /** Every value, as a copy that cannot be modified. */
-  all(): Readonly<Record<string, string>> {
-    return Object.freeze({ ...this.#loaded().values });
-  }
-
-  /** Which project and environment these values came from, and their revision. */
-  get source(): { project: string; environment: string; revision: number } {
-    const { project, environment, revision } = this.#loaded();
-    return { project, environment, revision };
-  }
-
-  #loaded(): Snapshot {
-    if (!this.#snapshot) {
-      throw new EnviError_NotReady();
-    }
-    return this.#snapshot;
+  /** Which project these values belong to. Available after the first load. */
+  get project(): string {
+    return this.#project;
   }
 
   async #load(): Promise<void> {
-    const query = new URLSearchParams();
-    if (this.#options.project) query.set("project", this.#options.project);
-    if (this.#options.environment) query.set("environment", this.#options.environment);
-    const search = query.toString();
-    const path = `/values${search ? `?${search}` : ""}`;
+    const query = this.#options.project
+      ? `?project=${encodeURIComponent(this.#options.project)}`
+      : "";
+    const body = (await this.request("GET", `/kv${query}`)) as {
+      project: string;
+      values: Record<string, string>;
+    };
+    this.#project = body.project ?? this.#options.project ?? "";
+    this.#values = new Map(Object.entries(body.values ?? {}));
+  }
 
-    let response = await this.#send(path, await this.#authorization());
+  /** One request, with a session renewal and a single retry on a 401. */
+  private async request(method: string, path: string, payload?: unknown): Promise<unknown> {
+    let response = await this.#send(method, path, await this.#authorization(), payload);
     // A session from an API key lasts fifteen minutes; a 401 usually just means
     // this one aged out while the process was idle.
     if (response.status === 401 && this.#options.apiKey && (await this.#renewSession())) {
-      response = await this.#send(path, await this.#authorization());
+      response = await this.#send(method, path, await this.#authorization(), payload);
     }
 
     if (response.status === 401 || response.status === 403) {
       throw new EnviAuthError(await this.#message(response, "Envi rejected the credential."));
     }
     if (response.status === 404) {
-      throw new EnviNotFoundError(await this.#message(response, "No such project or environment."));
+      throw new EnviNotFoundError(await this.#message(response, "No such project."));
     }
     if (!response.ok) {
-      throw new EnviUnreachableError(
-        await this.#message(response, `Envi answered ${response.status}.`),
-      );
+      throw new EnviUnreachableError(await this.#message(response, `Envi answered ${response.status}.`));
     }
-
-    const body = (await response.json()) as Snapshot;
-    this.#snapshot = {
-      project: body.project,
-      environment: body.environment,
-      values: body.values ?? {},
-      revision: body.revision ?? 0,
-    };
+    if (response.status === 204) return null;
+    return response.json().catch(() => null);
   }
 
-  /** The Authorization header value, obtaining a session first if needed. */
   async #authorization(): Promise<string> {
     if (this.#options.token) return this.#options.token;
     if (!this.#session) await this.#renewSession();
@@ -207,7 +211,7 @@ export class Envi {
       ? (["/auth/refresh", { refresh_token: this.#session.refresh }] as const)
       : (["/auth/api-key", { key: this.#options.apiKey }] as const);
 
-    const response = await this.#send(path, undefined, payload);
+    const response = await this.#send("POST", path, undefined, payload);
     if (!response.ok) {
       // A failed renewal of an old session is worth one attempt from scratch:
       // the session may simply have outlived its refresh window.
@@ -227,12 +231,12 @@ export class Envi {
     return true;
   }
 
-  async #send(path: string, bearer?: string, body?: unknown): Promise<Response> {
+  async #send(method: string, path: string, bearer?: string, body?: unknown): Promise<Response> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.#timeoutMs);
     try {
       return await this.#fetch(this.#baseUrl + path, {
-        method: body === undefined ? "GET" : "POST",
+        method,
         headers: {
           ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),
           ...(body === undefined ? {} : { "Content-Type": "application/json" }),
@@ -266,17 +270,12 @@ export class Envi {
 class EnviError_BrowserUse extends EnviError {
   constructor() {
     super(
-      "The Envi SDK is server-side only. Importing it into browser code would ship your credential and every secret it can read to visitors. Read secrets on the server and pass down only what the page needs.",
+      "The Envi SDK is server-side only. Importing it into browser code would ship your credential and everything it can read to visitors. Read values on the server and pass down only what the page needs.",
     );
   }
 }
 class EnviError_NoFetch extends EnviUnreachableError {
   constructor() {
     super("No fetch available. Use Node 18 or newer, or pass your own via the `fetch` option.");
-  }
-}
-class EnviError_NotReady extends EnviError {
-  constructor() {
-    super("Call `await envi.ready()` before reading values.");
   }
 }
