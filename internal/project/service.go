@@ -20,13 +20,33 @@ type Environment struct {
 }
 type Service struct{ DB *pgxpool.Pool }
 
+// DefaultEnvironmentName is the environment every new project starts with. A
+// project with none is unusable: envi init has nothing to link a directory to.
+const DefaultEnvironmentName = "default"
+
+// Create makes a project and its first environment together, in one
+// transaction. Both or neither: a project with no environment cannot be
+// initialized from the CLI, and the dashboard used to paper over that by
+// provisioning one on first view, which left CLI-created projects broken.
 func (s Service) Create(ctx context.Context, userID, orgID, name string) (Project, error) {
 	if !s.member(ctx, userID, orgID) {
 		return Project{}, ErrForbidden
 	}
+	tx, err := s.DB.Begin(ctx)
+	if err != nil {
+		return Project{}, err
+	}
+	defer tx.Rollback(ctx)
+
 	var p Project
-	err := s.DB.QueryRow(ctx, `INSERT INTO projects(org_id,name) VALUES($1,$2) RETURNING id,org_id,name`, orgID, name).Scan(&p.ID, &p.OrgID, &p.Name)
-	return p, err
+	if err = tx.QueryRow(ctx, `INSERT INTO projects(org_id,name) VALUES($1,$2) RETURNING id,org_id,name`, orgID, name).Scan(&p.ID, &p.OrgID, &p.Name); err != nil {
+		return Project{}, err
+	}
+	// Not production, so org members reach it without needing a grant.
+	if _, err = tx.Exec(ctx, `INSERT INTO environments(project_id,name,is_production) VALUES($1,$2,false)`, p.ID, DefaultEnvironmentName); err != nil {
+		return Project{}, err
+	}
+	return p, tx.Commit(ctx)
 }
 func (s Service) List(ctx context.Context, userID string) ([]Project, error) {
 	rows, err := s.DB.Query(ctx, `SELECT DISTINCT p.id,p.org_id,p.name FROM projects p LEFT JOIN memberships m ON m.org_id=p.org_id AND m.user_id=$1 LEFT JOIN access_grants g ON g.project_id=p.id AND g.subject_user_id=$1 WHERE m.id IS NOT NULL OR g.id IS NOT NULL ORDER BY p.name`, userID)

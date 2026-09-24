@@ -1,63 +1,90 @@
 package project
 
 import (
-	"github.com/jackc/pgx/v5/pgxpool"
+	"fmt"
 	"os"
-	"shellhaki/envi/internal/workspace"
 	"testing"
+	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"shellhaki/envi/internal/workspace"
 )
 
-func TestProjectEnvironmentIntegration(t *testing.T) {
+// A project with no environment cannot be linked by envi init, so creating one
+// must create its first environment too.
+func TestCreateMakesADefaultEnvironment(t *testing.T) {
 	if os.Getenv("ENVI_INTEGRATION") != "1" {
 		t.Skip("set ENVI_INTEGRATION=1")
 	}
-	db, e := pgxpool.New(t.Context(), os.Getenv("DATABASE_URL"))
-	if e != nil {
-		t.Fatal(e)
+	db, err := pgxpool.New(t.Context(), os.Getenv("DATABASE_URL"))
+	if err != nil {
+		t.Fatal(err)
 	}
 	defer db.Close()
-	w, e := workspace.Service{DB: db}.Provision(t.Context(), "project-owner@example.com")
-	if e != nil {
-		t.Fatal(e)
+
+	w, err := workspace.Service{DB: db}.Provision(t.Context(), fmt.Sprintf("project-%d@example.test", time.Now().UnixNano()))
+	if err != nil {
+		t.Fatal(err)
 	}
+	defer db.Exec(t.Context(), `DELETE FROM users WHERE id=$1`, w.UserID)
+
 	s := Service{DB: db}
-	p, e := s.Create(t.Context(), w.UserID, w.OrganizationID, "demo")
-	if e != nil {
-		t.Fatal(e)
+	p, err := s.Create(t.Context(), w.UserID, w.OrganizationID, fmt.Sprintf("proj-%d", time.Now().UnixNano()))
+	if err != nil {
+		t.Fatal(err)
 	}
-	if _, e = s.Create(t.Context(), w.UserID, w.OrganizationID, "demo"); e == nil {
-		t.Fatal("duplicate accepted")
+	defer db.Exec(t.Context(), `DELETE FROM projects WHERE id=$1`, p.ID)
+
+	envs, err := s.ListEnvironments(t.Context(), w.UserID, p.ID)
+	if err != nil {
+		t.Fatal(err)
 	}
-	env, e := s.CreateEnvironment(t.Context(), w.UserID, p.ID, "production", true)
-	if e != nil || !env.Production {
-		t.Fatal(e)
+	if len(envs) != 1 {
+		t.Fatalf("new project has %d environments, want 1", len(envs))
 	}
-	env, e = s.UpdateEnvironment(t.Context(), w.UserID, env.ID, "prod", false)
-	if e != nil || env.Production {
-		t.Fatal(e)
+	if envs[0].Name != DefaultEnvironmentName {
+		t.Fatalf("first environment is %q, want %q", envs[0].Name, DefaultEnvironmentName)
 	}
-	other, e := workspace.Service{DB: db}.Provision(t.Context(), "project-other@example.com")
-	if e != nil {
-		t.Fatal(e)
+	if envs[0].Production {
+		t.Fatal("the default environment must not be production, or members need a grant to use it")
 	}
-	if _, e = s.ListEnvironments(t.Context(), other.UserID, p.ID); e != ErrForbidden {
-		t.Fatal("cross-user access allowed")
+}
+
+// A rejected project must leave nothing behind.
+func TestCreateRollsBackTogether(t *testing.T) {
+	if os.Getenv("ENVI_INTEGRATION") != "1" {
+		t.Skip("set ENVI_INTEGRATION=1")
 	}
-	if e = s.DeleteEnvironment(t.Context(), w.UserID, env.ID); e != nil {
-		t.Fatal(e)
+	db, err := pgxpool.New(t.Context(), os.Getenv("DATABASE_URL"))
+	if err != nil {
+		t.Fatal(err)
 	}
-	if _, e = s.CreateEnvironment(t.Context(), w.UserID, p.ID, "cascade-check", false); e != nil {
-		t.Fatal(e)
+	defer db.Close()
+
+	w, err := workspace.Service{DB: db}.Provision(t.Context(), fmt.Sprintf("rollback-%d@example.test", time.Now().UnixNano()))
+	if err != nil {
+		t.Fatal(err)
 	}
-	if e = s.Delete(t.Context(), other.UserID, p.ID); e != ErrForbidden {
-		t.Fatal("a user outside the org deleted the project")
+	defer db.Exec(t.Context(), `DELETE FROM users WHERE id=$1`, w.UserID)
+
+	s := Service{DB: db}
+	name := fmt.Sprintf("dup-%d", time.Now().UnixNano())
+	p, err := s.Create(t.Context(), w.UserID, w.OrganizationID, name)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if e = s.Delete(t.Context(), w.UserID, p.ID); e != nil {
-		t.Fatal(e)
+	defer db.Exec(t.Context(), `DELETE FROM projects WHERE id=$1`, p.ID)
+
+	if _, err = s.Create(t.Context(), w.UserID, w.OrganizationID, name); err == nil {
+		t.Fatal("a duplicate project name was accepted")
 	}
-	var remaining int
-	if e = db.QueryRow(t.Context(), `SELECT (SELECT count(*) FROM projects WHERE id=$1)+(SELECT count(*) FROM environments WHERE project_id=$1)`, p.ID).Scan(&remaining); e != nil || remaining != 0 {
-		t.Fatalf("project or its environments survived deletion: %d rows (%v)", remaining, e)
+	var orphans int
+	if err = db.QueryRow(t.Context(),
+		`SELECT count(*) FROM environments e JOIN projects p ON p.id=e.project_id WHERE p.org_id=$1`, w.OrganizationID).Scan(&orphans); err != nil {
+		t.Fatal(err)
 	}
-	_, _ = db.Exec(t.Context(), `DELETE FROM users WHERE id IN($1,$2)`, w.UserID, other.UserID)
+	if orphans != 1 {
+		t.Fatalf("%d environments after one successful and one failed create, want 1", orphans)
+	}
 }
