@@ -63,6 +63,7 @@ not in the CLI or the UI.
 | [cmd/envi](cmd/envi/main.go) | Starts the CLI. Twelve lines: it hands the command line to `internal/cli`. |
 | [cmd/install](cmd/install/main.go) | A tiny server that hands out the install scripts in [scripts/](scripts/). |
 | [internal/api](internal/api/) | The web addresses (routes). Each file reads a request, calls the matching package below, and writes JSON back. |
+| [API.md](API.md) | Every endpoint, with request and response shapes. |
 | [internal/auth](internal/auth/) | Logging in and staying logged in: email codes, sessions, and CLI browser login. |
 | [internal/secret](internal/secret/service.go) | Reading and writing secrets: encryption, versions, conflict detection, audit logging. |
 | [internal/kv](internal/kv/kv.go) | The project-wide key-value store the SDK reads and writes. Encrypted like secrets, but no environments and no history. |
