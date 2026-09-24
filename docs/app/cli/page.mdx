@@ -143,6 +143,15 @@ envi push .env.test origin production
 <ParamField query="--yes" type="boolean">
   Answer the confirmation prompt, without forcing past a conflict.
 </ParamField>
+<ParamField query="--clean" type="boolean">
+  Delete the file once the push succeeds, so a pull, edit and push cycle leaves nothing plaintext on disk. A failed push never deletes anything.
+</ParamField>
+
+```bash
+envi pull          # write .env
+# ...edit it...
+envi push --clean  # send it up and remove the file
+```
 
 Without `--force`, a remote that changed since your last pull is rejected rather than overwritten:
 
@@ -194,6 +203,35 @@ envi run --origin production -- ./migrate.sh
 </Note>
 
 In CI or a container, set `ENVI_TOKEN` to a [service token](/ci-service-tokens) and `envi run` works with no `envi.toml` at all — the token names the environment. `ENVI_PROJECT` and `ENVI_ENVIRONMENT` say which to read when the credential isn't scoped to one. See [Docker](/docker).
+
+
+### `envi mod`
+
+Opens this origin's secrets in a full-screen editor. Edit them, press `^O` to push, and nothing is ever written to disk — no `.env` to create, forget, or clean up afterwards.
+
+```bash
+envi mod
+```
+
+| Key | Does |
+|---|---|
+| `^O` | Push the buffer back to Envi |
+| `^X` | Leave; asks first if you changed anything |
+| `^K` | Cut the current line |
+| `^A` / `^E` | Start and end of line |
+| Arrows | Move around |
+
+The buffer is the same `KEY=VALUE` text `envi pull` writes, so what you edit here and what lands in a file are the same thing. Add a line to add a secret, delete one to remove it.
+
+<ParamField query="--origin" type="string">
+  Edit another origin instead of the linked one.
+</ParamField>
+
+Pushing uses the same conflict check as `envi push`. If someone else changed the environment while you were editing, the push is refused and the status bar says so, rather than overwriting their work.
+
+<Note>
+  `envi mod` needs an interactive terminal. In a script or a pipe it refuses and points at `envi pull` and `envi push` instead.
+</Note>
 
 ## Collaboration
 

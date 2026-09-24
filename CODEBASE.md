@@ -241,6 +241,7 @@ Every command starts in the `switch` in [internal/cli/app.go](internal/cli/app.g
 | `envi auth`, `envi logout` | [auth.go](internal/cli/auth.go) |
 | `envi init` | [project/init.go](internal/cli/project/init.go) |
 | `envi pull`, `envi push`, `envi diff` | [secrets.go](internal/cli/secrets.go) |
+| `envi mod` | [mod.go](internal/cli/mod.go), editor in [editor.go](internal/cli/editor.go) |
 | `envi origin list / switch / create`, `envi push ... origin <name>` | [origin.go](internal/cli/origin.go) |
 | `envi run -- <command>` | [run.go](internal/cli/run.go) |
 | `envi share`, `envi invite accept` | [invitation.go](internal/cli/invitation.go) |

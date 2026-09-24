@@ -28,7 +28,7 @@ One read of an environment is one event, recording how many secrets it covered, 
 
 ## Injection, and what it does not protect against
 
-`envi run -- npm start` fetches the environment's secrets and hands them to the child process directly, so no `.env` is written. That removes the longest-lived exposure in the normal workflow: a plaintext file that outlives the process that needed it, gets copied into build contexts and editor backups, and only stays out of version control as long as the `.gitignore` is right.
+`envi run -- npm start` fetches the environment's secrets and hands them to the child process directly, so no `.env` is written. `envi mod` does the same for editing them: the values are fetched into a terminal editor and pushed back, never touching the filesystem. When you do want the file, `envi push --clean` removes it again once it is up. That removes the longest-lived exposure in the normal workflow: a plaintext file that outlives the process that needed it, gets copied into build contexts and editor backups, and only stays out of version control as long as the `.gitignore` is right.
 
 <Warning>
   Injection is not a sandbox. A child process's environment is readable by the same user on the same machine — through `/proc/<pid>/environ` on Linux, or `ps eww` — and anything the process itself does with a value, such as logging it or sending it onward, is outside Envi's reach. What injection buys is that the secrets exist for the life of one process and are never written to disk.
