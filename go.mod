@@ -1,6 +1,6 @@
 module shellhaki/envi
 
-go 1.25.12
+go 1.26.0
 
 require (
 	github.com/gin-gonic/gin v1.12.0
@@ -8,6 +8,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/redis/go-redis/v9 v9.22.0
+	golang.org/x/term v0.46.0
 	modernc.org/sqlite v1.39.1
 )
 
@@ -48,7 +49,7 @@ require (
 	golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b // indirect
 	golang.org/x/net v0.51.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
-	golang.org/x/sys v0.41.0 // indirect
+	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.34.0 // indirect
 	google.golang.org/protobuf v1.36.10 // indirect
 	modernc.org/libc v1.66.10 // indirect

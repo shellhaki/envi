@@ -47,7 +47,7 @@ func TestPullPush(t *testing.T) {
 	if info.Mode().Perm() != 0600 {
 		t.Fatalf("mode %o", info.Mode().Perm())
 	}
-	if n, e := Push(context.Background(), c, d, "", false); e != nil || n != 2 {
+	if n, e := Push(context.Background(), c, d, "", false, false); e != nil || n != 2 {
 		t.Fatalf("pushed %d secrets: %v", n, e)
 	}
 	if !strings.Contains(pushed, `"A":"1"`) || !strings.Contains(pushed, `"B":"2"`) {
@@ -77,12 +77,12 @@ func TestDiff(t *testing.T) {
 }
 func TestPushErrors(t *testing.T) {
 	d := t.TempDir()
-	if _, e := Push(context.Background(), Client{}, d, "", false); e == nil {
+	if _, e := Push(context.Background(), Client{}, d, "", false, false); e == nil {
 		t.Fatal("missing config accepted")
 	}
 	_ = projectctx.Write(d, projectctx.Context{Version: 1, Project: projectctx.Resource{ID: "p", Name: "demo"}, Environment: projectctx.Resource{ID: "e", Name: "dev"}})
 	_ = os.WriteFile(filepath.Join(d, ".env"), []byte("bad"), 0600)
-	if _, e := Push(context.Background(), Client{}, d, "", false); e == nil {
+	if _, e := Push(context.Background(), Client{}, d, "", false, false); e == nil {
 		t.Fatal("malformed env accepted")
 	}
 }
@@ -167,10 +167,10 @@ func TestPushForceOverwritesAStaleRevision(t *testing.T) {
 	var sent map[string]any
 	c := Client{BaseURL: snapshotServer(t, 9, &sent).URL}
 
-	if _, e := Push(context.Background(), c, d, "", false); e == nil {
+	if _, e := Push(context.Background(), c, d, "", false, false); e == nil {
 		t.Fatal("a stale revision was accepted without --force")
 	}
-	if _, e := Push(context.Background(), c, d, "", true); e != nil {
+	if _, e := Push(context.Background(), c, d, "", true, false); e != nil {
 		t.Fatalf("--force did not get past the stale revision: %v", e)
 	}
 	if got := sent["expected_revision"]; got != float64(9) {
@@ -187,7 +187,7 @@ func TestStaleRevisionTellsYouAboutForce(t *testing.T) {
 	d := ctxDir(t)
 	_ = os.WriteFile(filepath.Join(d, ".env"), []byte("LOCAL=1\n"), 0600)
 	var sent map[string]any
-	_, e := Push(context.Background(), Client{BaseURL: snapshotServer(t, 9, &sent).URL}, d, "", false)
+	_, e := Push(context.Background(), Client{BaseURL: snapshotServer(t, 9, &sent).URL}, d, "", false, false)
 	if e == nil || !strings.Contains(e.Error(), "--force") {
 		t.Fatalf("stale revision reported as %v, expected it to mention --force", e)
 	}
@@ -200,13 +200,67 @@ func TestPushNamedFile(t *testing.T) {
 	var sent map[string]any
 	c := Client{BaseURL: snapshotServer(t, 4, &sent).URL}
 
-	if n, e := Push(context.Background(), c, d, ".env.test", false); e != nil || n != 1 {
+	if n, e := Push(context.Background(), c, d, ".env.test", false, false); e != nil || n != 1 {
 		t.Fatalf("pushed %d secrets: %v", n, e)
 	}
 	if got := sent["values"].(map[string]any)["FROM"]; got != "test" {
 		t.Fatalf("pushed %v; the named file was ignored in favour of .env", got)
 	}
-	if _, e := Push(context.Background(), c, d, ".env.missing", false); e == nil || !strings.Contains(e.Error(), ".env.missing") {
+	if _, e := Push(context.Background(), c, d, ".env.missing", false, false); e == nil || !strings.Contains(e.Error(), ".env.missing") {
 		t.Fatalf("missing file reported as %v, expected it to name the file", e)
+	}
+}
+
+// --clean exists so a pull-edit-push cycle leaves nothing plaintext behind.
+func TestPushCleanRemovesTheFile(t *testing.T) {
+	d := ctxDir(t)
+	path := filepath.Join(d, ".env")
+	_ = os.WriteFile(path, []byte("A=1\n"), 0600)
+	var sent map[string]any
+	c := Client{BaseURL: snapshotServer(t, 4, &sent).URL}
+
+	if n, e := Push(context.Background(), c, d, "", false, true); e != nil || n != 1 {
+		t.Fatalf("pushed %d: %v", n, e)
+	}
+	if _, e := os.Stat(path); !os.IsNotExist(e) {
+		t.Fatal(".env survived a --clean push")
+	}
+	// The revision still has to be recorded, or the next push is rejected.
+	if x, _ := projectctx.Load(d); x.Environment.Revision != 5 {
+		t.Fatalf("envi.toml revision is %d after --clean", x.Environment.Revision)
+	}
+}
+
+// A failed push must leave the file alone: deleting it would destroy the only
+// copy of work that never reached the server.
+func TestPushCleanKeepsTheFileWhenThePushFails(t *testing.T) {
+	d := ctxDir(t)
+	path := filepath.Join(d, ".env")
+	_ = os.WriteFile(path, []byte("A=1\n"), 0600)
+	var sent map[string]any
+	// The server holds revision 9; envi.toml says 4, so this is rejected.
+	c := Client{BaseURL: snapshotServer(t, 9, &sent).URL}
+
+	if _, e := Push(context.Background(), c, d, "", false, true); e == nil {
+		t.Fatal("a stale push succeeded")
+	}
+	if _, e := os.Stat(path); e != nil {
+		t.Fatal("a failed --clean push deleted the file anyway")
+	}
+}
+
+// Without the flag the file stays, which is the old behaviour.
+func TestPushWithoutCleanKeepsTheFile(t *testing.T) {
+	d := ctxDir(t)
+	path := filepath.Join(d, ".env")
+	_ = os.WriteFile(path, []byte("A=1\n"), 0600)
+	var sent map[string]any
+	c := Client{BaseURL: snapshotServer(t, 4, &sent).URL}
+
+	if _, e := Push(context.Background(), c, d, "", false, false); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := os.Stat(path); e != nil {
+		t.Fatal("a plain push removed the file")
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	projectctx "shellhaki/envi/internal/cli/project"
 	"strings"
 	"time"
@@ -101,6 +102,7 @@ func (a App) Run(args []string) int {
 		fs.SetOutput(a.Err)
 		force := fs.Bool("force", false, "overwrite the remote instead of requiring a pull first")
 		yes := fs.Bool("yes", false, "skip the confirmation prompt")
+		clean := fs.Bool("clean", false, "delete the file after a successful push")
 		if e := fs.Parse(rest); e != nil {
 			return ExitUsage
 		}
@@ -126,11 +128,15 @@ func (a App) Run(args []string) int {
 			if originName != "" {
 				return PushToOrigin(context.Background(), c, a.input(), out, dir, file, originName, *yes, *force)
 			}
-			count, e := Push(context.Background(), c, dir, file, *force)
+			count, e := Push(context.Background(), c, dir, file, *force, *clean)
 			if e != nil {
 				return e
 			}
-			NewUI(out).Success("Pushed %d secret%s", count, plural(count))
+			ui := NewUI(out)
+			ui.Success("Pushed %d secret%s", count, plural(count))
+			if *clean {
+				ui.Print("Removed %s. Nothing plaintext left on disk.", filepath.Base(resolveEnvFile(dir, file)))
+			}
 			return nil
 		})
 	case "run":
@@ -211,6 +217,32 @@ func (a App) Run(args []string) int {
 			fmt.Fprintln(a.Err, "usage: envi key create --name <name> | envi key list | envi key revoke <id>")
 			return ExitUsage
 		}
+	case "mod":
+		fs := flag.NewFlagSet("mod", flag.ContinueOnError)
+		fs.SetOutput(a.Err)
+		origin := fs.String("origin", "", "edit another origin instead of the linked one")
+		if e := fs.Parse(args[1:]); e != nil {
+			return ExitUsage
+		}
+		c, code := a.session()
+		if code != ExitOK {
+			return code
+		}
+		dir, e := os.Getwd()
+		if e != nil {
+			fmt.Fprintln(a.Err, e)
+			return ExitConfig
+		}
+		// The spinner has to stop before the editor takes the screen, or it
+		// redraws over it on its next tick.
+		loading := NewUI(a.Out).Spinner("Loading secrets")
+		e = Mod(context.Background(), c, dir, *origin, loading.Stop)
+		loading.Stop()
+		if e != nil {
+			fmt.Fprintln(a.Err, e)
+			return ExitCode(e)
+		}
+		return ExitOK
 	case "pull", "diff":
 		labels := map[string]string{"pull": "Pulling secrets", "diff": "Comparing with remote"}
 		return a.authenticated(labels[args[0]], func(c Client, out io.Writer) error {
@@ -423,7 +455,7 @@ func (a App) Run(args []string) int {
 	}
 }
 func (a App) help() {
-	fmt.Fprintln(a.Out, "Usage: envi <command> [flags]\n\nCommands:\n  auth       Authenticate this device in the browser (--email for a code, --key for an API key)\n  logout     Revoke this device's session\n  key        Personal API keys (key create --name <name> | key list | key revoke <id>)\n  project    Create a project (project create <name>)\n  origin     This project's origins (origin list | origin switch <name> | origin create <name>)\n  env        Alias for origin create\n  init       Initialize project context\n  pull       Write remote secrets to .env\n  push       Send .env secrets to Envi (push [file] [origin <name>] [--force])\n  diff       Compare local and remote keys\n  run        Run a command with the secrets injected, no .env on disk (run -- npm start)\n  activity   Show recent activity for your organization\n  share      Invite a project collaborator\n  invite     Accept an invitation\n  token      Manage service tokens\n  update     Check for or install a new version (update check | update now)\n  uninstall  Remove envi from this machine\n  version    Print version\n  help       Show help")
+	fmt.Fprintln(a.Out, "Usage: envi <command> [flags]\n\nCommands:\n  auth       Authenticate this device in the browser (--email for a code, --key for an API key)\n  logout     Revoke this device's session\n  key        Personal API keys (key create --name <name> | key list | key revoke <id>)\n  project    Create a project (project create <name>)\n  origin     This project's origins (origin list | origin switch <name> | origin create <name>)\n  env        Alias for origin create\n  init       Initialize project context\n  pull       Write remote secrets to .env\n  push       Send .env secrets to Envi (push [file] [origin <name>] [--force] [--clean])\n  diff       Compare local and remote keys\n  mod        Edit this origin's secrets in a terminal editor, nothing written to disk\n  run        Run a command with the secrets injected, no .env on disk (run -- npm start)\n  activity   Show recent activity for your organization\n  share      Invite a project collaborator\n  invite     Accept an invitation\n  token      Manage service tokens\n  update     Check for or install a new version (update check | update now)\n  uninstall  Remove envi from this machine\n  version    Print version\n  help       Show help")
 }
 
 // tokenStore resolves the session store, reporting the exit code to use when it

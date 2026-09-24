@@ -131,12 +131,15 @@ func Pull(ctx context.Context, c Client, dir string) (int, error) {
 // quietly overwritten. force skips that check and writes against whatever the
 // server currently holds, for when the local file is already the wanted state
 // and pulling first would only drag down secrets destined to be discarded.
-func Push(ctx context.Context, c Client, dir, file string, force bool) (int, error) {
+// clean removes the file after a successful push, so a pull-edit-push cycle
+// leaves nothing plaintext behind. Nothing is deleted unless the push worked.
+func Push(ctx context.Context, c Client, dir, file string, force, clean bool) (int, error) {
 	x, e := loadContext(dir)
 	if e != nil {
 		return 0, e
 	}
-	values, e := readEnvFile(resolveEnvFile(dir, file))
+	path := resolveEnvFile(dir, file)
+	values, e := readEnvFile(path)
 	if e != nil {
 		return 0, e
 	}
@@ -153,7 +156,15 @@ func Push(ctx context.Context, c Client, dir, file string, force bool) (int, err
 		return 0, withForceHint(e)
 	}
 	x.Environment.Revision = result.Revision
-	return len(values), projectctx.Write(dir, x)
+	if e = projectctx.Write(dir, x); e != nil {
+		return 0, e
+	}
+	if clean {
+		if e = os.Remove(path); e != nil && !os.IsNotExist(e) {
+			return len(values), fmt.Errorf("pushed, but could not remove %s: %w", filepath.Base(path), e)
+		}
+	}
+	return len(values), nil
 }
 
 // resolveEnvFile picks the file a command reads: the project's .env unless one
