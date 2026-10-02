@@ -205,6 +205,29 @@ envi run --origin production -- ./migrate.sh
 In CI or a container, set `ENVI_TOKEN` to a [service token](/ci-service-tokens) and `envi run` works with no `envi.toml` at all — the token names the environment. `ENVI_PROJECT` and `ENVI_ENVIRONMENT` say which to read when the credential isn't scoped to one. See [Docker](/docker).
 
 
+### `envi clean`
+
+Deletes the local `.env` once the server already holds exactly what it contains. Use it after a pull and push, when the file has done its job.
+
+```bash
+envi clean
+```
+
+It refuses when the file has anything the server does not, naming what would be lost:
+
+```
+.env has 1 change the server does not have (added SECRET).
+Run envi push first, or envi clean --force to delete them.
+```
+
+<ParamField query="--force" type="boolean">
+  Delete anyway, for a file you know is stale or unwanted.
+</ParamField>
+
+Takes a filename to clean something other than `.env`. Running it with nothing to delete is not an error, so it is safe in a script.
+
+`envi push --clean` does both steps in one go.
+
 ### `envi mod`
 
 Opens this origin's secrets in a full-screen editor. Edit them, press `^O` to push, and nothing is ever written to disk — no `.env` to create, forget, or clean up afterwards.

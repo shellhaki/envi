@@ -18,3 +18,4 @@ brag-output/
 npm/dist/
 sdk/dist/
 sdk/node_modules/
+.DS_Store

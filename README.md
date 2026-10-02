@@ -128,6 +128,7 @@ The CLI and the dashboard are two clients of the same API — neither one is a s
 | `envi diff` | Show what's changed between local and remote before you push |
 | `envi run -- <command>` | Run a command with the secrets injected, without writing a `.env` |
 | `envi mod` | Edit this origin's secrets in a terminal editor, nothing written to disk |
+| `envi clean` | Delete the local `.env` once the server already has it |
 | `envi project create <name>` | Create a project |
 | `envi key create --name <name>` | Create a personal API key |
 | `envi auth --key <key>` | Sign in with an API key instead of the browser |
