@@ -217,6 +217,24 @@ func (a App) Run(args []string) int {
 			fmt.Fprintln(a.Err, "usage: envi key create --name <name> | envi key list | envi key revoke <id>")
 			return ExitUsage
 		}
+	case "clean":
+		fs := flag.NewFlagSet("clean", flag.ContinueOnError)
+		fs.SetOutput(a.Err)
+		force := fs.Bool("force", false, "delete even when the file has changes the server does not have")
+		if e := fs.Parse(args[1:]); e != nil {
+			return ExitUsage
+		}
+		file := ""
+		if fs.NArg() > 0 {
+			file = fs.Arg(0)
+		}
+		return a.authenticated("Checking against remote", func(c Client, out io.Writer) error {
+			dir, e := os.Getwd()
+			if e != nil {
+				return e
+			}
+			return Clean(context.Background(), c, dir, file, *force, out)
+		})
 	case "mod":
 		fs := flag.NewFlagSet("mod", flag.ContinueOnError)
 		fs.SetOutput(a.Err)
@@ -455,7 +473,7 @@ func (a App) Run(args []string) int {
 	}
 }
 func (a App) help() {
-	fmt.Fprintln(a.Out, "Usage: envi <command> [flags]\n\nCommands:\n  auth       Authenticate this device in the browser (--email for a code, --key for an API key)\n  logout     Revoke this device's session\n  key        Personal API keys (key create --name <name> | key list | key revoke <id>)\n  project    Create a project (project create <name>)\n  origin     This project's origins (origin list | origin switch <name> | origin create <name>)\n  env        Alias for origin create\n  init       Initialize project context\n  pull       Write remote secrets to .env\n  push       Send .env secrets to Envi (push [file] [origin <name>] [--force] [--clean])\n  diff       Compare local and remote keys\n  mod        Edit this origin's secrets in a terminal editor, nothing written to disk\n  run        Run a command with the secrets injected, no .env on disk (run -- npm start)\n  activity   Show recent activity for your organization\n  share      Invite a project collaborator\n  invite     Accept an invitation\n  token      Manage service tokens\n  update     Check for or install a new version (update check | update now)\n  uninstall  Remove envi from this machine\n  version    Print version\n  help       Show help")
+	fmt.Fprintln(a.Out, "Usage: envi <command> [flags]\n\nCommands:\n  auth       Authenticate this device in the browser (--email for a code, --key for an API key)\n  logout     Revoke this device's session\n  key        Personal API keys (key create --name <name> | key list | key revoke <id>)\n  project    Create a project (project create <name>)\n  origin     This project's origins (origin list | origin switch <name> | origin create <name>)\n  env        Alias for origin create\n  init       Initialize project context\n  pull       Write remote secrets to .env\n  push       Send .env secrets to Envi (push [file] [origin <name>] [--force] [--clean])\n  diff       Compare local and remote keys\n  mod        Edit this origin's secrets in a terminal editor, nothing written to disk\n  clean      Delete the local .env once the server already has it\n  run        Run a command with the secrets injected, no .env on disk (run -- npm start)\n  activity   Show recent activity for your organization\n  share      Invite a project collaborator\n  invite     Accept an invitation\n  token      Manage service tokens\n  update     Check for or install a new version (update check | update now)\n  uninstall  Remove envi from this machine\n  version    Print version\n  help       Show help")
 }
 
 // tokenStore resolves the session store, reporting the exit code to use when it

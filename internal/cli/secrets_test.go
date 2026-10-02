@@ -264,3 +264,21 @@ func TestPushWithoutCleanKeepsTheFile(t *testing.T) {
 		t.Fatal("a plain push removed the file")
 	}
 }
+
+// snapshotServerValues answers GET with the values it is given, for tests that
+// care about the contents rather than the revision check.
+func snapshotServerValues(t *testing.T, revision int64, values map[string]string, sent *map[string]any) string {
+	t.Helper()
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" {
+			_ = json.NewEncoder(w).Encode(map[string]any{"values": values, "revision": revision})
+			return
+		}
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		*sent = body
+		fmt.Fprintf(w, `{"revision":%d}`, revision+1)
+	}))
+	t.Cleanup(s.Close)
+	return s.URL
+}
