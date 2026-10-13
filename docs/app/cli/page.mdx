@@ -228,6 +228,87 @@ Takes a filename to clean something other than `.env`. Running it with nothing t
 
 `envi push --clean` does both steps in one go.
 
+### `envi copy`
+
+Puts this origin's secrets on your clipboard as `.env` text, for pasting into a platform that runs your code itself.
+
+```bash
+envi copy
+```
+
+```
+Copied 7 secrets from acme-api · production to the clipboard
+Paste them into your deployment platform's environment variables.
+```
+
+Vercel, Netlify, Render, Railway and Fly all parse `KEY=VALUE` lines pasted into their environment-variable screens in bulk, so a whole environment moves in one paste instead of a row at a time. The text is exactly what `envi pull` writes: keys sorted, values quoted where a bare one would not survive.
+
+### `envi copy <key>`
+
+Name a secret to copy that one value, on its own. No `KEY=` in front of it, because a single secret is copied in order to be pasted into a field that wants only the value.
+
+```bash
+envi copy DATABASE_URL
+```
+
+```
+Copied DATABASE_URL from acme-api · production
+```
+
+A key that does not exist is an error that lists the ones that do, so a misremembered name is corrected in one step.
+
+### `envi copy --single`
+
+Shows the origin's keys and copies whichever you choose.
+
+```bash
+envi copy --single
+```
+
+```
+Copy a secret from acme-api · production
+❯ API_KEY
+  DATABASE_URL
+  DB_PASSWORD
+  PORT
+↑↓ move · type to filter · enter copy · esc cancel
+```
+
+| Key | Does |
+|---|---|
+| `↑` `↓` | Move, wrapping at either end |
+| Any character | Narrow the list |
+| `Backspace` | Undo one character of the filter |
+| `^U` | Clear the filter |
+| `Return` | Copy the selected value |
+| `Esc` or `^C` | Leave without copying |
+
+Filtering matches in order rather than literally, so `dburl` finds `DATABASE_URL`. The list draws in place and rubs itself out on exit, leaving your scrollback as it was.
+
+<Note>
+  `--single` needs an interactive terminal. In a script, name the key instead: `envi copy DATABASE_URL`.
+</Note>
+
+<ParamField query="--origin" type="string">
+  Copy another origin instead of the linked one.
+</ParamField>
+<ParamField query="--stdout" type="boolean">
+  Write the text to stdout instead of the clipboard, for piping it or for a machine with no clipboard. The status line goes to stderr, so `envi copy --stdout > .env` is clean.
+</ParamField>
+
+```bash
+envi copy --origin production
+envi copy --stdout | pbcopy
+```
+
+With no `envi.toml`, the credential names the environment, the same way [`envi run`](#envi-run-command) does in a container.
+
+<Warning>
+  What lands on your clipboard is plaintext, and it stays there until something else replaces it. Paste it where you meant to and move on. Don't leave it sitting, and don't paste it into a chat window or a terminal with history.
+</Warning>
+
+Where you control the process, prefer [`envi run`](#envi-run-command) or the [Docker setup](/docker): nothing is copied, nothing is pasted, and rotating a secret doesn't mean visiting a second dashboard.
+
 ### `envi mod`
 
 Opens this origin's secrets in a full-screen editor. Edit them, press `^O` to push, and nothing is ever written to disk — no `.env` to create, forget, or clean up afterwards.

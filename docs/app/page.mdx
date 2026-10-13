@@ -17,8 +17,8 @@ The CLI and the web dashboard are two clients of one API — neither is a specia
   <Card title="Run it in Docker" href="/docker">
     One credential in your container, no `.env` in the image.
   </Card>
-  <Card title="JavaScript SDK" href="/sdk">
-    Read and write project values from code, at runtime.
+  <Card title="Web dashboard" href="/web-dashboard">
+    Manage secrets visually, and copy a whole environment out in one paste.
   </Card>
   <Card title="Self-host it" href="/self-hosting">
     Run the entire stack yourself. Nothing is held back for a separate build.
@@ -47,7 +47,7 @@ The CLI and the web dashboard are two clients of one API — neither is a specia
     `envi run -- npm start` injects secrets into the process that needs them and exits with that process's own status. Nothing plaintext is written to your filesystem, so there is no file to leak, to commit by accident, or to go stale.
   </Accordion>
   <Accordion title="Key-value store">
-    A project-wide store your application reads and writes at runtime through the [SDK](/sdk), encrypted like everything else. Separate from your secrets: if your code writes it, it goes here; if you deploy it, it is a secret.
+    A project-wide store your application reads and writes at runtime over HTTP, encrypted like everything else. Separate from your secrets: if your code writes it, it goes here; if you deploy it, it is a secret.
   </Accordion>
   <Accordion title="Runs in a container">
     `ENTRYPOINT ["envi", "run", "--"]` and one `ENVI_TOKEN` variable. No `.env` in the image, no environment id baked into a layer, and the same image runs in staging or production depending on the token. See [Docker](/docker).

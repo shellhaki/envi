@@ -32,14 +32,19 @@ That said, secrets carry protections the key-value store does not: version histo
 
 ## Reaching them
 
-Key-value entries are read and written by the [JavaScript SDK](/sdk):
+Key-value entries are read and written over HTTP, with a [service token](/ci-service-tokens) or a [personal API key](/cli#personal-api-keys):
 
-```ts
-await envi.set("FEATURE_X", "on");
-await envi.get("FEATURE_X");
+```bash
+curl https://api.envisecrets.com/kv \
+  -H "Authorization: Bearer $ENVI_TOKEN"
+
+curl -X PUT https://api.envisecrets.com/kv \
+  -H "Authorization: Bearer $ENVI_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"key": "FEATURE_X", "value": "on"}'
 ```
 
-A [service token](/ci-service-tokens) acts on the project its environment belongs to, so nothing else needs naming. A `read` token or a `read` API key can read the store but not write to it.
+A service token acts on the project its environment belongs to, so nothing else needs naming. A `read` token or a `read` API key can read the store but not write to it.
 
 ## Limits
 

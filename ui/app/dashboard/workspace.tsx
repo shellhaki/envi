@@ -1,12 +1,12 @@
 "use client";
-import { Activity, ArrowRight, Check, Clipboard, Clock, Eye, EyeOff, Folder, FolderPlus, KeyRound, Layers, Pencil, Plus, RefreshCw, Search, Shield, Trash2, UploadCloud, UserPlus } from "lucide-react";
+import { Activity, ArrowRight, Check, Clipboard, ClipboardList, Clock, Eye, EyeOff, Folder, FolderPlus, KeyRound, Layers, Pencil, Plus, RefreshCw, Search, Shield, Trash2, UploadCloud, UserPlus } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Greeting from "@/components/greeting";
 import Select from "@/components/select";
 import Toast from "@/components/toast";
-import { filterKeys, parseDotenv, relativeTime } from "../utils";
+import { filterKeys, formatDotenv, parseDotenv, relativeTime } from "../utils";
 
 type Project = { ID: string; OrgID: string; Name: string };
 type Env = { ID: string; Name: string; Production: boolean };
@@ -76,6 +76,7 @@ export default function Workspace({ name }: { name: string }) {
   const [query, setQuery] = useState("");
   const [reveal, setReveal] = useState(new Set<string>());
   const [copied, setCopied] = useState("");
+  const [copiedAll, setCopiedAll] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [modal, setModal] = useState<"project" | "secret" | "share" | "import" | "environment">();
   // The secret being edited, held separately from `modal` because it carries the
@@ -264,7 +265,36 @@ export default function Workspace({ name }: { name: string }) {
   }
 
   function toggleReveal(k: string) { setReveal((prev) => { const n = new Set(prev); if (n.has(k)) n.delete(k); else n.add(k); return n; }); }
-  function copy(k: string) { navigator.clipboard.writeText(snap.values[k]); setCopied(k); setTimeout(() => setCopied((c) => (c === k ? "" : c)), 1200); }
+  // The value alone, with no KEY= in front: a single secret is copied to be
+  // pasted into a field that wants only the value.
+  async function copy(k: string) {
+    try {
+      await navigator.clipboard.writeText(snap.values[k]);
+    } catch {
+      // Without this the click does nothing at all and the icon never flips,
+      // which reads as a broken button rather than a blocked clipboard.
+      setError("Your browser blocked the clipboard. Reveal the value and copy it by hand.");
+      return;
+    }
+    setCopied(k);
+    setTimeout(() => setCopied((c) => (c === k ? "" : c)), 1200);
+  }
+
+  // copyAll puts the whole environment on the clipboard as .env text, which is
+  // the format Vercel, Netlify, Render and Fly all accept pasted in bulk. It
+  // ignores the key filter: "all" means all, not all of what is on screen.
+  async function copyAll() {
+    const count = Object.keys(snap.values).length;
+    if (!count) return;
+    try {
+      await navigator.clipboard.writeText(formatDotenv(snap.values) + "\n");
+      setCopiedAll(true);
+      setTimeout(() => setCopiedAll(false), 1200);
+      setNotice(`Copied ${count} secret${count > 1 ? "s" : ""} as .env. Paste them into your deployment platform.`);
+    } catch {
+      setError("Your browser blocked the clipboard. Copy the values one at a time instead.");
+    }
+  }
   async function removeKey(k: string) {
     if (!env || !confirm(`Delete ${k}?`)) return;
     try { await api(`/environments/${env.ID}/secrets/${encodeURIComponent(k)}`, { method: "DELETE" }); loadSecrets(); setNotice(`Deleted ${k}.`); } catch (e) { setError((e as Error).message); }
@@ -361,6 +391,14 @@ export default function Workspace({ name }: { name: string }) {
         <div className="panel-tools">
           <span className="badge">rev {snap.revision}</span>
           <button className="button ghost" onClick={() => loadSecrets()}><RefreshCw />Refresh</button>
+          {/* Disabled while loading as well as when empty: `snap` still holds
+              the environment you just switched away from until the new one
+              arrives, and copying those by mistake is how production secrets
+              end up pasted somewhere they don't belong. */}
+          <button className="button secondary" title="Copy every secret as .env text" onClick={copyAll}
+            disabled={contextLoading || loadingSecrets || !Object.keys(snap.values).length}>
+            {copiedAll ? <Check /> : <ClipboardList />}Copy all
+          </button>
           <button className="button secondary" onClick={() => setModal("import")} disabled={!project}><UploadCloud />Import .env</button>
           <button className="button primary" onClick={() => setModal("secret")} disabled={!project}><Plus />Add secret</button>
         </div>

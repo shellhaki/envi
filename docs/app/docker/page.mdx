@@ -104,7 +104,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 
 ## Reading key-value entries instead
 
-If your application uses the [SDK](/sdk) rather than environment variables, it needs the same one credential and no wrapper:
+If your application reads the [key-value store](/concepts/key-value-store) rather than environment variables, it needs the same one credential and no wrapper — it calls `GET /kv` with the token itself:
 
 ```dockerfile
 ENTRYPOINT ["bun", "index.ts"]
@@ -114,4 +114,10 @@ ENTRYPOINT ["bun", "index.ts"]
 docker run -e ENVI_TOKEN=st_live_xxxxx myapp
 ```
 
-`envi run` and the SDK do different jobs: the wrapper injects an environment's **secrets** before your process starts, the SDK reads and writes the project's **key-value store** while it runs. You can use either, or both.
+The two do different jobs: `envi run` injects an environment's **secrets** before your process starts, and the key-value store holds project values your code reads and writes while it runs. You can use either, or both.
+
+## Platforms that run no container of yours
+
+Vercel, Netlify and Cloudflare Workers build and run your code themselves, so there is no entrypoint to wrap and no process to start with `envi run`. For those, copy the environment out of the dashboard and paste it into the platform once: **Copy all** on the secrets panel puts every secret on your clipboard as `.env` text, which each of their environment-variable screens parses in bulk. See [Copy all](/web-dashboard#copy-all).
+
+That is a copy, not a link — rotating a secret in Envi afterwards means pasting again. Where you do control the process, the wrapper above is the better trade.

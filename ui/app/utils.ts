@@ -35,6 +35,25 @@ export function parseDotenv(text: string): Record<string, string> {
   return out;
 }
 
+// formatDotenv is the inverse of parseDotenv: key/value pairs back into a .env
+// file body, keys sorted so the same set always renders the same text. It
+// matches what `envi pull` writes, so a value copied from the dashboard and one
+// pulled by the CLI are byte-identical.
+export function formatDotenv(values: Record<string, string>): string {
+  return Object.keys(values).sort()
+    .map((key) => `${key}=${quoteValue(values[key])}`)
+    .join("\n");
+}
+
+// quoteValue decides whether a value can be written bare. Newlines are the case
+// that matters: a private key written raw spreads across lines and the file no
+// longer parses. Leading and trailing spaces are quoted for the same reason —
+// parsing trims them, so writing them bare loses them.
+function quoteValue(value: string): string {
+  if (!value || (!/["\\\n\r]/.test(value) && value.trim() === value)) return value;
+  return JSON.stringify(value);
+}
+
 // relativeTime renders an ISO timestamp as a short "3m ago" style label.
 export function relativeTime(iso: string): string {
   const then = new Date(iso).getTime();

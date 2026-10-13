@@ -89,14 +89,3 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish npm/dist/envi-cli --access public --provenance
-
-      - name: Publish the SDK
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          set -euo pipefail
-          cd sdk
-          npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version --allow-same-version
-          npm install
-          npm run build
-          npm publish --access public --provenance

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { filterKeys, initials, parseDotenv, relativeTime } from "./utils";
+import { filterKeys, formatDotenv, initials, parseDotenv, relativeTime } from "./utils";
 
 describe("dashboard helpers", () => {
   test("filters and sorts secret keys", () => {
@@ -49,6 +49,36 @@ describe("parseDotenv", () => {
 
   test("allows empty values", () => {
     expect(parseDotenv("EMPTY=")).toEqual({ EMPTY: "" });
+  });
+});
+
+describe("formatDotenv", () => {
+  test("sorts keys and writes plain values bare", () => {
+    expect(formatDotenv({ PORT: "8080", API_KEY: "abc123" })).toBe("API_KEY=abc123\nPORT=8080");
+  });
+
+  test("leaves an empty value unquoted", () => {
+    expect(formatDotenv({ EMPTY: "" })).toBe("EMPTY=");
+  });
+
+  test("quotes values that would not survive bare", () => {
+    expect(formatDotenv({ KEY: "line1\nline2" })).toBe('KEY="line1\\nline2"');
+    expect(formatDotenv({ PAD: " spaced " })).toBe('PAD=" spaced "');
+    expect(formatDotenv({ Q: 'has "quotes"' })).toBe('Q="has \\"quotes\\""');
+  });
+
+  test("does not quote values that merely contain = # or :", () => {
+    const url = "postgres://u:p@host:5432/db?x=1#frag";
+    expect(formatDotenv({ DATABASE_URL: url })).toBe(`DATABASE_URL=${url}`);
+  });
+
+  test("round-trips through parseDotenv", () => {
+    const values = { A: "plain", B: "line1\nline2", C: 'with "quotes"', D: "", E: "a\\b" };
+    expect(parseDotenv(formatDotenv(values))).toEqual(values);
+  });
+
+  test("renders nothing for an empty set", () => {
+    expect(formatDotenv({})).toBe("");
   });
 });
 

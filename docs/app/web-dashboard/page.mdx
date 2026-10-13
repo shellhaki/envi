@@ -18,13 +18,25 @@ Production environments carry a `PRODUCTION` badge next to the picker, so you kn
 
 The full key/value table for the selected environment. Values are masked by default; reveal one at a time, or copy a value directly without ever displaying it on screen. Revealing is per environment — switch to another and everything is masked again, so a value never stays on screen because of something you opened somewhere else.
 
-Each row carries four actions: reveal, copy, edit, and delete. **Edit** opens the value in a dialog with the key shown but locked, because changing a key is not an edit — it would leave the old secret in place and add a second one under the new name. To rename a key, add the new one and delete the old.
+Each row carries four actions: reveal, copy, edit, and delete. **Copy** puts that one value on the clipboard with no `KEY=` in front of it, ready for a field that wants only the value, and it works whether or not the row is revealed — `envi copy <key>` is the same thing from the terminal. **Edit** opens the value in a dialog with the key shown but locked, because changing a key is not an edit — it would leave the old secret in place and add a second one under the new name. To rename a key, add the new one and delete the old.
 
 Saving an edit writes a new version rather than overwriting: the previous value stays in the history, and the revision badge advances the same way `envi push` would.
 
 <Tip>
   Drag a `.env` file anywhere onto this panel to import it — existing keys with the same name are overwritten, everything else is merged in.
 </Tip>
+
+### Copy all
+
+**Copy all** puts the whole environment on your clipboard as `.env` text — the same `KEY=VALUE` lines `envi pull` writes, keys sorted, values quoted where they need to be. Vercel, Netlify, Render, Railway and Fly all accept that format pasted into their environment-variable screens in one go, so moving a set of secrets to a platform Envi doesn't run inside is one click and one paste instead of a row at a time.
+
+It copies every secret in the environment, not only the rows matching the key filter.
+
+<Warning>
+  What lands on your clipboard is plaintext, and it stays there until something else replaces it. Paste it where you meant to and move on — don't leave it sitting while you do something else, and don't paste it into a chat window, a terminal, or anywhere with history.
+</Warning>
+
+For a platform where your own process starts the app, prefer [`envi run`](/cli#envi-run-command) or the [Docker setup](/docker): nothing is copied, nothing is pasted, and rotating a secret doesn't mean visiting a second dashboard.
 
 The revision badge (`REV n`) in the toolbar matches what `envi diff` and `envi push` reason about — if you and a teammate are both looking at the same environment, you're looking at the same number.
 
@@ -46,7 +58,7 @@ Your account email, a sign-out button for the current device, and light/dark the
 
 ### API keys
 
-Create, list and revoke [personal API keys](/cli#personal-api-keys) here. A key signs you in without a browser: on a server, in a script, or through the [SDK](/sdk).
+Create, list and revoke [personal API keys](/cli#personal-api-keys) here. A key signs you in without a browser: on a server, in a script, or against the API directly.
 
 Creating one asks for a name, a permission (`read`, `write` or `manage`) and an expiry. The key is shown **once**, immediately after creation, because only a hash of it is stored — copy it then or create another.
 

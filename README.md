@@ -52,9 +52,10 @@ No install script runs: the binary arrives as an optional dependency chosen by `
 - **Multiple environments** — dev, staging, prod as separate sets of secrets in one project. `envi origin switch prod` repoints your working directory; `envi push .env origin prod` writes to one you aren't on.
 - **No `.env` on disk** — `envi run -- npm start` injects secrets into the process that needs them and exits with that process's own status. `envi mod` edits them in a terminal editor, and `envi push --clean` removes the file once it is up. Nothing plaintext has to stay on your filesystem.
 - **Runs in a container** — `ENTRYPOINT ["envi", "run", "--"]` and one `ENVI_TOKEN` variable. No `.env` in the image, no environment id baked into a layer, same image in every environment.
-- **Key-value store** — a project-wide store your application reads and writes at runtime through `@shellhaki/envi-sdk`, encrypted like everything else. Separate from your secrets: if your code writes it, it goes here; if you deploy it, it's a secret.
+- **Key-value store** — a project-wide store your application reads and writes at runtime over HTTP, encrypted like everything else. Separate from your secrets: if your code writes it, it goes here; if you deploy it, it's a secret.
 - **Full audit trail** — every write and delete is logged against the org, the actor, and the exact secret touched. Reads are logged once per environment with the number of secrets they covered, so a command you run all day stays readable in the feed.
 - **Email invitations** — invite a teammate by address; they click through, sign in (or sign up on the spot if they're new), and land with access already waiting.
+- **Copy a whole environment out** — platforms that build and run your code themselves, like Vercel or Netlify, have no process for `envi run` to wrap. **Copy all** on the dashboard puts every secret on your clipboard as `.env` text, which their environment-variable screens parse in one paste. `envi copy` does the same from the terminal, and `envi copy --single` picks out one value.
 - **CLI and dashboard, one API** — `envi pull`/`push`/`diff` your `.env` files from the terminal, or manage everything visually. Same backend, same permissions, your choice of interface.
 
 ## Self-host it in one command
@@ -85,7 +86,6 @@ Prefer running the binaries directly under a process manager instead? See the [d
 flowchart LR
     CLI["envi CLI"] -->|bearer token| API["Go API"]
     Web["Next.js dashboard"] -->|session cookie| API
-    SDK["@shellhaki/envi-sdk"] -->|service token| API
     API --> PG[("Postgres\nencrypted secrets\n+ key-value store")]
     API --> Redis[("Redis\nOTP codes")]
     API --> Mail["Resend\nemail delivery"]
@@ -101,7 +101,6 @@ The CLI and the dashboard are two clients of the same API — neither one is a s
 | `cmd/envi` | The CLI, released for macOS, Linux, Termux, and Windows |
 | `cmd/install` | Tiny server for the `curl \| sh` install scripts |
 | `internal/` | Domain packages: secrets, auth, access, invitations, audit, mail |
-| `sdk/` | `@shellhaki/envi-sdk`, the JavaScript client for the key-value store |
 | `npm/` | Builds the npm packages that install the CLI binary |
 | `ui/` | The Next.js dashboard (deployable separately, e.g. to Vercel) |
 | `docs/` | The documentation site, its own Next.js app |
@@ -129,6 +128,9 @@ The CLI and the dashboard are two clients of the same API — neither one is a s
 | `envi run -- <command>` | Run a command with the secrets injected, without writing a `.env` |
 | `envi mod` | Edit this origin's secrets in a terminal editor, nothing written to disk |
 | `envi clean` | Delete the local `.env` once the server already has it |
+| `envi copy` | Copy the whole origin to the clipboard as `.env` text |
+| `envi copy <key>` | Copy one secret's value |
+| `envi copy --single` | Pick a secret from a list and copy it |
 | `envi project create <name>` | Create a project |
 | `envi key create --name <name>` | Create a personal API key |
 | `envi auth --key <key>` | Sign in with an API key instead of the browser |

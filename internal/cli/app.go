@@ -235,6 +235,100 @@ func (a App) Run(args []string) int {
 			}
 			return Clean(context.Background(), c, dir, file, *force, out)
 		})
+	case "copy":
+		fs := flag.NewFlagSet("copy", flag.ContinueOnError)
+		fs.SetOutput(a.Err)
+		origin := fs.String("origin", "", "copy another origin instead of the linked one")
+		stdout := fs.Bool("stdout", false, "write the text to stdout instead of the clipboard")
+		single := fs.Bool("single", false, "choose one secret from a list instead of copying them all")
+		// The key, if one was named, comes before the flags: Go's flag package
+		// stops at the first non-flag word, so `copy KEY --stdout` would
+		// otherwise leave --stdout unparsed and silently ignored.
+		key, rest := parseCopyArgs(args[1:])
+		if e := fs.Parse(rest); e != nil {
+			return ExitUsage
+		}
+		if fs.NArg() > 0 {
+			fmt.Fprintf(a.Err, "unexpected argument %q\n", fs.Arg(0))
+			fmt.Fprintln(a.Err, copyUsage)
+			return ExitUsage
+		}
+		if key != "" && *single {
+			fmt.Fprintln(a.Err, "envi copy takes a key or --single, not both")
+			fmt.Fprintln(a.Err, copyUsage)
+			return ExitUsage
+		}
+		c, code := a.session()
+		if code != ExitOK {
+			return code
+		}
+		dir, e := os.Getwd()
+		if e != nil {
+			fmt.Fprintln(a.Err, e)
+			return ExitConfig
+		}
+		// With --stdout the env text is the output, so the spinner and the
+		// count go to stderr; that keeps `envi copy --stdout > .env` clean.
+		status := a.Out
+		sink := func(text string) error { return WriteClipboard(context.Background(), text) }
+		if *stdout {
+			status = a.Err
+			sink = func(text string) error { _, err := io.WriteString(a.Out, text); return err }
+		}
+		ctx := context.Background()
+		ui := NewUI(status)
+
+		switch {
+		case key != "":
+			loading := NewUI(status).Spinner("Reading secrets")
+			label, e := CopyOne(ctx, c, dir, *origin, key, sink)
+			loading.Stop()
+			if e != nil {
+				fmt.Fprintln(a.Err, e)
+				return ExitCode(e)
+			}
+			ui.Success("Copied %s from %s", key, label)
+			return ExitOK
+
+		case *single:
+			// The spinner has to stop before the list draws over it, the same
+			// way envi mod stops it before the editor takes the screen.
+			loading := NewUI(status).Spinner("Reading secrets")
+			chosen, label, e := CopyPicked(ctx, c, dir, *origin, os.Stdin, status, sink, loading.Stop)
+			loading.Stop()
+			if errors.Is(e, errPickerCancelled) {
+				return ExitOK
+			}
+			if e != nil {
+				fmt.Fprintln(a.Err, e)
+				return ExitCode(e)
+			}
+			if chosen == "" {
+				ui.Warn("%s has no secrets to copy", label)
+				return ExitOK
+			}
+			ui.Success("Copied %s from %s", chosen, label)
+			return ExitOK
+		}
+
+		loading := NewUI(status).Spinner("Reading secrets")
+		count, label, e := Copy(ctx, c, dir, *origin, sink)
+		loading.Stop()
+		if e != nil {
+			fmt.Fprintln(a.Err, e)
+			return ExitCode(e)
+		}
+		if count == 0 {
+			ui.Warn("%s has no secrets to copy", label)
+			return ExitOK
+		}
+		if *stdout {
+			ui.Success("Wrote %d secret%s from %s", count, plural(count), label)
+		} else {
+			ui.Success("Copied %d secret%s from %s to the clipboard", count, plural(count), label)
+			ui.Print("Paste them into your deployment platform's environment variables.")
+		}
+		return ExitOK
 	case "mod":
 		fs := flag.NewFlagSet("mod", flag.ContinueOnError)
 		fs.SetOutput(a.Err)
@@ -473,7 +567,7 @@ func (a App) Run(args []string) int {
 	}
 }
 func (a App) help() {
-	fmt.Fprintln(a.Out, "Usage: envi <command> [flags]\n\nCommands:\n  auth       Authenticate this device in the browser (--email for a code, --key for an API key)\n  logout     Revoke this device's session\n  key        Personal API keys (key create --name <name> | key list | key revoke <id>)\n  project    Create a project (project create <name>)\n  origin     This project's origins (origin list | origin switch <name> | origin create <name>)\n  env        Alias for origin create\n  init       Initialize project context\n  pull       Write remote secrets to .env\n  push       Send .env secrets to Envi (push [file] [origin <name>] [--force] [--clean])\n  diff       Compare local and remote keys\n  mod        Edit this origin's secrets in a terminal editor, nothing written to disk\n  clean      Delete the local .env once the server already has it\n  run        Run a command with the secrets injected, no .env on disk (run -- npm start)\n  activity   Show recent activity for your organization\n  share      Invite a project collaborator\n  invite     Accept an invitation\n  token      Manage service tokens\n  update     Check for or install a new version (update check | update now)\n  uninstall  Remove envi from this machine\n  version    Print version\n  help       Show help")
+	fmt.Fprintln(a.Out, "Usage: envi <command> [flags]\n\nCommands:\n  auth       Authenticate this device in the browser (--email for a code, --key for an API key)\n  logout     Revoke this device's session\n  key        Personal API keys (key create --name <name> | key list | key revoke <id>)\n  project    Create a project (project create <name>)\n  origin     This project's origins (origin list | origin switch <name> | origin create <name>)\n  env        Alias for origin create\n  init       Initialize project context\n  pull       Write remote secrets to .env\n  push       Send .env secrets to Envi (push [file] [origin <name>] [--force] [--clean])\n  diff       Compare local and remote keys\n  mod        Edit this origin's secrets in a terminal editor, nothing written to disk\n  clean      Delete the local .env once the server already has it\n  copy       Copy secrets to the clipboard (copy | copy KEY | copy --single)\n  run        Run a command with the secrets injected, no .env on disk (run -- npm start)\n  activity   Show recent activity for your organization\n  share      Invite a project collaborator\n  invite     Accept an invitation\n  token      Manage service tokens\n  update     Check for or install a new version (update check | update now)\n  uninstall  Remove envi from this machine\n  version    Print version\n  help       Show help")
 }
 
 // tokenStore resolves the session store, reporting the exit code to use when it
@@ -566,6 +660,22 @@ func ExitCode(err error) int {
 //
 //	envi push [file] [origin <name>] [flags]
 //
+const copyUsage = "usage: envi copy [KEY | --single] [--origin <name>] [--stdout]"
+
+// parseCopyArgs splits
+//
+//	envi copy [KEY] [flags]
+//
+// into the secret's name and the rest. The name goes first and is optional, so
+// `envi copy` copies the whole origin and `envi copy DATABASE_URL` copies one
+// value — without a --key flag nobody would type.
+func parseCopyArgs(args []string) (key string, rest []string) {
+	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
+		return args[0], args[1:]
+	}
+	return "", args
+}
+
 // and hands the rest to the flag set. A leading word is the env file to push
 // unless it is "origin" or a flag, which is what lets the file stay optional
 // without a --file flag nobody would type.

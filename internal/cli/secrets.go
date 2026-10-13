@@ -70,21 +70,30 @@ func quoteValue(v string) string {
 	}
 	return strconv.Quote(v)
 }
+// renderEnv turns secrets into the body of a .env file, keys sorted so the same
+// set always produces the same text. It is what both the file on disk and
+// `envi copy` hand out, so a pasted environment and a pulled one are identical.
+func renderEnv(values map[string]string) string {
+	keys := make([]string, 0, len(values))
+	for k := range values {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	var b strings.Builder
+	for _, k := range keys {
+		fmt.Fprintf(&b, "%s=%s\n", k, quoteValue(values[k]))
+	}
+	return b.String()
+}
+
 func writeEnv(path string, values map[string]string) error {
 	f, e := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 	if e != nil {
 		return e
 	}
 	defer f.Close()
-	keys := make([]string, 0, len(values))
-	for k := range values {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		if _, e = fmt.Fprintf(f, "%s=%s\n", k, quoteValue(values[k])); e != nil {
-			return e
-		}
+	if _, e = io.WriteString(f, renderEnv(values)); e != nil {
+		return e
 	}
 	return nil
 }

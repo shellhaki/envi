@@ -3,6 +3,8 @@ rules.txt
 query.sql
 .env
 dist/
+motion/
+
 bin/
 /api
 logs/

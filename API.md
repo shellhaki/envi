@@ -288,7 +288,7 @@ Adds and updates the keys you send. It does **not** delete keys you leave out.
 ## Key-value store
 
 Project-wide, current value only, no history. Separate from secrets: if your
-code writes it, it belongs here. This is what the SDK uses.
+code writes it, it belongs here.
 
 ### `GET /kv?project=NAME`
 
@@ -322,7 +322,7 @@ bytes; values up to 64KB. A read-only credential gets `403`.
 ### `GET /values?project=NAME&environment=NAME`
 
 Secrets for a project and environment named rather than identified by UUID, in
-one request. Built for containers and the SDK, where nobody wants a UUID in
+one request. Built for containers, where nobody wants a UUID in
 their configuration.
 
 ```json
