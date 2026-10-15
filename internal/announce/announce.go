@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"shellhaki/envi/internal/admin"
+	"shellhaki/envi/internal/config"
 	"shellhaki/envi/internal/mailer"
 )
 
@@ -106,6 +107,17 @@ func hostOf(url string) string {
 	return host
 }
 
+// bannerURL is the image across the top of every announcement, served by the
+// dashboard from ui/public/email. A mail client fetches it from the internet,
+// so an instance whose dashboard is only on this machine borrows the public
+// copy rather than sending a broken image.
+func bannerURL(web string) string {
+	if strings.TrimSpace(web) == "" || config.IsLocalURL(web) {
+		web = "https://envisecrets.com"
+	}
+	return strings.TrimRight(web, "/") + "/email/newsletter-banner.png"
+}
+
 func textBody(body, web string) string {
 	if strings.TrimSpace(web) == "" {
 		web = "https://envisecrets.com"
@@ -140,9 +152,8 @@ func htmlBody(subject, body, web string) string {
 	return fmt.Sprintf(`<!doctype html>
 <html><body style="margin:0;padding:32px 16px;background:#fafafa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Roboto,Helvetica,Arial,sans-serif;color:#09090b;-webkit-font-smoothing:antialiased;">
 <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e8e8ea;border-radius:16px;overflow:hidden;">
-  <div style="height:4px;background:#f5e73f;"></div>
+  <img src="%s" width="560" alt="Envi" style="display:block;width:100%%;max-width:560px;height:auto;border:0;background:#09090b;">
   <div style="padding:36px 36px 40px;">
-    <p style="margin:0 0 28px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#a1a1aa;">Envi</p>
     <h1 style="margin:0 0 20px;font-size:24px;line-height:1.3;font-weight:600;letter-spacing:-.02em;color:#09090b;">%s</h1>
     %s
   </div>
@@ -154,6 +165,7 @@ func htmlBody(subject, body, web string) string {
     </p>
   </div>
 </div></body></html>`,
+		html.EscapeString(bannerURL(web)),
 		html.EscapeString(subject),
 		strings.Join(paragraphs, "\n    "),
 		html.EscapeString(web), hostOf(web))

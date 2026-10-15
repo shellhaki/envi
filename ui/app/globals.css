@@ -972,6 +972,7 @@ html[data-theme=dark] .theme-toggle .sun { display: block; }
 .admin-announce-form { display: flex; flex-direction: column; gap: 12px; padding: 16px; border-bottom: 1px solid var(--line); }
 .admin-announce-form label { display: flex; flex-direction: column; gap: 6px; }
 .admin-announce-form label > span { font-size: 11.5px; font-weight: 500; color: var(--muted); }
+.admin-announce-banner { display: block; width: 100%; max-width: 560px; height: auto; border-radius: 10px; border: 1px solid var(--line); }
 .admin-announce-form input, .admin-announce-form textarea { padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--surface); color: var(--text); font-size: 14px; font-family: inherit; line-height: 1.6; resize: vertical; }
 .admin-announce-form button { align-self: flex-start; }
 .admin-announce-warn { display: flex; align-items: center; gap: 9px; margin: 0; padding: 10px 14px; border: 1px solid var(--warning); border-radius: var(--r-sm); background: var(--warning-weak); font-size: 13px; color: var(--warning); }
