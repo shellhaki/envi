@@ -76,7 +76,7 @@ func billingRouter(t *testing.T, enabled bool) (*gin.Engine, *pgxpool.Pool, stri
 		t.Fatal(err)
 	}
 
-	bill := billing.Service{DB: db, TeamProductID: "prod_team", WebURL: "https://envi.test"}
+	bill := billing.Service{DB: db, TeamProductID: "prod_team", WebURL: "https://envi.test", WebhookSecret: testWebhookSecret}
 	if enabled {
 		bill.Bachs = noBachs{}
 	}
@@ -85,7 +85,7 @@ func billingRouter(t *testing.T, enabled bool) (*gin.Engine, *pgxpool.Pool, stri
 		secret.Service{DB: db, Access: access.Service{DB: db}, Cipher: cipher},
 		kv.Store{DB: db, Cipher: cipher}, audit.Service{DB: db}, service_token.Service{DB: db},
 		invitation.Service{DB: db, Billing: bill}, "https://envi.test", false, config.DefaultDeployment(),
-		announce.Service{Admin: admin.Service{DB: db}}, bill, testWebhookSecret)
+		announce.Service{Admin: admin.Service{DB: db}}, bill)
 	return router, db, w.OrganizationID, token
 }
 

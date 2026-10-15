@@ -1,7 +1,7 @@
 // Package e2e exercises the compiled CLI surface against a real API server.
 //
 // The test boots the production wiring (api.Build) on an httptest server backed
-// by a live Postgres and Redis, but swaps the Gmail mailer for a capturing one
+// by a live Postgres and Redis, but swaps the mailer for a capturing one
 // so authentication never sends a real email: the OTP is read off a channel and
 // fed to the CLI's stdin. It then drives the injectable cli.App through the full
 // lifecycle with fake secrets and cleans up every row it creates.
@@ -177,7 +177,6 @@ func TestCLIEndToEndIntegration(t *testing.T) {
 		config.DefaultDeployment(),
 		announce.Service{Admin: admin.Service{DB: db}},
 		billing.Service{DB: db},
-		"",
 	)
 	ts := httptest.NewServer(router)
 	defer ts.Close()

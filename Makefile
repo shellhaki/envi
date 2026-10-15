@@ -13,7 +13,7 @@
 DATABASE_URL ?= $(shell grep -E '^DATABASE_URL=' .env 2>/dev/null | cut -d= -f2-)
 PSQL         := psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1
 
-.PHONY: help build-envi build-api build-install db-init db-schema db-migrate db-psql
+.PHONY: help build-envi build-api build-install db-init db-schema db-migrate db-psql diagram
 
 help: ## List available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | \
@@ -101,6 +101,9 @@ db-migrate: ## Apply migrations/*.sql against DATABASE_URL (idempotent)
 db-psql: ## Open a psql shell on the database
 	@if [ -z "$(DATABASE_URL)" ]; then echo "DATABASE_URL is not set (check .env)"; exit 1; fi
 	psql "$(DATABASE_URL)"
+
+diagram: ## Rebuild excalidraw.json from ENDPOINTS.md, migrations/schema.sql, the Go packages and scripts/diagram.py
+	python3 scripts/diagram.py
 
 
 run-api:

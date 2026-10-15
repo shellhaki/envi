@@ -103,7 +103,6 @@ func newConfigFixture(t *testing.T) *configFixture {
 		config.DefaultDeployment(),
 		announce.Service{Admin: admin.Service{DB: db}},
 		billing.Service{DB: db},
-		"",
 	)
 	return &configFixture{
 		router: router, db: db, userID: w.UserID, projectName: name,

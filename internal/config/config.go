@@ -2,12 +2,21 @@ package config
 
 import (
 	"errors"
+	"net"
+	"net/url"
 	"os"
 	"strings"
 )
 
 type Config struct {
 	DatabaseURL, RedisURL, EncryptionKey, ResendAPIKey, ResendFrom, Address, WebURL, Environment string
+	Bachs                                                                                        Bachs
+}
+
+// Bachs holds the payment provider's settings. All optional: without a key,
+// billing stays off.
+type Bachs struct {
+	SecretKey, WebhookSecret, TeamProductID, ReturnURL string
 }
 
 func Load() Config {
@@ -28,6 +37,12 @@ func Load() Config {
 		Address:       ":" + port,
 		WebURL:        web,
 		Environment:   os.Getenv("ENVIRONMENT"),
+		Bachs: Bachs{
+			SecretKey:     Setting("BACHS_SECRET_KEY"),
+			WebhookSecret: Setting("BACHS_WEBHOOK_SECRET"),
+			TeamProductID: Setting("BACHS_TEAM_PRODUCT_ID"),
+			ReturnURL:     Setting("BACHS_RETURN_URL"),
+		},
 	}
 }
 
@@ -74,7 +89,7 @@ func (c Config) IsDeployed() bool {
 // IsLocalWebURL reports whether links built from WebURL only work on this
 // machine. Callers use it to refuse, or to warn loudly, before sending mail
 // that no recipient can act on.
-func (c Config) IsLocalWebURL() bool { return isLoopback(c.WebURL) }
+func (c Config) IsLocalWebURL() bool { return IsLocalURL(c.WebURL) }
 
 // WritesToRemoteDatabaseWithLocalLinks is the specific, easily-missed
 // combination where a developer's instance is pointed at the shared database
@@ -82,11 +97,27 @@ func (c Config) IsLocalWebURL() bool { return isLoopback(c.WebURL) }
 // the emails announcing them are unusable. Neither half looks wrong alone,
 // which is exactly why it is worth naming.
 func (c Config) WritesToRemoteDatabaseWithLocalLinks() bool {
-	return c.IsLocalWebURL() && c.DatabaseURL != "" && !isLoopback(c.DatabaseURL)
+	return c.IsLocalWebURL() && c.DatabaseURL != "" && !IsLocalURL(c.DatabaseURL)
 }
 
-func isLoopback(url string) bool {
-	return strings.Contains(url, "localhost") || strings.Contains(url, "127.0.0.1") || strings.Contains(url, "[::1]")
+// IsLocalURL reports an address only this machine can reach. It parses the
+// host rather than searching the text: a database URL puts credentials first
+// (postgres://user:pass@localhost/envi), and "mylocalhost.com" is not local.
+func IsLocalURL(raw string) bool {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil {
+		return false
+	}
+	host := parsed.Hostname()
+	if host == "" {
+		// A Postgres URL with no host uses the local Unix socket.
+		return parsed.Scheme == "postgres" || parsed.Scheme == "postgresql"
+	}
+	if host == "localhost" || strings.HasSuffix(host, ".localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && (ip.IsLoopback() || ip.IsUnspecified())
 }
 
 // DocsURL is where the documentation lives, for links in outgoing email.

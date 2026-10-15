@@ -1,7 +1,7 @@
 "use client";
 import { Children, isValidElement, useState, type ReactElement } from "react";
 import Link from "next/link";
-import { AlertTriangle, Check, ChevronRight, Info, Lightbulb } from "lucide-react";
+import { AlertTriangle, ChevronRight, Info, Lightbulb } from "lucide-react";
 
 /* ---------------------------------------------------------------- cards -- */
 
@@ -117,5 +117,3 @@ export function Diagram({ nodes, caption }: { nodes: { from: string; label?: str
     </div>
   );
 }
-
-export const DocCheck = () => <Check className="doc-inline-check" />;

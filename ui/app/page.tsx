@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, ChevronDown, Clipboard, Clock, Eye, EyeOff, Pencil, Search, Shield, Trash2 } from "lucide-react";
 import Brand from "@/components/brand";
@@ -57,12 +58,29 @@ export default async function Home() {
 
     <main>
       <section className="lp-hero">
-        <HeroHeadline />
-        <div className="lp-hero-row">
-          <p>Envi keeps environment variables encrypted, versioned and scoped to the people who need them, from a laptop to production.</p>
-          <div className="lp-hero-actions">
-            <Link className="button accent large" href={start}>{user ? "Go to dashboard" : "Start for free"}<ArrowRight /></Link>
-            <a className="button secondary large" href={DOCS}>Read the docs</a>
+        <div className="lp-hero-top">
+          <div className="lp-hero-text">
+            <HeroHeadline />
+            <div className="lp-hero-row">
+              <p>Envi keeps environment variables encrypted, versioned and scoped to the people who need them, from a laptop to production.</p>
+              <div className="lp-hero-actions">
+                <Link className="button accent large" href={start}>{user ? "Go to dashboard" : "Start for free"}<ArrowRight /></Link>
+                <a className="button secondary large" href={DOCS}>Read the docs</a>
+              </div>
+            </div>
+          </div>
+          {/* The .env being drawn into a sealed block (motion/blender). Decorative:
+              the headline already says it in words. Two renders, one per theme,
+              toggled the way the logo is. sizes collapses to almost nothing on
+              narrow screens, where it is hidden, so phones download a sliver
+              rather than the full image. Both load lazily, and a lazy image
+              that is display: none is never fetched — so each visitor
+              downloads only their own theme's render. */}
+          <div className="lp-hero-art" aria-hidden="true">
+            <Image className="hero-art-light" src="/hero/envi-hero-light.webp" alt="" width={1240} height={920}
+                   sizes="(min-width: 960px) 520px, 1px" />
+            <Image className="hero-art-dark" src="/hero/envi-hero-dark.webp" alt="" width={1240} height={920}
+                   sizes="(min-width: 960px) 520px, 1px" />
           </div>
         </div>
         <div className="lp-demo"><DemoVideo /></div>

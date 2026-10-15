@@ -26,10 +26,6 @@ type Service struct {
 	OnNewUser func(email string)
 }
 
-func (s Service) Ensure(ctx context.Context, email string) error {
-	_, err := s.Provision(ctx, email)
-	return err
-}
 func (s Service) Identity(ctx context.Context, email string) (string, error) {
 	p, err := s.Provision(ctx, email)
 	return p.UserID, err

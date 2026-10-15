@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"strings"
 )
@@ -43,6 +44,10 @@ type Deployment struct {
 	// Currency the operator screen reports in, and the default for a new
 	// expense. Per-expense currency is still recorded on the row.
 	Currency string `json:"currency"`
+	// Source says where the mode came from, for the startup log. Without it
+	// "self-hosted" is ambiguous: chosen on purpose, or a variable that never
+	// arrived?
+	Source string `json:"-"`
 }
 
 // Billing reports whether this deployment charges anybody.
@@ -66,9 +71,13 @@ func LoadDeployment(path string) Deployment {
 	d := DefaultDeployment()
 
 	var parsed Deployment
+	source := "default: no ENVI_MODE and no " + path
 	if raw, err := os.ReadFile(path); err == nil {
 		if err := json.Unmarshal(raw, &parsed); err != nil {
 			parsed = Deployment{}
+			source = path + " is not valid JSON"
+		} else {
+			source = path
 		}
 	}
 
@@ -78,6 +87,7 @@ func LoadDeployment(path string) Deployment {
 	// mode has to arrive as a variable, the way every other setting does.
 	if v := Setting("ENVI_MODE"); v != "" {
 		parsed.Mode = Mode(v)
+		source = "ENVI_MODE"
 	}
 	if v := Setting("ENVI_CURRENCY"); v != "" {
 		parsed.Currency = v
@@ -88,7 +98,13 @@ func LoadDeployment(path string) Deployment {
 		d.Mode = Hosted
 	case SelfHosted:
 		d.Mode = SelfHosted
+	case "":
+	default:
+		// Named, but not a mode. Said out loud, because the fallback is the
+		// quiet one: billing off, and nothing else looks wrong.
+		source = fmt.Sprintf("%s=%q is not hosted or self-hosted", source, string(parsed.Mode))
 	}
+	d.Source = source
 	switch strings.ToUpper(strings.TrimSpace(parsed.Currency)) {
 	case "NGN":
 		d.Currency = "NGN"

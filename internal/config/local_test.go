@@ -1,4 +1,4 @@
-package main
+package config
 
 import "testing"
 
@@ -21,12 +21,12 @@ func TestIsLocalURL(t *testing.T) {
 		"postgres://u:p@10.0.0.5:5432/envi",
 	}
 	for _, u := range local {
-		if !isLocalURL(u) {
+		if !IsLocalURL(u) {
 			t.Errorf("%s was not recognised as local", u)
 		}
 	}
 	for _, u := range remote {
-		if isLocalURL(u) {
+		if IsLocalURL(u) {
 			t.Errorf("%s was taken for local", u)
 		}
 	}

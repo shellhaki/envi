@@ -1,4 +1,4 @@
-export type DocPage = { slug: string; title: string; description: string };
+type DocPage = { slug: string; title: string; description: string };
 export type DocGroup = { group: string; pages: DocPage[] };
 
 /** Where the main site lives. This app is its own deployable on a docs
@@ -48,7 +48,7 @@ export const docsNav: DocGroup[] = [
   },
 ];
 
-export const flatDocs: DocPage[] = docsNav.flatMap((g) => g.pages);
+const flatDocs: DocPage[] = docsNav.flatMap((g) => g.pages);
 
 export function findDoc(pathname: string) {
   // Trailing slashes would otherwise miss every lookup.

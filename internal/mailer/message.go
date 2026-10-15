@@ -13,5 +13,5 @@ type Message struct {
 	Headers map[string]string
 }
 
-// Sender delivers a Message. Client (Gmail) and Resend both implement it.
+// Sender delivers a Message. Resend implements it.
 type Sender interface{ Send(Message) error }

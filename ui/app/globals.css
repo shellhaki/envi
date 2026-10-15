@@ -1058,3 +1058,26 @@ html[data-theme=dark] .theme-toggle .sun { display: block; }
 @keyframes success-in { from { opacity: 0; transform: translateY(12px) scale(.98); } }
 @keyframes success-pop { from { opacity: 0; transform: scale(.4); } }
 @media (prefers-reduced-motion: reduce) { .success-card, .success-mark { animation: none; } }
+
+/* ---- Hero object ----------------------------------------------------------- */
+/* Two columns from 960px: words left, the rendered object right. Below that the
+   object is hidden — on a phone the headline and the demo are the whole case,
+   and an image pushing the demo off the first screen costs more than it says. */
+.lp-hero-top { display: grid; grid-template-columns: minmax(0, 1fr); }
+.lp-hero-art { display: none; }
+/* Scoped under .lp-hero-art so these outrank the img rule below; at equal
+   footing that rule's display: block showed both renders at once. */
+.lp-hero-art .hero-art-dark { display: none; }
+html[data-theme=dark] .lp-hero-art .hero-art-light { display: none; }
+html[data-theme=dark] .lp-hero-art .hero-art-dark { display: block; }
+@media (min-width: 960px) {
+  .lp-hero-top { grid-template-columns: minmax(0, 1fr) minmax(0, 520px); align-items: center; column-gap: 8px; }
+  .lp-hero-art { display: block; position: relative; margin: -48px -24px -24px 0; }
+  .lp-hero-art img { width: 100%; height: auto; display: block; animation: hero-art-in .9s .1s cubic-bezier(.16, 1, .3, 1) both; }
+  /* With the object beside it the headline has less room; keep it from
+     wrapping into four lines. */
+  .lp-hero-top .lp-hero-text h1 { font-size: clamp(40px, 5vw, 64px); }
+  .lp-hero-top .lp-hero-row { flex-direction: column; align-items: flex-start; }
+}
+@keyframes hero-art-in { from { opacity: 0; transform: translateY(14px); } }
+@media (prefers-reduced-motion: reduce) { .lp-hero-art img { animation: none; } }

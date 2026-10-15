@@ -65,7 +65,7 @@ func billingError(c *gin.Context, err error) {
 	c.JSON(400, gin.H{"code": "billing", "error": err.Error()})
 }
 
-func addBillingRoutes(r *gin.Engine, db *pgxpool.Pool, m gin.HandlerFunc, service billing.Service, webhookSecret string) {
+func addBillingRoutes(r *gin.Engine, db *pgxpool.Pool, m gin.HandlerFunc, service billing.Service) {
 	g := r.Group("/billing", m)
 
 	g.GET("", func(c *gin.Context) {
@@ -172,7 +172,7 @@ func addBillingRoutes(r *gin.Engine, db *pgxpool.Pool, m gin.HandlerFunc, servic
 			c.Status(400)
 			return
 		}
-		event, err := bachs.VerifyWebhook(webhookSecret, c.Request.Header, body, time.Now())
+		event, err := bachs.VerifyWebhook(service.WebhookSecret, c.Request.Header, body, time.Now())
 		if err != nil {
 			c.JSON(400, gin.H{"error": "signature does not verify"})
 			return

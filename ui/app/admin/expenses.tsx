@@ -32,7 +32,7 @@ export function money(minor: number, currency: string) {
  * * 100 is 2006.9999999999998, and Math.round papers over that only until an
  * amount comes along where it does not.
  */
-export function toMinor(input: string): number | null {
+function toMinor(input: string): number | null {
   const cleaned = input.replace(/[\s,]/g, "");
   if (!/^\d+(\.\d{0,2})?$/.test(cleaned)) return null;
   const [whole, fraction = ""] = cleaned.split(".");

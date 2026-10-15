@@ -87,6 +87,8 @@ type Service struct {
 	// the sandbox, so local testing points this at any public URL. Empty
 	// means WebURL.
 	ReturnURL string
+	// WebhookSecret verifies Bachs's webhooks.
+	WebhookSecret string
 	// Now is overridable so tests can stand at a month boundary.
 	Now func() time.Time
 }
@@ -411,12 +413,15 @@ func (s Service) Overview(ctx context.Context, orgID string) (Overview, error) {
 
 // --- changing plan ------------------------------------------------------------
 
-func (s Service) returnURLs() (success, cancel string) {
-	base := s.ReturnURL
-	if base == "" {
-		base = s.WebURL
+func (s Service) returnBase() string {
+	if s.ReturnURL != "" {
+		return s.ReturnURL
 	}
-	base = strings.TrimRight(base, "/")
+	return s.WebURL
+}
+
+func (s Service) returnURLs() (success, cancel string) {
+	base := strings.TrimRight(s.returnBase(), "/")
 	return base + "/billing/success", base + "/dashboard/billing?checkout=cancelled"
 }
 

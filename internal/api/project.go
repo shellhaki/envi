@@ -8,15 +8,6 @@ import (
 
 type ProjectHandler struct{ Service project.Service }
 
-func (h ProjectHandler) Routes(r *gin.Engine) {
-	r.POST("/projects", h.create)
-	r.GET("/projects", h.list)
-	r.POST("/projects/:id/environments", h.createEnv)
-	r.GET("/projects/:id/environments", h.listEnv)
-	r.DELETE("/projects/:id", h.delete)
-	r.PATCH("/environments/:id", h.updateEnv)
-	r.DELETE("/environments/:id", h.deleteEnv)
-}
 func (h ProjectHandler) RoutesProtected(r *gin.Engine, m gin.HandlerFunc) {
 	g := r.Group("/", m)
 	g.POST("/projects", h.create)

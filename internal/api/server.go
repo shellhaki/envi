@@ -20,7 +20,7 @@ func New() *gin.Engine {
 	r.GET("/health", func(c *gin.Context) { c.JSON(200, gin.H{"status": "ok"}) })
 	return r
 }
-func Build(db *pgxpool.Pool, login auth.LoginSettings, p project.Service, s secret.Service, values kv.Store, au audit.Service, st service_token.Service, i invitation.Service, webURL string, beta bool, deployment config.Deployment, announcer announce.Service, bill billing.Service, webhookSecret string) *gin.Engine {
+func Build(db *pgxpool.Pool, login auth.LoginSettings, p project.Service, s secret.Service, values kv.Store, au audit.Service, st service_token.Service, i invitation.Service, webURL string, beta bool, deployment config.Deployment, announcer announce.Service, bill billing.Service) *gin.Engine {
 	r := New()
 	// Public, unauthenticated: the web app checks this before a user has
 	// signed in, to show "private beta" messaging rather than a bare
@@ -39,6 +39,6 @@ func Build(db *pgxpool.Pool, login auth.LoginSettings, p project.Service, s secr
 	InvitationHandler{Service: i}.Routes(r, m)
 	AccountHandler{DB: db}.Routes(r, m)
 	addAdminRoutes(r, db, m, deployment, announcer)
-	addBillingRoutes(r, db, m, bill, webhookSecret)
+	addBillingRoutes(r, db, m, bill)
 	return r
 }

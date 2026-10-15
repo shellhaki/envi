@@ -6,8 +6,8 @@ package api
 // dashboard reads before anyone has signed in.
 //
 // Every other secrets address is keyed by environment UUID, which is fine for
-// the CLI (it keeps one in envi.toml) and useless for an SDK, where nobody wants
-// a UUID in their source. This resolves "project acme-api, environment
+// the CLI (it keeps one in envi.toml) and useless in application code, where
+// nobody wants a UUID in their source. This resolves "project acme-api, environment
 // production" and returns the values, in a single round trip, because on a
 // serverless platform every extra call is added to a cold start.
 //

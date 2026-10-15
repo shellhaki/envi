@@ -93,7 +93,6 @@ func newAdminFixture(t *testing.T) *adminFixture {
 		config.DefaultDeployment(),
 		announce.Service{Admin: admin.Service{DB: db}},
 		billing.Service{DB: db},
-		"",
 	)
 	return &adminFixture{router: router, operatorTok: operatorTok, ordinaryTok: ordinaryTok, ordinaryEmail: ordinaryEmail}
 }

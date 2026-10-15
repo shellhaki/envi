@@ -10,7 +10,7 @@
 // — a session that looks broken until you reload.
 let rotating: Promise<boolean> | null = null;
 
-export function ensureSession() {
+function ensureSession() {
   rotating ??= fetch("/api/auth/refresh", { method: "POST" })
     .then((r) => r.ok)
     .catch(() => false)

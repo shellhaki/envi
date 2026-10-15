@@ -4,7 +4,7 @@ export const sessionCookie = "envi_session";
 export const sessionOptions = { httpOnly: true, sameSite: "strict" as const, secure: process.env.NODE_ENV === "production", path: "/", priority: "high" as const, maxAge: 2592000 };
 // Refresh slightly ahead of expiry so a request in flight cannot land on a token
 // that expired in transit.
-export const accessSkewSeconds = 30;
+const accessSkewSeconds = 30;
 const sessionTTL = 2592000;
 const fallbackAccessTTL = 900;
 // aexp is when the upstream access token expires; exp is when the session cookie

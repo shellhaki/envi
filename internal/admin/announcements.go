@@ -151,10 +151,3 @@ func (s Service) Announcements(ctx context.Context, limit int) ([]Announcement, 
 	}
 	return out, rows.Err()
 }
-
-// SetSubscribed turns announcements on or off for one organization. This is
-// what an unsubscribe request writes to.
-func (s Service) SetSubscribed(ctx context.Context, orgID string, subscribed bool) error {
-	_, err := s.DB.Exec(ctx, `UPDATE organizations SET is_subscribed = $2 WHERE id = $1`, orgID, subscribed)
-	return err
-}

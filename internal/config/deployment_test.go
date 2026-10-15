@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -56,5 +57,23 @@ func TestQuotedSettings(t *testing.T) {
 	t.Setenv("X_KEY", `"unbalanced`)
 	if got := Setting("X_KEY"); got != `"unbalanced` {
 		t.Errorf("an unbalanced quote was stripped: %q", got)
+	}
+}
+
+// The source names why a deployment is self-hosted, so a missing variable is
+// told apart from a deliberate choice.
+func TestDeploymentSaysWhereItCameFrom(t *testing.T) {
+	missing := filepath.Join(t.TempDir(), "missing.json")
+	t.Setenv("ENVI_MODE", "")
+	if d := LoadDeployment(missing); !strings.Contains(d.Source, "no ENVI_MODE") {
+		t.Errorf("unset: source %q", d.Source)
+	}
+	t.Setenv("ENVI_MODE", "hosted")
+	if d := LoadDeployment(missing); d.Source != "ENVI_MODE" {
+		t.Errorf("set: source %q", d.Source)
+	}
+	t.Setenv("ENVI_MODE", "production")
+	if d := LoadDeployment(missing); !strings.Contains(d.Source, `"production" is not hosted`) {
+		t.Errorf("nonsense: source %q", d.Source)
 	}
 }

@@ -1,4 +1,5 @@
-// Package kv is the project-wide key-value store the SDK reads and writes.
+// Package kv is the project-wide key-value store applications read and write
+// over HTTP.
 //
 // It sits beside secrets rather than inside them. A secret belongs to one
 // environment, keeps every version it has ever had, and is reached through
@@ -14,7 +15,6 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	crypt "shellhaki/envi/internal/crypto"
@@ -22,9 +22,6 @@ import (
 
 // ErrForbidden means the caller may not touch this project.
 var ErrForbidden = errors.New("forbidden")
-
-// ErrNotFound means there is no entry under that key.
-var ErrNotFound = errors.New("key not found")
 
 // MaxValueBytes caps a single value. Generous for configuration, small enough
 // that the store cannot quietly become a file host.
@@ -58,24 +55,6 @@ func (s Store) All(ctx context.Context, projectID string) (map[string]string, er
 		values[key] = string(plain)
 	}
 	return values, rows.Err()
-}
-
-// Get returns one value.
-func (s Store) Get(ctx context.Context, projectID, key string) (string, error) {
-	var sealed []byte
-	err := s.DB.QueryRow(ctx,
-		`SELECT ciphertext FROM kv_entries WHERE project_id = $1 AND key_name = $2`, projectID, key).Scan(&sealed)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return "", ErrNotFound
-	}
-	if err != nil {
-		return "", err
-	}
-	plain, err := s.Cipher.Open(sealed)
-	if err != nil {
-		return "", err
-	}
-	return string(plain), nil
 }
 
 // Set writes a value, replacing whatever was there. Unlike a secret, no history

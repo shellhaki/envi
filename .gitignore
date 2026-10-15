@@ -17,8 +17,6 @@ envi.toml
 .env.cli
 brag-output/
 .claude
-npm/dist/
-sdk/dist/
-sdk/node_modules/
 .DS_Store
 
+npm/dist/

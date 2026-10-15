@@ -24,16 +24,7 @@ func codeMessage(to, code string) mailer.Message {
 	return mailer.Message{To: to, Subject: "Envi login code", Text: text, HTML: html}
 }
 
-type Gmail struct {
-	Email    string
-	Password string
-}
-
-func (g Gmail) Send(to, code string) error {
-	return mailer.Client{Email: g.Email, Password: g.Password}.Send(codeMessage(to, code))
-}
-
-// Resend delivers OTP codes through the Resend HTTP API instead of Gmail SMTP.
+// Resend delivers OTP codes through the Resend HTTP API.
 type Resend struct{ Client mailer.Resend }
 
 func (r Resend) Send(to, code string) error {

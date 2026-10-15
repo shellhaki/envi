@@ -119,11 +119,6 @@ func (s Service) member(ctx context.Context, u, o string) bool {
 	_ = s.DB.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM memberships WHERE user_id=$1 AND org_id=$2 AND role IN('owner','admin'))`, u, o).Scan(&ok)
 	return ok
 }
-func (s Service) projectMember(ctx context.Context, u, p string) bool {
-	var ok bool
-	_ = s.DB.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM projects p JOIN memberships m ON m.org_id=p.org_id WHERE p.id=$1 AND m.user_id=$2)`, p, u).Scan(&ok)
-	return ok
-}
 func (s Service) projectManager(ctx context.Context, u, p string) bool {
 	var ok bool
 	_ = s.DB.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM projects p LEFT JOIN memberships m ON m.org_id=p.org_id AND m.user_id=$2 AND m.role IN('owner','admin') LEFT JOIN access_grants g ON g.project_id=p.id AND g.subject_user_id=$2 AND g.permission='manage' WHERE p.id=$1 AND (m.id IS NOT NULL OR g.id IS NOT NULL))`, p, u).Scan(&ok)

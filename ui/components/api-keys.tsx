@@ -116,8 +116,8 @@ export default function ApiKeys() {
   return (
     <>
       <p>
-        An API key signs you in without a browser: on a server, in a script, or through the{" "}
-        <a href="https://docs.envisecrets.com/sdk">SDK</a>. It can do anything you can, up to the
+        An API key signs you in without a browser: on a server, in a script, or from the{" "}
+        <a href="https://docs.envisecrets.com/cli#personal-api-keys">CLI</a>. It can do anything you can, up to the
         permission you give it. For something tied to one environment, create a service token instead.
       </p>
 
