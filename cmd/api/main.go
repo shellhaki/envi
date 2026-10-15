@@ -109,10 +109,10 @@ func main() {
 	// Billing runs only on the hosted deployment, and only with a Bachs key.
 	// Hosted with no key is a warning rather than a crash: it would otherwise
 	// take sign-in down along with billing.
-	bill := billing.Service{DB: db, WebURL: c.WebURL, ReturnURL: os.Getenv("BACHS_RETURN_URL"), TeamProductID: os.Getenv("BACHS_TEAM_PRODUCT_ID")}
-	webhookSecret := os.Getenv("BACHS_WEBHOOK_SECRET")
+	bill := billing.Service{DB: db, WebURL: c.WebURL, ReturnURL: config.Setting("BACHS_RETURN_URL"), TeamProductID: config.Setting("BACHS_TEAM_PRODUCT_ID")}
+	webhookSecret := config.Setting("BACHS_WEBHOOK_SECRET")
 	if deployment.Billing() {
-		client, err := bachs.New(os.Getenv("BACHS_SECRET_KEY"))
+		client, err := bachs.New(config.Setting("BACHS_SECRET_KEY"))
 		switch {
 		case err != nil:
 			log.Printf("WARNING: billing is OFF: %v (hosted mode needs BACHS_SECRET_KEY)", err)

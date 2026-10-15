@@ -76,10 +76,10 @@ func LoadDeployment(path string) Deployment {
 	// repository does not carry envi.config.json — the final stage copies
 	// only the binaries — so on Coolify or any other container platform the
 	// mode has to arrive as a variable, the way every other setting does.
-	if v := os.Getenv("ENVI_MODE"); v != "" {
+	if v := Setting("ENVI_MODE"); v != "" {
 		parsed.Mode = Mode(v)
 	}
-	if v := os.Getenv("ENVI_CURRENCY"); v != "" {
+	if v := Setting("ENVI_CURRENCY"); v != "" {
 		parsed.Currency = v
 	}
 
@@ -106,4 +106,23 @@ func DeploymentPath() string {
 		return p
 	}
 	return "envi.config.json"
+}
+
+/*
+Setting reads an environment variable the way a person typed it into a
+deployment dashboard: surrounding spaces and one pair of matching quotes are
+dropped.
+
+Hosting panels differ on whether quotes are part of the value. Typed as
+"hosted", some pass the quote marks through, and the mode then fails to match
+and billing silently stays off; a key that starts with a quote fails its
+sk_live_ check the same way. No value Envi reads is meant to begin and end
+with a quote, so stripping them is always safe.
+*/
+func Setting(name string) string {
+	v := strings.TrimSpace(os.Getenv(name))
+	if len(v) >= 2 && (v[0] == '"' || v[0] == '\'') && v[len(v)-1] == v[0] {
+		v = strings.TrimSpace(v[1 : len(v)-1])
+	}
+	return v
 }
