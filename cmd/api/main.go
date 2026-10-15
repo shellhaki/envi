@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"log"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"shellhaki/envi/internal/access"
@@ -114,10 +116,13 @@ func main() {
 		switch {
 		case err != nil:
 			log.Printf("WARNING: billing is OFF: %v (hosted mode needs BACHS_SECRET_KEY)", err)
-		case client.Live() && c.Environment == "":
-			// A local instance has no ENVIRONMENT set. A live key there
-			// charges real cards from a developer's laptop.
-			log.Fatal("refusing to start: a live Bachs key (sk_live_) on a local instance; use an sk_sandbox_ key, or set ENVIRONMENT")
+		case client.Live() && (c.Environment == "" || isLocalURL(c.DatabaseURL) || isLocalURL(c.WebURL)):
+			// A live key on a laptop charges real cards from a developer's
+			// machine against a development database. ENVIRONMENT alone is
+			// not enough to tell: a .env copied from production carries
+			// ENVIRONMENT=production with it. A local database or dashboard
+			// is something production never has, so either one refuses.
+			log.Fatal("refusing to start: a live Bachs key (sk_live_) on a local instance (empty ENVIRONMENT, or a localhost DATABASE_URL or ENVI_WEB_URL); use an sk_sandbox_ key locally")
 		default:
 			if !client.Live() && c.Environment == "production" {
 				log.Printf("WARNING: production is using a sandbox Bachs key — no real money moves")
@@ -161,13 +166,24 @@ func firstSet(values ...string) string {
 	return ""
 }
 
-// isLocalURL reports an address only this machine can reach. Bachs rejects
-// these as checkout return addresses.
+// isLocalURL reports an address only this machine can reach: a web URL
+// Bachs would refuse as a return address, or a database URL that marks this
+// as a development instance. It parses the host rather than searching the
+// string, because a database URL puts credentials in front of it
+// (postgres://user:pass@localhost/envi).
 func isLocalURL(raw string) bool {
-	for _, local := range []string{"://localhost", "://127.", "://0.0.0.0", "://[::1]"} {
-		if strings.Contains(raw, local) {
-			return true
-		}
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil {
+		return false
 	}
-	return false
+	host := parsed.Hostname()
+	if host == "" {
+		// A DSN with no host connects over the local Unix socket.
+		return parsed.Scheme == "postgres" || parsed.Scheme == "postgresql"
+	}
+	if host == "localhost" || strings.HasSuffix(host, ".localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && (ip.IsLoopback() || ip.IsUnspecified())
 }

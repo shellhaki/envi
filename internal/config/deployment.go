@@ -7,7 +7,8 @@ import (
 )
 
 /*
-Deployment mode, read from envi.config.json beside the binary.
+Deployment mode, read from envi.config.json beside the binary, or from the
+ENVI_MODE and ENVI_CURRENCY environment variables, which win.
 
 	{
 	  "mode": "hosted",
@@ -64,13 +65,22 @@ cosmetic setting into an outage. Either way the safe default applies.
 func LoadDeployment(path string) Deployment {
 	d := DefaultDeployment()
 
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		return d
-	}
 	var parsed Deployment
-	if err := json.Unmarshal(raw, &parsed); err != nil {
-		return d
+	if raw, err := os.ReadFile(path); err == nil {
+		if err := json.Unmarshal(raw, &parsed); err != nil {
+			parsed = Deployment{}
+		}
+	}
+
+	// The environment wins over the file. A container image built from this
+	// repository does not carry envi.config.json — the final stage copies
+	// only the binaries — so on Coolify or any other container platform the
+	// mode has to arrive as a variable, the way every other setting does.
+	if v := os.Getenv("ENVI_MODE"); v != "" {
+		parsed.Mode = Mode(v)
+	}
+	if v := os.Getenv("ENVI_CURRENCY"); v != "" {
+		parsed.Currency = v
 	}
 
 	switch Mode(strings.ToLower(strings.TrimSpace(string(parsed.Mode)))) {

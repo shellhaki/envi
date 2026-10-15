@@ -12,3 +12,4 @@ ui/.next
 docs/node_modules
 docs/.next
 beta_testers.json
+envi.config.json
