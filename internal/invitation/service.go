@@ -49,6 +49,26 @@ type Service struct {
 	// WebURL is the web app's origin, used to build the /invite/<token> link
 	// that goes out in the email.
 	WebURL string
+	// Billing decides whether the project's organization may add a new
+	// person. Nil on an instance that does not bill, which allows everyone.
+	Billing Billing
+}
+
+// Billing is the part of internal/billing invitations need. Declared here so
+// this package does not depend on billing, and so tests can leave it out.
+type Billing interface {
+	AllowNewPerson(ctx context.Context, orgID, email string) error
+	RecordPerson(ctx context.Context, orgID, userID string) error
+}
+
+// orgOf returns the organization that owns project, which is who pays for
+// anybody given access to it.
+func (s Service) orgOf(ctx context.Context, q interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}, project string) (string, error) {
+	var org string
+	err := q.QueryRow(ctx, `SELECT org_id FROM projects WHERE id = $1`, project).Scan(&org)
+	return org, err
 }
 
 func (s Service) Create(ctx context.Context, user, project, env, email, permission string, ttl time.Duration) (Invitation, error) {
@@ -92,6 +112,17 @@ func (s Service) Create(ctx context.Context, user, project, env, email, permissi
 	}
 	if alreadyPending {
 		return Invitation{}, errors.New("there's already a pending invitation for this address")
+	}
+	// Last of the checks, so somebody who may not invite is told so rather
+	// than being asked to pay, and before anything is written or emailed.
+	if s.Billing != nil {
+		org, err := s.orgOf(ctx, s.DB, project)
+		if err != nil {
+			return Invitation{}, err
+		}
+		if err := s.Billing.AllowNewPerson(ctx, org, email); err != nil {
+			return Invitation{}, err
+		}
 	}
 	b := make([]byte, 32)
 	if _, err = rand.Read(b); err != nil {
@@ -219,6 +250,21 @@ func (s Service) Accept(ctx context.Context, user, token string) error {
 	if err != nil {
 		return err
 	}
+	// Checked again at acceptance: an organization one place below its cap
+	// could otherwise send ten invitations and land eleven people.
+	var org string
+	if s.Billing != nil {
+		if org, err = s.orgOf(ctx, tx, project); err != nil {
+			return err
+		}
+		var email string
+		if err = tx.QueryRow(ctx, `SELECT email FROM users WHERE id = $1`, user).Scan(&email); err != nil {
+			return err
+		}
+		if err = s.Billing.AllowNewPerson(ctx, org, email); err != nil {
+			return err
+		}
+	}
 	_, err = tx.Exec(ctx, `INSERT INTO access_grants(subject_user_id,project_id,environment_id,permission) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING`, user, project, env, permission)
 	if err == nil {
 		_, err = tx.Exec(ctx, `UPDATE invitations SET status='accepted' WHERE id=$1`, id)
@@ -226,7 +272,17 @@ func (s Service) Accept(ctx context.Context, user, token string) error {
 	if err != nil {
 		return err
 	}
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+	// After the commit, so a rolled-back acceptance is never billed. A failure
+	// here is not the person's problem: the hourly sweep counts them anyway.
+	if s.Billing != nil {
+		if err := s.Billing.RecordPerson(ctx, org, user); err != nil {
+			log.Printf("billing: recording %s in %s: %v", user, org, err)
+		}
+	}
+	return nil
 }
 
 // Collaborator is one row in a project's sharing list — either an accepted

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import Brand from "@/components/brand";
 import LogoutButton from "@/components/logout-button";
+import OperatorLink from "@/components/operator-link";
 import SidebarNav from "@/components/sidebar-nav";
 import SidebarToggle from "@/components/sidebar-toggle";
 import ThemeToggle from "@/components/theme-toggle";
@@ -20,7 +21,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <Brand />
           <Image className="brand-mark" src="/envi-icon.png" alt="" width={30} height={30} />
         </div>
-        <SidebarNav />
+        <SidebarNav>
+          <OperatorLink />
+        </SidebarNav>
         <div className="sidebar-foot">
           <Link className="user-chip" href="/settings" title={user.Email}>
             <span className="avatar">{initials(user.Email)}</span>

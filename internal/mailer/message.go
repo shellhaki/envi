@@ -7,6 +7,10 @@ package mailer
 // fact.
 type Message struct {
 	To, Subject, Text, HTML string
+	// Headers are extra SMTP headers. The one that matters is
+	// List-Unsubscribe: Gmail and Yahoo weigh its presence when deciding
+	// whether bulk mail is wanted, and a sender without it is judged harder.
+	Headers map[string]string
 }
 
 // Sender delivers a Message. Client (Gmail) and Resend both implement it.

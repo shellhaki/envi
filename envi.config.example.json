@@ -1,0 +1,5 @@
+{
+  "_comment": "Copy to envi.config.json. Absent or unreadable means self-hosted, which is the safe default: billing off, no quotas, nothing reported as revenue.",
+  "mode": "self-hosted",
+  "currency": "NGN"
+}

@@ -32,13 +32,17 @@ func (r Resend) Send(m Message) error {
 }
 
 func (r Resend) send(m Message) error {
-	payload, err := json.Marshal(map[string]any{
+	body := map[string]any{
 		"from":    r.From,
 		"to":      []string{m.To},
 		"subject": m.Subject,
 		"text":    m.Text,
 		"html":    m.HTML,
-	})
+	}
+	if len(m.Headers) > 0 {
+		body["headers"] = m.Headers
+	}
+	payload, err := json.Marshal(body)
 	if err != nil {
 		return err
 	}

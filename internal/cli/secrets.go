@@ -70,6 +70,7 @@ func quoteValue(v string) string {
 	}
 	return strconv.Quote(v)
 }
+
 // renderEnv turns secrets into the body of a .env file, keys sorted so the same
 // set always produces the same text. It is what both the file on disk and
 // `envi copy` hand out, so a pasted environment and a pulled one are identical.

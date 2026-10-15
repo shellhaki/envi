@@ -88,3 +88,19 @@ func (c Config) WritesToRemoteDatabaseWithLocalLinks() bool {
 func isLoopback(url string) bool {
 	return strings.Contains(url, "localhost") || strings.Contains(url, "127.0.0.1") || strings.Contains(url, "[::1]")
 }
+
+// DocsURL is where the documentation lives, for links in outgoing email.
+//
+// It is derived from ENVI_WEB_URL rather than configured separately: a
+// self-hosted instance that set one and forgot the other would send people to
+// somebody else's documentation, and the hosted deployment can still override
+// it with ENVI_DOCS_URL.
+func (c Config) DocsURL() string {
+	if v := strings.TrimSpace(os.Getenv("ENVI_DOCS_URL")); v != "" {
+		return v
+	}
+	if strings.Contains(c.WebURL, "envisecrets.com") {
+		return "https://docs.envisecrets.com"
+	}
+	return strings.TrimRight(c.WebURL, "/") + "/docs"
+}

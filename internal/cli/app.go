@@ -20,6 +20,10 @@ const (
 	ExitForbidden = 4
 	ExitConfig    = 5
 	ExitAPI       = 6
+	// ExitPayment means the organization's plan does not allow it — adding a
+	// person on the free plan, say. Distinct from ExitForbidden so a script can
+	// tell "you need to pay" from "you are not allowed".
+	ExitPayment = 7
 )
 
 type App struct {
@@ -643,6 +647,8 @@ func ExitCode(err error) int {
 			return ExitAuth
 		case 403:
 			return ExitForbidden
+		case 402:
+			return ExitPayment
 		default:
 			return ExitAPI
 		}
@@ -659,7 +665,6 @@ func ExitCode(err error) int {
 // parsePushArgs reads the positional part of
 //
 //	envi push [file] [origin <name>] [flags]
-//
 const copyUsage = "usage: envi copy [KEY | --single] [--origin <name>] [--stdout]"
 
 // parseCopyArgs splits

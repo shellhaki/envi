@@ -61,3 +61,14 @@ func TestParsePushArgs(t *testing.T) {
 		}
 	}
 }
+
+// A plan refusal is its own exit code, so a script can tell "you need to pay"
+// from "you are not allowed".
+func TestPaymentRequiredExitCode(t *testing.T) {
+	if got := ExitCode(&APIError{Status: 402}); got != ExitPayment {
+		t.Fatalf("402 exits %d, want %d", got, ExitPayment)
+	}
+	if got := ExitCode(&APIError{Status: 403}); got != ExitForbidden {
+		t.Fatalf("403 exits %d, want %d", got, ExitForbidden)
+	}
+}

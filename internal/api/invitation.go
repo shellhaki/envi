@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"shellhaki/envi/internal/billing"
 	"shellhaki/envi/internal/invitation"
 )
 
@@ -54,6 +55,10 @@ func (h InvitationHandler) create(c *gin.Context) {
 		c.JSON(403, gin.H{"code": "forbidden", "error": "access denied"})
 		return
 	}
+	if refusal, ok := billing.IsRefusal(err); ok {
+		c.JSON(http.StatusPaymentRequired, refusal)
+		return
+	}
 	if err == invitation.ErrRateLimited {
 		c.JSON(http.StatusTooManyRequests, gin.H{"code": "rate_limited", "error": err.Error()})
 		return
@@ -73,6 +78,13 @@ func (h InvitationHandler) accept(c *gin.Context) {
 		return
 	}
 	if err := h.Service.Accept(c, c.GetString("user_id"), in.Token); err != nil {
+		// A billing refusal is not a bad link, and saying it was would send
+		// the invitee hunting for a problem that is the inviter's to fix.
+		if refusal, ok := billing.IsRefusal(err); ok {
+			refusal.Message = "this invitation can't be accepted yet: the organization that sent it needs to update its plan"
+			c.JSON(http.StatusPaymentRequired, refusal)
+			return
+		}
 		c.JSON(403, gin.H{"code": "forbidden", "error": "invitation invalid or expired"})
 		return
 	}

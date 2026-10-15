@@ -30,11 +30,15 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"shellhaki/envi/internal/access"
+	"shellhaki/envi/internal/admin"
+	"shellhaki/envi/internal/announce"
 	"shellhaki/envi/internal/api"
 	"shellhaki/envi/internal/audit"
 	"shellhaki/envi/internal/auth"
+	"shellhaki/envi/internal/billing"
 	"shellhaki/envi/internal/cli"
 	"shellhaki/envi/internal/cli/session"
+	"shellhaki/envi/internal/config"
 	crypt "shellhaki/envi/internal/crypto"
 	"shellhaki/envi/internal/invitation"
 	"shellhaki/envi/internal/kv"
@@ -170,6 +174,10 @@ func TestCLIEndToEndIntegration(t *testing.T) {
 		invitation.Service{DB: db},
 		"http://web.test",
 		false,
+		config.DefaultDeployment(),
+		announce.Service{Admin: admin.Service{DB: db}},
+		billing.Service{DB: db},
+		"",
 	)
 	ts := httptest.NewServer(router)
 	defer ts.Close()

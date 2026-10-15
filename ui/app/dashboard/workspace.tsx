@@ -60,7 +60,12 @@ function actionLabel(a: string) {
 const PAGES: Record<string, Page> = { "/dashboard": "overview", "/dashboard/secrets": "secrets", "/dashboard/projects": "projects", "/dashboard/sharing": "sharing", "/dashboard/activity": "activity" };
 
 export default function Workspace({ name }: { name: string }) {
-  const page = PAGES[usePathname().replace(/\/$/, "")] ?? "overview";
+  const path = usePathname().replace(/\/$/, "");
+  const page = PAGES[path] ?? "overview";
+  // Pages with their own route render themselves; this component must not
+  // also draw the overview under them, which is what the fallback above would
+  // otherwise do for any path it does not know.
+  const ownRoute = path === "/dashboard/billing";
   const [projects, setProjects] = useState<Project[]>([]);
   const [project, setProject] = useState<Project>();
   // A project has many environments — dev, prod, whatever you name them — each
@@ -306,6 +311,7 @@ export default function Workspace({ name }: { name: string }) {
     : page === "activity" ? <button className="button secondary" onClick={() => loadEvents()}><RefreshCw />Refresh</button>
     : null;
 
+  if (ownRoute) return null;
   return <main className="product-page">
     {page === "overview"
       ? <div className="page-title overview-title"><Greeting name={name} /></div>

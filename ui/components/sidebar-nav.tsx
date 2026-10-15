@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, Folder, KeyRound, LayoutDashboard, Users } from "lucide-react";
+import { Activity, CreditCard, Folder, KeyRound, LayoutDashboard, Users } from "lucide-react";
 
 const items = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
@@ -9,9 +9,10 @@ const items = [
   { href: "/dashboard/projects", label: "Projects", icon: Folder },
   { href: "/dashboard/sharing", label: "Sharing", icon: Users },
   { href: "/dashboard/activity", label: "Activity", icon: Activity },
+  { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
 ];
 
-export default function SidebarNav() {
+export default function SidebarNav({ children }: { children?: React.ReactNode }) {
   const pathname = usePathname();
   return (
     <nav className="sidebar-nav">
@@ -26,6 +27,9 @@ export default function SidebarNav() {
           </Link>
         );
       })}
+      {/* Server-rendered, and absent entirely for anyone who is not an
+          operator — see components/operator-link.tsx. */}
+      {children}
     </nav>
   );
 }

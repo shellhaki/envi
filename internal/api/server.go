@@ -3,8 +3,11 @@ package api
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"shellhaki/envi/internal/announce"
 	"shellhaki/envi/internal/audit"
 	"shellhaki/envi/internal/auth"
+	"shellhaki/envi/internal/billing"
+	"shellhaki/envi/internal/config"
 	"shellhaki/envi/internal/invitation"
 	"shellhaki/envi/internal/kv"
 	"shellhaki/envi/internal/project"
@@ -17,7 +20,7 @@ func New() *gin.Engine {
 	r.GET("/health", func(c *gin.Context) { c.JSON(200, gin.H{"status": "ok"}) })
 	return r
 }
-func Build(db *pgxpool.Pool, login auth.LoginSettings, p project.Service, s secret.Service, values kv.Store, au audit.Service, st service_token.Service, i invitation.Service, webURL string, beta bool) *gin.Engine {
+func Build(db *pgxpool.Pool, login auth.LoginSettings, p project.Service, s secret.Service, values kv.Store, au audit.Service, st service_token.Service, i invitation.Service, webURL string, beta bool, deployment config.Deployment, announcer announce.Service, bill billing.Service, webhookSecret string) *gin.Engine {
 	r := New()
 	// Public, unauthenticated: the web app checks this before a user has
 	// signed in, to show "private beta" messaging rather than a bare
@@ -35,5 +38,7 @@ func Build(db *pgxpool.Pool, login auth.LoginSettings, p project.Service, s secr
 	ServiceTokenHandler{Service: st}.Routes(r, m)
 	InvitationHandler{Service: i}.Routes(r, m)
 	AccountHandler{DB: db}.Routes(r, m)
+	addAdminRoutes(r, db, m, deployment, announcer)
+	addBillingRoutes(r, db, m, bill, webhookSecret)
 	return r
 }

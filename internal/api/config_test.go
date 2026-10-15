@@ -14,9 +14,13 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"shellhaki/envi/internal/access"
+	"shellhaki/envi/internal/admin"
+	"shellhaki/envi/internal/announce"
 	"shellhaki/envi/internal/apikey"
 	"shellhaki/envi/internal/audit"
 	"shellhaki/envi/internal/auth"
+	"shellhaki/envi/internal/billing"
+	"shellhaki/envi/internal/config"
 	crypt "shellhaki/envi/internal/crypto"
 	"shellhaki/envi/internal/invitation"
 	"shellhaki/envi/internal/kv"
@@ -96,6 +100,10 @@ func newConfigFixture(t *testing.T) *configFixture {
 		invitation.Service{DB: db},
 		"http://web.test",
 		false,
+		config.DefaultDeployment(),
+		announce.Service{Admin: admin.Service{DB: db}},
+		billing.Service{DB: db},
+		"",
 	)
 	return &configFixture{
 		router: router, db: db, userID: w.UserID, projectName: name,

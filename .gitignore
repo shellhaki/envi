@@ -21,3 +21,7 @@ npm/dist/
 sdk/dist/
 sdk/node_modules/
 .DS_Store
+envi.config.json
+# The deployment mode. Absent means self-hosted, which is the safe default;
+# the hosted deployment writes its own. See envi.config.example.json.
+envi.config.json
