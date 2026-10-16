@@ -49,16 +49,35 @@ type Recent struct {
 	ActivePeople int64 `json:"active_people"`
 }
 
-// Revenue is what the instance is being paid. It is reported as unavailable
-// until billing exists, rather than as zero: "nobody has paid" and "there is
-// no way to pay" are different facts and an operator needs to tell them apart.
+// Revenue is what the instance is being paid, read from billing's own tables.
+// It is reported as unavailable when those tables do not exist, rather than as
+// zero: "nobody has paid" and "there is no way to pay" are different facts and
+// an operator needs to tell them apart.
 type Revenue struct {
-	Available bool    `json:"available"`
-	Note      string  `json:"note,omitempty"`
+	Available bool   `json:"available"`
+	Note      string `json:"note,omitempty"`
+	// MRR is what Team subscriptions bring in a month, in US dollars. Pay as
+	// you go has no recurring amount, so it is reported as Collected instead.
 	MRR       float64 `json:"mrr"`
 	PaidOrgs  int64   `json:"paid_orgs"`
 	FreeOrgs  int64   `json:"free_orgs"`
 	TrialOrgs int64   `json:"trial_orgs"`
+	TeamOrgs  int64   `json:"team_orgs"`
+	PAYGOrgs  int64   `json:"payg_orgs"`
+	// Collected is pay as you go money actually taken, per currency, since
+	// no exchange rate is applied anywhere. Team payments are taken by Bachs on
+	// its own schedule and are not recorded here, which is why they are MRR.
+	Collected []Collected `json:"collected"`
+	// FailedCharges is pay as you go charges currently refused and waiting
+	// for a retry: money owed that has not arrived.
+	FailedCharges int64 `json:"failed_charges"`
+}
+
+// Collected is pay as you go revenue in one currency, in minor units.
+type Collected struct {
+	Currency       string `json:"currency"`
+	ThisMonthMinor int64  `json:"this_month_minor"`
+	AllTimeMinor   int64  `json:"all_time_minor"`
 }
 
 // Signup is one person, for the list of who has joined.
@@ -167,14 +186,17 @@ func (s Service) recent(ctx context.Context, days int) (Recent, error) {
 	return r, err
 }
 
-// revenue reads the subscriptions table if it exists.
-//
-// It is written to survive the table not being there, because billing is
-// planned and not built: the admin screen has to work today and keep working
-// the day the migration lands, without a second deploy.
+// teamPriceMinor mirrors billing.TeamPriceMinor. It is repeated rather than
+// imported because internal/billing depends on configuration this package has
+// no reason to know about.
+const teamPriceMinor = 400
+
+// revenue reads billing_accounts and payg_charges. It survives those tables not
+// existing, so the screen works on an instance that has not run migration 011.
 func (s Service) revenue(ctx context.Context) (Revenue, error) {
 	var exists bool
-	if err := s.DB.QueryRow(ctx, `SELECT to_regclass('public.subscriptions') IS NOT NULL`).Scan(&exists); err != nil {
+	if err := s.DB.QueryRow(ctx, `SELECT to_regclass('public.billing_accounts') IS NOT NULL
+		AND to_regclass('public.payg_charges') IS NOT NULL`).Scan(&exists); err != nil {
 		return Revenue{}, err
 	}
 	if !exists {
@@ -184,20 +206,51 @@ func (s Service) revenue(ctx context.Context) (Revenue, error) {
 		}
 		return Revenue{
 			Available: false,
-			Note:      "Billing is not built yet — no organization can be charged. See BILLING.md.",
+			Note:      "Billing tables are missing on this database. Run migrations/011_billing.sql.",
 			FreeOrgs:  orgs,
+			Collected: []Collected{},
 		}, nil
 	}
 
-	var r Revenue
-	r.Available = true
+	r := Revenue{Available: true, Collected: []Collected{}}
 	err := s.DB.QueryRow(ctx, `
 		SELECT
-		  (SELECT count(*) FROM subscriptions WHERE status IN ('active') AND plan <> 'free'),
-		  (SELECT count(*) FROM organizations) - (SELECT count(*) FROM subscriptions WHERE plan <> 'free'),
-		  (SELECT count(*) FROM subscriptions WHERE status = 'trialing')
-	`).Scan(&r.PaidOrgs, &r.FreeOrgs, &r.TrialOrgs)
-	return r, err
+		  (SELECT count(*) FROM billing_accounts WHERE plan = 'team'),
+		  (SELECT count(*) FROM billing_accounts WHERE plan = 'payg'),
+		  (SELECT count(*) FROM billing_accounts WHERE subscription_status = 'trialing'),
+		  (SELECT count(*) FROM organizations),
+		  (SELECT count(*) FROM payg_charges WHERE status = 'failed')
+	`).Scan(&r.TeamOrgs, &r.PAYGOrgs, &r.TrialOrgs, &r.FreeOrgs, &r.FailedCharges)
+	if err != nil {
+		return r, err
+	}
+	r.PaidOrgs = r.TeamOrgs + r.PAYGOrgs
+	r.FreeOrgs -= r.PaidOrgs
+	r.MRR = float64(r.TeamOrgs*teamPriceMinor) / 100
+
+	// A succeeded charge carries its own month plus any small months carried
+	// into it. It counts toward the month it was paid in, not the month it
+	// was for.
+	rows, err := s.DB.Query(ctx, `
+		SELECT currency,
+		       coalesce(sum(amount_minor + carried_minor) FILTER (WHERE updated_at >= date_trunc('month', now())), 0),
+		       coalesce(sum(amount_minor + carried_minor), 0)
+		  FROM payg_charges
+		 WHERE status = 'succeeded'
+		 GROUP BY currency
+		 ORDER BY currency`)
+	if err != nil {
+		return r, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var c Collected
+		if err := rows.Scan(&c.Currency, &c.ThisMonthMinor, &c.AllTimeMinor); err != nil {
+			return r, err
+		}
+		r.Collected = append(r.Collected, c)
+	}
+	return r, rows.Err()
 }
 
 // signups lists who joined, newest first, with how much each one actually

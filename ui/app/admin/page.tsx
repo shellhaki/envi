@@ -38,6 +38,8 @@ type Recent = {
 type Revenue = {
   available: boolean; note?: string; mrr: number;
   paid_orgs: number; free_orgs: number; trial_orgs: number;
+  team_orgs: number; payg_orgs: number; failed_charges: number;
+  collected: { currency: string; this_month_minor: number; all_time_minor: number }[];
 };
 type Signup = { email: string; name: string; created_at: string; projects: number; secrets: number };
 type CurrencyTotal = { currency: string; total_minor: number; monthly_minor: number; count: number };
@@ -121,6 +123,12 @@ export default async function AdminPage() {
   // Two currencies are reported separately in the panel below rather than
   // summed, because there is no exchange rate in this product.
   const cost = data.spending.totals.find((x) => x.monthly_minor > 0) ?? data.spending.totals[0];
+  // This month's money, per currency, never summed across currencies: pay as
+  // you go actually collected, plus what Team subscriptions bring in.
+  const earned = [
+    ...revenue.collected.filter((c) => c.this_month_minor > 0).map((c) => money(c.this_month_minor, c.currency)),
+    ...(revenue.mrr > 0 ? [`$${nf.format(revenue.mrr)} Team`] : []),
+  ];
 
   return (
     <main className="admin-page">
@@ -143,20 +151,29 @@ export default async function AdminPage() {
         <Stat label={selfHosted ? "Running cost" : "Revenue"}
               value={selfHosted
                 ? (cost ? money(cost.monthly_minor, cost.currency) : "—")
-                : (revenue.available ? `$${nf.format(revenue.mrr)}` : "—")}
+                : (revenue.available ? (earned.length ? earned.join(" · ") : "$0") : "—")}
               icon={<Wallet />}
               note={selfHosted
                 ? "per month"
-                : (revenue.available ? `${nf.format(revenue.paid_orgs)} paying` : "not billable yet")} />
+                : (revenue.available
+                  ? `this month · ${nf.format(revenue.team_orgs)} Team, ${nf.format(revenue.payg_orgs)} pay as you go`
+                  : "billing tables missing")} />
       </section>
 
       {/* A self-hosted instance has nobody to charge, so an empty revenue
           card there is correct rather than a missing feature. Only the hosted
-          deployment is told that billing is not built. */}
+          deployment is told when its billing tables are missing. */}
       {!selfHosted && !revenue.available && (
         <p className="admin-note">
           <ShieldCheck />
           {revenue.note}
+        </p>
+      )}
+      {!selfHosted && revenue.available && revenue.failed_charges > 0 && (
+        <p className="admin-note">
+          <ShieldCheck />
+          {nf.format(revenue.failed_charges)} pay as you go {revenue.failed_charges === 1 ? "charge has" : "charges have"} been
+          refused and {revenue.failed_charges === 1 ? "is" : "are"} waiting for a retry.
         </p>
       )}
       {selfHosted && (

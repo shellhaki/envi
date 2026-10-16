@@ -89,9 +89,9 @@ func TestGrowthHasADayForEveryDay(t *testing.T) {
 	}
 }
 
-// Revenue reports unavailable rather than zero while billing does not exist,
-// and must not error when the subscriptions table is absent.
-func TestRevenueSurvivesNoBilling(t *testing.T) {
+// Revenue reads billing's tables when they exist, and reports unavailable
+// with a reason, rather than zero, when they do not.
+func TestRevenue(t *testing.T) {
 	s := Service{DB: testDB(t)}
 	got, err := s.revenue(t.Context())
 	if err != nil {
@@ -102,6 +102,20 @@ func TestRevenueSurvivesNoBilling(t *testing.T) {
 	}
 	if got.Available && got.Note != "" {
 		t.Error("available revenue should not carry a note")
+	}
+	if got.Available {
+		if got.PaidOrgs != got.TeamOrgs+got.PAYGOrgs {
+			t.Errorf("paid = %d, want team %d + payg %d", got.PaidOrgs, got.TeamOrgs, got.PAYGOrgs)
+		}
+		if got.FreeOrgs < 0 {
+			t.Errorf("free orgs = %d, can never be negative", got.FreeOrgs)
+		}
+		if got.MRR != float64(got.TeamOrgs*teamPriceMinor)/100 {
+			t.Errorf("mrr = %v for %d team orgs", got.MRR, got.TeamOrgs)
+		}
+		if got.Collected == nil {
+			t.Error("collected should be an empty list, not null, so the screen can map over it")
+		}
 	}
 }
 
