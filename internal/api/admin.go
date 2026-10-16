@@ -1,7 +1,7 @@
 package api
 
 import (
-	"os"
+	"log"
 	"strings"
 	"time"
 
@@ -38,7 +38,7 @@ func normaliseEmail(email string) string {
 
 // operators returns the configured operator emails, normalised.
 func operators() map[string]struct{} {
-	raw := strings.Split(os.Getenv("ENVI_ADMINS"), ",")
+	raw := strings.Split(config.Setting("ENVI_ADMINS"), ",")
 	set := make(map[string]struct{}, len(raw))
 	for _, email := range raw {
 		if email = normaliseEmail(email); email != "" {
@@ -64,6 +64,9 @@ login.
 */
 func RequireOperator(db *pgxpool.Pool) gin.HandlerFunc {
 	allowed := operators()
+	// The count, not the addresses: enough to tell "the variable never
+	// arrived" from "it arrived and my address is not in it".
+	log.Printf("ENVI_ADMINS: %d address(es)", len(allowed))
 	service := admin.Service{DB: db}
 	return func(c *gin.Context) {
 		userID := c.GetString("user_id")
