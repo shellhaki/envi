@@ -1,27 +1,27 @@
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="ui/public/envi-logo-with-text-dark-mode.png">
-    <img src="ui/public/envi-logo-with-text-light-mode.png" alt="Envi" width="280">
-  </picture>
-</p>
+  <p align="center">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="ui/public/envi-logo-with-text-dark-mode.png">
+      <img src="ui/public/envi-logo-with-text-light-mode.png" alt="Envi" width="280">
+    </picture>
+  </p>
 
-<p align="center"><strong>Environment secrets, encrypted, scoped, and audited — as a hosted product, or run entirely on your own infrastructure.</strong></p>
+  <p align="center"><strong>Environment secrets, encrypted, scoped, and audited — as a hosted product, or run entirely on your own infrastructure.</strong></p>
 
-<p align="center">
-  <img alt="License" src="https://img.shields.io/badge/license-MIT-0c111d">
-  <img alt="Go" src="https://img.shields.io/badge/go-1.25-00ADD8?logo=go&logoColor=white">
-  <img alt="Next.js" src="https://img.shields.io/badge/next.js-16-000000?logo=next.js&logoColor=white">
-  <img alt="Postgres" src="https://img.shields.io/badge/postgres-16-4169E1?logo=postgresql&logoColor=white">
-  <img alt="Docker Compose" src="https://img.shields.io/badge/docker%20compose-ready-2496ED?logo=docker&logoColor=white">
-</p>
+  <p align="center">
+    <img alt="License" src="https://img.shields.io/badge/license-MIT-0c111d">
+    <img alt="Go" src="https://img.shields.io/badge/go-1.25-00ADD8?logo=go&logoColor=white">
+    <img alt="Next.js" src="https://img.shields.io/badge/next.js-16-000000?logo=next.js&logoColor=white">
+    <img alt="Postgres" src="https://img.shields.io/badge/postgres-16-4169E1?logo=postgresql&logoColor=white">
+    <img alt="Docker Compose" src="https://img.shields.io/badge/docker%20compose-ready-2496ED?logo=docker&logoColor=white">
+  </p>
 
----
+  ---
 
-<img src="ui/public/envi-icon.png" width="20" align="left">
+  <img src="ui/public/envi-icon.png" width="20" align="left">
 
-**Envi** is an environment-secret manager: encrypted `.env` values, scoped access, an audit trail, and a CLI that gets a secret from your database into a running process without anyone typing it into Slack. Envi is built and run as a product — this repository is also the entire self-hostable stack, for teams who'd rather keep everything on infrastructure they control.
+  **Envi** is an environment-secret manager: encrypted `.env` values, scoped access, an audit trail, and a CLI that gets a secret from your database into a running process without anyone typing it into Slack. Envi is built and run as a product — this repository is also the entire self-hostable stack, for teams who'd rather keep everything on infrastructure they control.
 
-Full documentation: **[docs.envisecrets.com](https://docs.envisecrets.com)**
+  Full documentation: **[docs.envisecrets.com](https://docs.envisecrets.com)**
 
 ## Install the CLI
 
@@ -50,7 +50,7 @@ No install script runs: the binary arrives as an optional dependency chosen by `
 - **Passwordless auth** — sign in with a one-time email code or approve a device from your browser. No passwords exist anywhere in the system to leak.
 - **Service tokens** — long-lived, scoped credentials for CI/CD pipelines and deploy scripts, independent of any human's session.
 - **Multiple environments** — dev, staging, prod as separate sets of secrets in one project. `envi origin switch prod` repoints your working directory; `envi push .env origin prod` writes to one you aren't on.
-- **No `.env` on disk** — `envi run -- npm start` injects secrets into the process that needs them and exits with that process's own status. `envi mod` edits them in a terminal editor, and `envi push --clean` removes the file once it is up. Nothing plaintext has to stay on your filesystem.
+- **No `.env` on disk** — `envi run -- npm start` injects secrets into the process that needs them and exits with that process's own status. `envi mod` edits them in a terminal editor, and `envi push --clean` removes the file once it is up. Nothing plaintext has to stay on your filesystem. Prefer not to type `envi run`? `envi hook install` loads a project's secrets when you `cd` into it, after a one-time `envi allow`.
 - **Runs in a container** — `ENTRYPOINT ["envi", "run", "--"]` and one `ENVI_TOKEN` variable. No `.env` in the image, no environment id baked into a layer, same image in every environment.
 - **Key-value store** — a project-wide store your application reads and writes at runtime over HTTP, encrypted like everything else. Separate from your secrets: if your code writes it, it goes here; if you deploy it, it's a secret.
 - **Full audit trail** — every write and delete is logged against the org, the actor, and the exact secret touched. Reads are logged once per environment with the number of secrets they covered, so a command you run all day stays readable in the feed.
@@ -126,6 +126,8 @@ The CLI and the dashboard are two clients of the same API — neither one is a s
 | `envi push --clean` | Push, then delete the file |
 | `envi diff` | Show what's changed between local and remote before you push |
 | `envi run -- <command>` | Run a command with the secrets injected, without writing a `.env` |
+| `envi hook install` | Load a project's secrets automatically when you `cd` into it (zsh, bash, fish, PowerShell) |
+| `envi allow` / `envi deny` | Let this folder load its secrets automatically, or stop it |
 | `envi mod` | Edit this origin's secrets in a terminal editor, nothing written to disk |
 | `envi clean` | Delete the local `.env` once the server already has it |
 | `envi copy` | Copy the whole origin to the clipboard as `.env` text |

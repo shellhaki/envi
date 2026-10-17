@@ -30,6 +30,9 @@ func Uninstall(ui UI, in io.Reader, keepConfig, assumeYes bool) error {
 
 	ui.Print("%s", ui.Bold("This will remove:"))
 	ui.Print("  %s", self)
+	if HookInstalled() {
+		ui.Print("  %s", ui.Dim("the envi hook in your shell startup file"))
+	}
 	if !keepConfig && cfgErr == nil {
 		if _, statErr := os.Stat(configDir); statErr == nil {
 			ui.Print("  %s %s", configDir, ui.Dim("(saved session)"))
@@ -43,6 +46,14 @@ func Uninstall(ui UI, in io.Reader, keepConfig, assumeYes bool) error {
 	if !assumeYes && !confirm(ui, in) {
 		ui.Print("Cancelled.")
 		return nil
+	}
+
+	// The startup-file line checks for envi before running, so leaving it would
+	// be harmless; it is removed anyway, because uninstalling means gone.
+	if HookInstalled() {
+		if err := UninstallHook(ui.Out); err != nil {
+			ui.Warn("Couldn't remove the shell hook: %v", err)
+		}
 	}
 
 	if !keepConfig && cfgErr == nil && configDir != "" && filepath.Base(configDir) == "envi" {

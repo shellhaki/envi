@@ -204,6 +204,55 @@ envi run --origin production -- ./migrate.sh
 
 In CI or a container, set `ENVI_TOKEN` to a [service token](/ci-service-tokens) and `envi run` works with no `envi.toml` at all — the token names the environment. `ENVI_PROJECT` and `ENVI_ENVIRONMENT` say which to read when the credential isn't scoped to one. See [Docker](/docker).
 
+## Automatic loading
+
+If you'd rather not type `envi run --`, the shell hook loads a project's secrets into your shell when you `cd` into it, and removes them when you leave. Then any command works as normal:
+
+```bash
+cd my-api        # envi: loaded 12 secrets · my-api · development
+node index.js    # process.env.DATABASE_URL is set
+cd ..            # envi: unloaded
+```
+
+It works in zsh, bash, fish and PowerShell. The secrets stay loaded in the project's subfolders, are never written to disk, and anything they replaced is put back when you leave.
+
+### `envi hook install [shell]`
+
+Adds one line to your shell's startup file (`~/.zshrc`, `~/.bashrc` or `~/.bash_profile`, fish's `conf.d`, or your PowerShell profile). The shell is detected when you don't name it. Running it again changes nothing. The install script offers to do this for you.
+
+```bash
+envi hook install
+envi hook install pwsh
+```
+
+`envi hook uninstall` removes it again, and so does `envi uninstall`. To add it by hand instead, put `eval "$(envi hook zsh)"` in your startup file (or `bash`, `fish`, `pwsh`).
+
+### `envi allow`
+
+Nothing loads until you allow the folder. A repository someone else wrote can carry an `envi.toml` pointing at an environment you have access to, and loading that on its own would hand your secrets to whatever runs there next. So the first time you enter a project, the hook asks you to run:
+
+```bash
+envi allow
+```
+
+The permission is tied to the exact contents of `envi.toml`. If the file changes, for instance to point at another environment, you're asked again.
+
+<ParamField query="--production" type="boolean">
+  Required to allow a production environment. Every command you run in the folder, including install scripts, would get production secrets, so it is never the default.
+</ParamField>
+
+### `envi deny`
+
+Stops this folder loading its secrets. They're removed at your next prompt.
+
+### `envi reload`
+
+Secrets are fetched once, when you enter the project. If someone changes them on the server, `envi reload` fetches them again at your next prompt, in every open shell.
+
+<Note>
+  Fetching happens only when something changed, so the hook adds no delay to an ordinary prompt. If the server can't be reached, you see one line saying so, and the shell carries on without the secrets.
+</Note>
+
 
 ### `envi clean`
 

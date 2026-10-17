@@ -106,3 +106,23 @@ esac
 if command -v "$install_dir/$BINARY" >/dev/null 2>&1; then
   "$install_dir/$BINARY" version
 fi
+
+# Offer the shell hook, which loads a project's secrets when you cd into it.
+# Asked, never assumed, because it adds a line to a shell startup file. The
+# answer is read from the terminal: when piped from curl, stdin is this script.
+# No terminal (CI, Docker) means no question and no change. ENVI_HOOK=1 says
+# yes without asking; ENVI_NO_HOOK=1 says no.
+if [ "${ENVI_NO_HOOK:-}" != "1" ] && [ -z "${CI:-}" ]; then
+  answer=""
+  if [ "${ENVI_HOOK:-}" = "1" ]; then
+    answer=y
+  elif [ -t 2 ] && [ -r /dev/tty ]; then
+    printf "envi: load secrets automatically when you cd into a project? [Y/n] " >&2
+    read -r answer </dev/tty || answer=n
+    [ -z "$answer" ] && answer=y
+  fi
+  case "$answer" in
+    [Yy]*) "$install_dir/$BINARY" hook install || echo "envi: couldn't add the hook; run: envi hook install" ;;
+    *) [ -n "$answer" ] && echo "envi: skipped. Turn it on later with: envi hook install" ;;
+  esac
+fi

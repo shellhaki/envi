@@ -79,3 +79,22 @@ if ($userPath -notlike "*$installDir*") {
 }
 
 & (Join-Path $installDir "$Binary.exe") version
+
+# Offer the shell hook, which loads a project's secrets when you cd into it.
+# Asked, never assumed, because it adds a line to your PowerShell profile. No
+# console (CI) means no question and no change. ENVI_HOOK=1 says yes without
+# asking; ENVI_NO_HOOK=1 says no.
+if (-not $env:CI -and $env:ENVI_NO_HOOK -ne "1") {
+    $answer = ""
+    if ($env:ENVI_HOOK -eq "1") {
+        $answer = "y"
+    } elseif ([Environment]::UserInteractive -and -not [Console]::IsInputRedirected) {
+        $answer = Read-Host "envi: load secrets automatically when you cd into a project? [Y/n]"
+        if ([string]::IsNullOrWhiteSpace($answer)) { $answer = "y" }
+    }
+    if ($answer -match '^[Yy]') {
+        & (Join-Path $installDir "$Binary.exe") hook install pwsh
+    } elseif ($answer) {
+        Write-Host "envi: skipped. Turn it on later with: envi hook install pwsh"
+    }
+}
