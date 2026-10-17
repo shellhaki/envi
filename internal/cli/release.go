@@ -61,6 +61,49 @@ func LatestRelease(ctx context.Context) (Release, error) {
 	return Release{Tag: body.Tag}, nil
 }
 
+// npmRegistry is where an npm install's updates come from. A variable so tests
+// can point it at a fake registry.
+var npmRegistry = "https://registry.npmjs.org"
+
+// LatestNPM asks the npm registry for the version npm itself would install.
+//
+// An npm install updates through npm, so it must ask npm what is newest, not
+// GitHub: the two are published by separate steps, and a release that reached
+// GitHub but not npm would otherwise be offered and then fail to install.
+func LatestNPM(ctx context.Context) (Release, error) {
+	url := npmRegistry + "/" + strings.ReplaceAll(NPMPackage, "/", "%2f") + "/latest"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return Release{}, err
+	}
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return Release{}, fmt.Errorf("couldn't reach npm to check for updates: %w", err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return Release{}, fmt.Errorf("npm returned %d looking up the latest version", res.StatusCode)
+	}
+	var body struct {
+		Version string `json:"version"`
+	}
+	if err = json.NewDecoder(io.LimitReader(res.Body, 1<<20)).Decode(&body); err != nil {
+		return Release{}, err
+	}
+	if body.Version == "" {
+		return Release{}, errors.New("npm has no published version")
+	}
+	return Release{Tag: "v" + body.Version}, nil
+}
+
+// latestFor asks whichever source this install updates from.
+func latestFor(ctx context.Context, install InstallMethod) (Release, error) {
+	if install.Kind == "npm" {
+		return LatestNPM(ctx)
+	}
+	return LatestRelease(ctx)
+}
+
 // assetName mirrors the archive naming in .goreleaser.yaml. Keeping the two in
 // step matters: a mismatch here is a 404 at the worst possible moment.
 func assetName(version string) (string, error) {

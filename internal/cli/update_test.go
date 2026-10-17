@@ -3,6 +3,8 @@ package cli
 import (
 	"bytes"
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -122,5 +124,29 @@ func TestVerifyBinary(t *testing.T) {
 	}
 	if err := verifyBinary(context.Background(), broken, "9.9.9"); err == nil {
 		t.Fatal("expected a binary that will not run to abort the update")
+	}
+}
+
+// An npm install asks npm, so a version that reached GitHub but not npm is
+// never offered to it.
+func TestLatestForNPMAsksTheRegistry(t *testing.T) {
+	registry := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/@shellhaki%2fenvi-cli/latest" && r.URL.Path != "/@shellhaki/envi-cli/latest" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Write([]byte(`{"name":"@shellhaki/envi-cli","version":"1.3.0"}`))
+	}))
+	defer registry.Close()
+	old := npmRegistry
+	npmRegistry = registry.URL
+	defer func() { npmRegistry = old }()
+
+	got, err := latestFor(t.Context(), InstallMethod{Kind: "npm", Manager: "bun"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Tag != "v1.3.0" {
+		t.Errorf("latest = %q, want v1.3.0 from the registry", got.Tag)
 	}
 }

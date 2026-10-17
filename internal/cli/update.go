@@ -61,7 +61,11 @@ func splitVersion(v string) ([3]int, string) {
 // UpdateCheck reports whether a newer release exists, without touching disk.
 func UpdateCheck(ctx context.Context, ui UI, current string) error {
 	ui.Step("Checking for updates...")
-	release, err := LatestRelease(ctx)
+	install := InstallMethod{Kind: "script"}
+	if self, err := os.Executable(); err == nil {
+		install = DetectInstall(self)
+	}
+	release, err := latestFor(ctx, install)
 	if err != nil {
 		return err
 	}
@@ -106,7 +110,7 @@ func UpdateNow(ctx context.Context, ui UI, current string, force bool) error {
 	install := DetectInstall(self)
 
 	ui.Step("Checking for updates...")
-	release, err := LatestRelease(ctx)
+	release, err := latestFor(ctx, install)
 	if err != nil {
 		return err
 	}
