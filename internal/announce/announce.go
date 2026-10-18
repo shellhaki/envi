@@ -1,10 +1,4 @@
-// Package announce delivers one message to everybody who wants to hear from
-// the instance.
-//
-// It sits between internal/admin, which knows who the recipients are and keeps
-// the record, and internal/mailer, which does the sending. Neither of those
-// should know about the other: the database package should not hold an SMTP
-// connection, and the mailer should not run queries.
+// Package announce emails one message to every subscribed user.
 package announce
 
 import (
@@ -25,22 +19,10 @@ type Service struct {
 	Admin  admin.Service
 	Mailer mailer.Sender
 	WebURL string
-	// Pause between messages. Sending a thousand emails as fast as the API
-	// will take them is how a sending domain gets rate limited, or worse,
-	// reclassified. A small gap costs nothing at this size.
-	Pause time.Duration
+	Pause  time.Duration // between messages, so the sending domain isn't rate limited (default 120ms)
 }
 
-/*
-Send records the announcement, then delivers it.
-
-The record is written first and deliberately: an announcement that fails
-halfway has still gone to the people it reached, and the only thing worse than
-a half-sent mass email is a half-sent mass email with no record of it.
-
-Delivery is one message per recipient rather than one message with everybody in
-the To field, which would publish every customer's address to every customer.
-*/
+// Send records the announcement, then emails each recipient separately in the background.
 func (s Service) Send(ctx context.Context, actorID, actorEmail, subject, body string) (admin.Announcement, error) {
 	subject = strings.TrimSpace(subject)
 	body = strings.TrimSpace(body)
@@ -58,8 +40,6 @@ func (s Service) Send(ctx context.Context, actorID, actorEmail, subject, body st
 		return record, fmt.Errorf("recorded, but no mailer is configured to send it")
 	}
 
-	// Delivery happens in the background: a thousand recipients with a pause
-	// between each is longer than any HTTP request should be held open for.
 	go s.deliver(record, subject, body, recipients)
 	return record, nil
 }
@@ -107,10 +87,7 @@ func hostOf(url string) string {
 	return host
 }
 
-// bannerURL is the image across the top of every announcement, served by the
-// dashboard from ui/public/email. A mail client fetches it from the internet,
-// so an instance whose dashboard is only on this machine borrows the public
-// copy rather than sending a broken image.
+// bannerURL is the image at the top of every announcement. A local dashboard uses the public copy.
 func bannerURL(web string) string {
 	if strings.TrimSpace(web) == "" || config.IsLocalURL(web) {
 		web = "https://envisecrets.com"
@@ -126,14 +103,7 @@ func textBody(body, web string) string {
 		"\"unsubscribe\" to stop receiving these.\n", body, web)
 }
 
-/*
-htmlBody wraps the written body in the product's palette.
-
-The body is escaped and then has its paragraph breaks restored, rather than
-being passed through as markup. An announcement is written in a textarea by a
-person, and treating what they typed as HTML would make a stray angle bracket
-break the email and a pasted script tag something worse.
-*/
+// htmlBody escapes what the operator typed and keeps their paragraph breaks.
 func htmlBody(subject, body, web string) string {
 	if strings.TrimSpace(web) == "" {
 		web = "https://envisecrets.com"

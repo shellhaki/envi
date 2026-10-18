@@ -31,8 +31,7 @@ func CreateProject(ctx context.Context, c Client, name string, out io.Writer) er
 	return nil
 }
 
-// CreateEnv adds an environment to a project. The project is taken from
-// --project when given, otherwise from envi.toml in dir.
+// CreateEnv adds an environment to a project.
 func CreateEnv(ctx context.Context, c Client, dir, projectName, envName string, production bool, out io.Writer) error {
 	envName = strings.TrimSpace(envName)
 	if envName == "" {
@@ -54,8 +53,7 @@ func CreateEnv(ctx context.Context, c Client, dir, projectName, envName string, 
 	return nil
 }
 
-// resolveProject picks a project by explicit name, falling back to the
-// project recorded in envi.toml when no name is given.
+// resolveProject uses the named project, or the one in envi.toml.
 func resolveProject(ctx context.Context, c Client, dir, name string) (id, label string, err error) {
 	name = strings.TrimSpace(name)
 	if name == "" {

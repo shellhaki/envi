@@ -46,12 +46,6 @@ services:
       RESEND_FROM: "${RESEND_FROM:?for example Envi <noreply@yourdomain.com>}"
       ENVI_WEB_URL: "${ENVI_WEB_URL:-http://localhost:3000}"
       ENVIRONMENT: ${ENVIRONMENT:-production}
-    volumes:
-      # Only read when ENVIRONMENT=beta. Mounted rather than baked in so the
-      # allowlist can be edited and applied with `docker compose restart api`.
-      # Point ENVI_BETA_ALLOWLIST at your own file; the default is a tracked
-      # placeholder, so a fresh clone always has something to mount.
-      - "${ENVI_BETA_ALLOWLIST:-./beta_testers.example.json}:/app/beta_testers.json:ro"
     depends_on:
       postgres:
         condition: service_healthy

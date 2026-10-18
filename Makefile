@@ -102,7 +102,7 @@ db-psql: ## Open a psql shell on the database
 	@if [ -z "$(DATABASE_URL)" ]; then echo "DATABASE_URL is not set (check .env)"; exit 1; fi
 	psql "$(DATABASE_URL)"
 
-diagram: ## Rebuild excalidraw.json from ENDPOINTS.md, migrations/schema.sql, the Go packages and scripts/diagram.py
+diagram: ## Rebuild architecture/excalidraw.json from architecture/ENDPOINTS.md, migrations/schema.sql, the Go packages and scripts/diagram.py
 	python3 scripts/diagram.py
 
 

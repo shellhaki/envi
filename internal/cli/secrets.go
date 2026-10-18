@@ -22,9 +22,7 @@ func envPath(dir string) string                          { return filepath.Join(
 func parseEnv(r io.Reader) (map[string]string, error) {
 	out := map[string]string{}
 	s := bufio.NewScanner(r)
-	// A private key or certificate on one quoted line comfortably exceeds
-	// bufio's 64KB default, which would otherwise surface as a truncated value
-	// rather than an error.
+	// Allow long lines (up to 4MB): a private key on one line is bigger than bufio's 64KB default.
 	s.Buffer(make([]byte, 0, 64<<10), 4<<20)
 	for s.Scan() {
 		line := strings.TrimSpace(s.Text())
@@ -44,26 +42,19 @@ func parseEnv(r io.Reader) (map[string]string, error) {
 	return out, s.Err()
 }
 
-// unquoteValue reverses quoteValue. A double-quoted value carries escapes, so
-// newlines and surrounding whitespace survive; anything else is taken
-// literally, which keeps hand-written .env files working as before.
+// unquoteValue reverses quoteValue.
 func unquoteValue(v string) string {
 	if len(v) >= 2 && v[0] == '"' && v[len(v)-1] == '"' {
 		if unquoted, err := strconv.Unquote(v); err == nil {
 			return unquoted
 		}
-		// Not valid escape syntax (a hand-written "value" with a stray
-		// backslash, say) — fall back to stripping the delimiters.
+		// Not valid escape syntax, so just strip the quotes.
 		return v[1 : len(v)-1]
 	}
 	return v
 }
 
-// quoteValue decides whether a value can be written bare. Newlines are the
-// case that matters: a private key written raw spreads across lines and the
-// file no longer parses at all, silently corrupting the secret it was meant to
-// carry. Leading and trailing spaces are quoted for the same reason — parsing
-// trims them, so writing them bare loses them.
+// quoteValue decides whether a value can be written bare.
 func quoteValue(v string) string {
 	if v == "" || (!strings.ContainsAny(v, "\n\r\"\\") && strings.TrimSpace(v) == v) {
 		return v
@@ -71,9 +62,7 @@ func quoteValue(v string) string {
 	return strconv.Quote(v)
 }
 
-// renderEnv turns secrets into the body of a .env file, keys sorted so the same
-// set always produces the same text. It is what both the file on disk and
-// `envi copy` hand out, so a pasted environment and a pulled one are identical.
+// renderEnv turns secrets into .env text, sorted by key.
 func renderEnv(values map[string]string) string {
 	keys := make([]string, 0, len(values))
 	for k := range values {
@@ -99,9 +88,7 @@ func writeEnv(path string, values map[string]string) error {
 	return nil
 }
 
-// fetchSnapshot reads an environment's current secrets and the revision they
-// were read at. Every command that touches the remote goes through here, so the
-// request shape is stated once.
+// fetchSnapshot reads an environment's current secrets and the revision they were read at.
 func fetchSnapshot(ctx context.Context, c Client, envID string) (map[string]string, int64, error) {
 	var snapshot struct {
 		Values   map[string]string `json:"values"`
@@ -116,8 +103,7 @@ func fetchSnapshot(ctx context.Context, c Client, envID string) (map[string]stri
 	return snapshot.Values, snapshot.Revision, nil
 }
 
-// Pull writes the environment's secrets to .env, returning how many were
-// written so the caller can say so rather than just "complete".
+// Pull writes the environment's secrets to .env and returns how many.
 func Pull(ctx context.Context, c Client, dir string) (int, error) {
 	x, e := loadContext(dir)
 	if e != nil {
@@ -135,14 +121,6 @@ func Pull(ctx context.Context, c Client, dir string) (int, error) {
 }
 
 // Push sends a local env file up, returning how many secrets were sent.
-//
-// The write is a compare-and-swap against the revision recorded in envi.toml,
-// so an origin that moved on since the last pull is rejected rather than
-// quietly overwritten. force skips that check and writes against whatever the
-// server currently holds, for when the local file is already the wanted state
-// and pulling first would only drag down secrets destined to be discarded.
-// clean removes the file after a successful push, so a pull-edit-push cycle
-// leaves nothing plaintext behind. Nothing is deleted unless the push worked.
 func Push(ctx context.Context, c Client, dir, file string, force, clean bool) (int, error) {
 	x, e := loadContext(dir)
 	if e != nil {
@@ -177,9 +155,7 @@ func Push(ctx context.Context, c Client, dir, file string, force, clean bool) (i
 	return len(values), nil
 }
 
-// resolveEnvFile picks the file a command reads: the project's .env unless one
-// was named on the command line, in which case it is taken relative to the
-// working directory.
+// resolveEnvFile returns the named file (relative to the working directory) or the project's .env.
 func resolveEnvFile(dir, file string) string {
 	file = strings.TrimSpace(file)
 	switch {
@@ -209,9 +185,7 @@ func currentRevision(ctx context.Context, c Client, envID string) (int64, error)
 	return revision, e
 }
 
-// withForceHint replaces the server's compare-and-swap rejection with the two
-// choices the user actually has. The bare code sends people to envi pull even
-// when the remote holds nothing they want.
+// withForceHint turns a stale-revision rejection into advice: pull first, or push --force.
 func withForceHint(e error) error {
 	var api *APIError
 	if errors.As(e, &api) && api.Code == "stale_revision" {
@@ -265,11 +239,7 @@ func Diff(ctx context.Context, c Client, dir string, out io.Writer) error {
 	return nil
 }
 
-// fetchValues reads secrets by name rather than by environment id, for callers
-// with no envi.toml. A service token names its own environment, so both
-// arguments may be empty; anything else must say which project it means.
-//
-// It returns the values and a "project · environment" label for display.
+// fetchValues reads secrets by name rather than by environment id, for callers with no envi.toml.
 func fetchValues(ctx context.Context, c Client, project, environment string) (map[string]string, string, error) {
 	query := url.Values{}
 	if project != "" {

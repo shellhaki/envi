@@ -24,14 +24,14 @@ import (
 // matching it, so a new endpoint can't ship undocumented.
 func TestEndpointsAreDocumented(t *testing.T) {
 	r := Build(nil, auth.LoginSettings{}, project.Service{}, secret.Service{}, kv.Store{}, audit.Service{},
-		service_token.Service{}, invitation.Service{}, "", false, config.Deployment{}, announce.Service{}, billing.Service{})
+		service_token.Service{}, invitation.Service{}, "", config.Deployment{}, announce.Service{}, billing.Service{})
 	var routes []string
 	for _, route := range r.Routes() {
 		routes = append(routes, route.Method+" "+route.Path)
 	}
 	sort.Strings(routes)
 
-	raw, err := os.ReadFile("../../ENDPOINTS.md")
+	raw, err := os.ReadFile("../../architecture/ENDPOINTS.md")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,7 +42,7 @@ func TestEndpointsAreDocumented(t *testing.T) {
 	sort.Strings(documented)
 	compare(t, "ENDPOINTS.md", routes, documented)
 
-	raw, err = os.ReadFile("../../excalidraw.json")
+	raw, err = os.ReadFile("../../architecture/excalidraw.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +92,7 @@ func TestDiagramShowsEveryTable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, err := os.ReadFile("../../excalidraw.json")
+	raw, err := os.ReadFile("../../architecture/excalidraw.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +118,7 @@ func TestDiagramShowsEveryTable(t *testing.T) {
 // The services section is drawn from the Go packages; a new package that is
 // not drawn means make diagram was not run.
 func TestDiagramShowsEveryService(t *testing.T) {
-	raw, err := os.ReadFile("../../excalidraw.json")
+	raw, err := os.ReadFile("../../architecture/excalidraw.json")
 	if err != nil {
 		t.Fatal(err)
 	}

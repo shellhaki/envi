@@ -1,8 +1,8 @@
 # Envi API endpoints
 
-Every route the Go server registers, grouped by area. 56 in total.
+Every route the Go server registers, grouped by area. 55 in total.
 
-All source paths are under `internal/api/`. Routes are wired together in `server.go` (`Build`).
+All source paths are under `internal/api/`. Every route is registered in one place: `server.go` (`Build`).
 
 ## Middleware
 
@@ -18,14 +18,13 @@ All source paths are under `internal/api/`. Routes are wired together in `server
 
 ---
 
-## Health and server config
+## Health
 
 Source: `server.go`
 
 | Method | Path | Middleware | Input | What it does |
 |---|---|---|---|---|
-| GET | `/health` | none | none | Liveness check. Returns `{"status":"ok"}`. Line 20. |
-| GET | `/config` | none | none | Tells the dashboard whether this instance is in beta mode. Returns `{"beta": bool}`. Line 28. |
+| GET | `/health` | none | none | Liveness check. Returns `{"status":"ok"}`. |
 
 ## Sign-in (email code)
 
@@ -33,7 +32,7 @@ Source: `auth.go`
 
 | Method | Path | Middleware | Input | What it does |
 |---|---|---|---|---|
-| POST | `/auth/request-otp` | none | body `{email}` | Emails a 6 digit login code. Rate limited. In beta mode, only allowlisted emails get one. |
+| POST | `/auth/request-otp` | none | body `{email}` | Emails a 6 digit login code. Rate limited. |
 | POST | `/auth/verify-otp` | none | body `{email, code}` | Checks the code, creates the account on first sign-in (and sends the welcome email), returns access and refresh tokens. |
 | POST | `/auth/refresh` | none | body `{refresh_token}` | Swaps a refresh token for a new pair. Refresh tokens are single use. |
 | POST | `/auth/logout` | none | body `{refresh_token}` | Revokes the refresh token. |
@@ -51,7 +50,7 @@ Source: `device.go`
 
 ## API keys
 
-Source: `apikey.go`
+Source: `auth.go` (exchange) and `account.go`
 
 | Method | Path | Middleware | Input | What it does |
 |---|---|---|---|---|
@@ -70,7 +69,7 @@ Source: `account.go`
 
 ## Projects and environments
 
-Source: `project.go`, `RoutesProtected`
+Source: `projects.go`
 
 | Method | Path | Middleware | Input | What it does |
 |---|---|---|---|---|
@@ -84,7 +83,7 @@ Source: `project.go`, `RoutesProtected`
 
 ## Secrets
 
-Source: `secret.go`, mounted under `/environments/:id`
+Source: `secrets.go`
 
 | Method | Path | Middleware | Input | What it does |
 |---|---|---|---|---|
@@ -98,7 +97,7 @@ A service token only reaches its own environment (`service_env`). A read-only se
 
 ## Lookup by name
 
-Source: `config.go` (values) and `kv.go`
+Source: `values.go` and `kv.go`
 
 | Method | Path | Middleware | Input | What it does |
 |---|---|---|---|---|
@@ -109,7 +108,7 @@ Source: `config.go` (values) and `kv.go`
 
 ## Service tokens
 
-Source: `service_token.go`
+Source: `tokens.go`
 
 | Method | Path | Middleware | Input | What it does |
 |---|---|---|---|---|
@@ -118,7 +117,7 @@ Source: `service_token.go`
 
 ## Invitations and collaborators
 
-Source: `invitation.go`
+Source: `invitations.go`
 
 | Method | Path | Middleware | Input | What it does |
 |---|---|---|---|---|
@@ -143,29 +142,29 @@ Source: `billing.go`. All `/billing` routes act on the caller's personal org.
 
 | Method | Path | Middleware | Input | What it does |
 |---|---|---|---|---|
-| GET | `/billing` | Owner | none | Plan, currency, billable members this month, amount due, card on file, failed charges. Line 71. |
-| POST | `/billing/payg` | Owner | body `{currency}` (`USD` or `NGN`) | Starts pay as you go. Returns a Bachs checkout URL that saves a card. Line 84. |
-| POST | `/billing/team` | Owner | none | Starts the flat Team plan. Returns a Bachs subscription checkout URL. Line 102. |
-| POST | `/billing/cancel` | Owner | none | Cancels at the end of the period. Line 115. |
-| POST | `/billing/portal` | Owner | none | Returns a Bachs customer portal URL to manage the card. Line 127. |
-| POST | `/billing/retry` | Owner | none | Retries a failed charge now instead of waiting for the next attempt. Line 140. |
-| POST | `/webhooks/bachs` | Signature | raw body | Bachs payment events. Records the plan and charges. Duplicate events are ignored. Line 163. |
+| GET | `/billing` | Owner | none | Plan, currency, billable members this month, amount due, card on file, failed charges. |
+| POST | `/billing/payg` | Owner | body `{currency}` (`USD` or `NGN`) | Starts pay as you go. Returns a Bachs checkout URL that saves a card. |
+| POST | `/billing/team` | Owner | none | Starts the flat Team plan. Returns a Bachs subscription checkout URL. |
+| POST | `/billing/cancel` | Owner | none | Cancels at the end of the period. |
+| POST | `/billing/portal` | Owner | none | Returns a Bachs customer portal URL to manage the card. |
+| POST | `/billing/retry` | Owner | none | Retries a failed charge now instead of waiting for the next attempt. |
+| POST | `/webhooks/bachs` | Signature | raw body | Bachs payment events. Records the plan and charges. Duplicate events are ignored. |
 
 ## Operator (admin area)
 
-Source: `admin.go`, mounted under `/admin`
+Source: `admin.go`
 
 | Method | Path | Middleware | Input | What it does |
 |---|---|---|---|---|
-| GET | `/admin/whoami` | Operator | none | Your operator role. The dashboard uses it to show or hide the admin link. Line 134. |
-| GET | `/admin/stats` | Manage | none | Live numbers: users, projects, secrets, revenue, expenses, recent activity. Line 145. |
-| POST | `/admin/expenses` | Manage | body `{amount_minor, currency, category, description, spent_on, recurring}` | Records an expense. Line 154. |
-| DELETE | `/admin/expenses/:id` | Manage | path `id` | Deletes an expense. Line 192. |
-| GET | `/admin/operators` | Manage | none | Lists operators and their roles. Line 202. |
-| POST | `/admin/operators` | Manage | body `{email, name, role}` (`admin` or `announcer`) | Adds an operator. Line 211. |
-| DELETE | `/admin/operators/:id` | Manage | path `id` | Removes an operator. People in `ENVI_ADMINS` cannot be removed here. Line 225. |
-| GET | `/admin/announcements` | Announce | none | Past announcements. Line 235. |
-| POST | `/admin/announcements` | Announce | body `{subject, body, confirm: true}` | Emails an announcement to every user. `confirm` must be true. Line 249. |
+| GET | `/admin/whoami` | Operator | none | Your operator role. The dashboard uses it to show or hide the admin link. |
+| GET | `/admin/stats` | Manage | none | Live numbers: users, projects, secrets, revenue, expenses, recent activity. |
+| POST | `/admin/expenses` | Manage | body `{amount_minor, currency, category, description, spent_on, recurring}` | Records an expense. |
+| DELETE | `/admin/expenses/:id` | Manage | path `id` | Deletes an expense. |
+| GET | `/admin/operators` | Manage | none | Lists operators and their roles. |
+| POST | `/admin/operators` | Manage | body `{email, name, role}` (`admin` or `announcer`) | Adds an operator. |
+| DELETE | `/admin/operators/:id` | Manage | path `id` | Removes an operator. People in `ENVI_ADMINS` cannot be removed here. |
+| GET | `/admin/announcements` | Announce | none | Past announcements. |
+| POST | `/admin/announcements` | Announce | body `{subject, body, confirm: true}` | Emails an announcement to every user. `confirm` must be true. |
 
 ---
 

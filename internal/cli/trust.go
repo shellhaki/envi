@@ -1,15 +1,7 @@
 package cli
 
-// Which folders may load their secrets automatically.
-//
-// The shell hook loads secrets the moment you cd into a folder, and every
-// command run there inherits them. A repository someone else wrote can carry
-// an envi.toml pointing at an environment you have access to; if that loaded
-// on its own, their install script would be handed your keys. So nothing loads
-// until you have said `envi allow` for that folder, and the permission is tied
-// to the project and environment its envi.toml names: point it anywhere else
-// and it must be allowed again. The revision recorded in the same file is left
-// out, or every push would take the permission away.
+// Which folders may load their secrets automatically. Nothing loads until `envi allow`, so a cloned repo
+// can't point its envi.toml at your environments and hand your secrets to its install scripts.
 
 import (
 	"crypto/sha256"
@@ -27,8 +19,7 @@ import (
 
 // Allowed is one folder the hook may load.
 type Allowed struct {
-	// Hash identifies the project and environment that were allowed; see
-	// trustKey.
+	// Hash identifies the project and environment that were allowed; see trustKey.
 	Hash        string    `json:"hash"`
 	Project     string    `json:"project"`
 	Environment string    `json:"environment"`
@@ -76,9 +67,7 @@ func (s trustStore) save(all map[string]Allowed) error {
 	return os.Rename(tmp, s.path)
 }
 
-// epochPath holds a counter every shell's hook compares against. Allowing,
-// denying or reloading bumps it, which is how a command run in one shell
-// reaches the hook in every open shell without touching their environments.
+// epochPath holds a counter every shell's hook compares against.
 func epochPath() (string, error) {
 	dir, err := ConfigDir()
 	if err != nil {
@@ -111,8 +100,7 @@ func bumpEpoch() error {
 	return os.WriteFile(p, []byte(strconv.FormatInt(n+1, 10)), 0o600)
 }
 
-// findRoot is the nearest folder at or above dir holding an envi.toml, so the
-// secrets stay loaded in a project's subfolders. Empty when there is none.
+// findRoot is the nearest folder at or above dir with an envi.toml, or "".
 func findRoot(dir string) string {
 	if resolved, err := filepath.EvalSymlinks(dir); err == nil {
 		dir = resolved
@@ -129,8 +117,7 @@ func findRoot(dir string) string {
 	}
 }
 
-// trustKey is what a permission is tied to: which project and environment
-// envi.toml points at, and nothing else in the file.
+// trustKey identifies the project and environment envi.toml points at.
 func trustKey(x projectctx.Context) string {
 	sum := sha256.Sum256([]byte(x.Project.ID + "\n" + x.Environment.ID))
 	return hex.EncodeToString(sum[:])

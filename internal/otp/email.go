@@ -6,8 +6,16 @@ import (
 	"shellhaki/envi/internal/mailer"
 )
 
+// Mailer sends a login code to an email address.
 type Mailer interface {
-	Send(string, string) error
+	Send(to, code string) error
+}
+
+// Resend sends login codes through Resend.
+type Resend struct{ Client mailer.Resend }
+
+func (r Resend) Send(to, code string) error {
+	return r.Client.Send(codeMessage(to, code))
 }
 
 func codeMessage(to, code string) mailer.Message {
@@ -22,11 +30,4 @@ func codeMessage(to, code string) mailer.Message {
 <p style="margin:24px 0 0;color:#98a2b3;font-size:12px;line-height:1.5;">If you didn't request this, you can safely ignore this email — no one can sign in without the code above.</p>
 </div></body></html>`, code)
 	return mailer.Message{To: to, Subject: "Envi login code", Text: text, HTML: html}
-}
-
-// Resend delivers OTP codes through the Resend HTTP API.
-type Resend struct{ Client mailer.Resend }
-
-func (r Resend) Send(to, code string) error {
-	return r.Client.Send(codeMessage(to, code))
 }

@@ -102,9 +102,7 @@ type deviceCodeResponse struct {
 	Interval                int    `json:"interval"`
 }
 
-// AuthenticateDevice runs the browser device flow: it asks the server for a code,
-// shows the user where to enter it, then polls until the web session approves it.
-// This is the default path; the CLI itself never sees the user's credentials.
+// AuthenticateDevice signs in through the browser: show a code, then poll until it is approved.
 func AuthenticateDevice(ctx context.Context, c Client, store TokenStore, out io.Writer, openBrowser bool) error {
 	var d deviceCodeResponse
 	if e := c.Do(ctx, "POST", "/auth/device/code", nil, &d); e != nil {
@@ -147,8 +145,7 @@ func AuthenticateDevice(ctx context.Context, c Client, store TokenStore, out io.
 	return nil
 }
 
-// pollForToken exchanges the device code for a session, retrying while the user
-// has not yet approved. wait is injected so tests can advance without real sleeps.
+// pollForToken waits for the browser to approve. wait is passed in so tests don't sleep.
 func pollForToken(ctx context.Context, c Client, deviceCode string, interval time.Duration, deadline time.Time, wait func(time.Duration) <-chan time.Time) (Tokens, error) {
 	for {
 		select {
@@ -186,9 +183,7 @@ func pollForToken(ctx context.Context, c Client, deviceCode string, interval tim
 	}
 }
 
-// Logout revokes the stored session upstream and clears it locally. The local
-// session is cleared even if the server rejects the token, so a stale session
-// cannot strand the user.
+// Logout revokes the stored session upstream and clears it locally.
 func Logout(ctx context.Context, c Client, store TokenStore, out io.Writer) error {
 	t, err := store.Load()
 	if err != nil || t.Refresh == "" {
@@ -210,9 +205,7 @@ func Logout(ctx context.Context, c Client, store TokenStore, out io.Writer) erro
 	return nil
 }
 
-// authorize returns a Client that carries the stored access token and can rotate
-// it. A static ENVI_TOKEN wins and is never refreshed: service tokens have no
-// refresh counterpart.
+// authorize returns a Client that carries the stored access token and can rotate it.
 func authorize(c Client, store TokenStore) (Client, error) {
 	if v := LoadConfig().Token; v != "" {
 		c.Token = v
@@ -232,8 +225,7 @@ func authorize(c Client, store TokenStore) (Client, error) {
 	if t.Refresh == "" {
 		return c, nil
 	}
-	// Refresh up front when the access token is known to be spent, so the command
-	// does not burn a round trip discovering a 401.
+	// Refresh now if the access token has already expired, saving a round trip.
 	if !t.AccessExpiry.IsZero() && time.Now().After(t.AccessExpiry) {
 		access, err := refresh(c, store, t.Refresh)
 		if err != nil {
@@ -247,8 +239,7 @@ func authorize(c Client, store TokenStore) (Client, error) {
 	return c, nil
 }
 
-// refresh exchanges a refresh token for a new pair and persists it. It uses a
-// bare client so a failed refresh cannot recurse into another refresh.
+// refresh exchanges a refresh token for a new pair and persists it.
 func refresh(c Client, store TokenStore, refreshToken string) (string, error) {
 	var t sessionResponse
 	bare := Client{BaseURL: c.BaseURL, HTTP: c.HTTP}

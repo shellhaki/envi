@@ -20,9 +20,7 @@ const (
 	ExitForbidden = 4
 	ExitConfig    = 5
 	ExitAPI       = 6
-	// ExitPayment means the organization's plan does not allow it — adding a
-	// person on the free plan, say. Distinct from ExitForbidden so a script can
-	// tell "you need to pay" from "you are not allowed".
+	// ExitPayment means the plan doesn't allow it, e.g. adding a person on the free plan.
 	ExitPayment = 7
 )
 
@@ -84,9 +82,7 @@ func (a App) Run(args []string) int {
 		if e := fs.Parse(args[1:]); e != nil {
 			return ExitUsage
 		}
-		// init prompts, so it must print through the spinner's writer: the first
-		// prompt stops the animation. Writing to a.Out directly leaves the
-		// spinner redrawing over the questions while init waits for input.
+		// init prompts, so it must print through the spinner's writer: the first prompt stops the animation.
 		return a.authenticated("Loading projects", func(c Client, out io.Writer) error {
 			dir, e := os.Getwd()
 			if e != nil {
@@ -114,9 +110,7 @@ func (a App) Run(args []string) int {
 		if e := fs.Parse(rest); e != nil {
 			return ExitUsage
 		}
-		// Go's flag package stops at the first non-flag word, so
-		// "push --force origin prod" would otherwise parse as --force with
-		// "origin prod" quietly dropped, and push to the wrong origin.
+		// Parse the positional words first: Go's flag package stops at the first non-flag word.
 		if fs.NArg() > 0 {
 			fmt.Fprintf(a.Err, "unexpected argument %q\n", fs.Arg(0))
 			fmt.Fprintln(a.Err, "usage: envi push [file] [origin <name>] [--force] [--yes]")
@@ -131,8 +125,7 @@ func (a App) Run(args []string) int {
 			if e != nil {
 				return e
 			}
-			// Another origin is one you are not looking at, so that path
-			// confirms before writing; the current one is the plain push.
+			// Pushing to an origin other than the current one asks for confirmation first.
 			if originName != "" {
 				return PushToOrigin(context.Background(), c, a.input(), out, dir, file, originName, *yes, *force)
 			}
@@ -167,25 +160,20 @@ func (a App) Run(args []string) int {
 			fmt.Fprintln(a.Err, e)
 			return ExitConfig
 		}
-		// Fetch behind a spinner, which Run stops as soon as the network work
-		// is done: it redraws on a timer and would otherwise scribble over the
-		// child's output for as long as the child runs. Stop is idempotent, so
-		// the second call here only matters on the paths that fail early.
+		// Run stops the spinner once the fetch is done, so it doesn't draw over the child's output.
 		fetching := NewUI(a.Out).Spinner("Fetching secrets")
 		status, e := Run(context.Background(), c, dir, origin, preserve, argv, a.Err, fetching.Stop)
 		fetching.Stop()
 		if e != nil {
 			fmt.Fprintln(a.Err, e)
-			// A command that could not be started reports the status a shell
-			// would give it, not one of envi's codes.
+			// A command that couldn't start returns the status a shell would (126 or 127).
 			var ee *ExecError
 			if errors.As(e, &ee) {
 				return ee.Status
 			}
 			return ExitCode(e)
 		}
-		// The child's status, not envi's: scripts wrapping a command in
-		// envi run must see exactly what they would have seen without it.
+		// Return the child's own exit status, so scripts see what they'd see without envi.
 		return status
 	case "key":
 		sub := ""
@@ -249,9 +237,7 @@ func (a App) Run(args []string) int {
 		origin := fs.String("origin", "", "copy another origin instead of the linked one")
 		stdout := fs.Bool("stdout", false, "write the text to stdout instead of the clipboard")
 		single := fs.Bool("single", false, "choose one secret from a list instead of copying them all")
-		// The key, if one was named, comes before the flags: Go's flag package
-		// stops at the first non-flag word, so `copy KEY --stdout` would
-		// otherwise leave --stdout unparsed and silently ignored.
+		// The key, if one was named, comes before the flags.
 		key, rest := parseCopyArgs(args[1:])
 		if e := fs.Parse(rest); e != nil {
 			return ExitUsage
@@ -275,8 +261,7 @@ func (a App) Run(args []string) int {
 			fmt.Fprintln(a.Err, e)
 			return ExitConfig
 		}
-		// With --stdout the env text is the output, so the spinner and the
-		// count go to stderr; that keeps `envi copy --stdout > .env` clean.
+		// With --stdout the secrets are the output, so status goes to stderr.
 		status := a.Out
 		sink := func(text string) error { return WriteClipboard(context.Background(), text) }
 		if *stdout {
@@ -299,8 +284,7 @@ func (a App) Run(args []string) int {
 			return ExitOK
 
 		case *single:
-			// The spinner has to stop before the list draws over it, the same
-			// way envi mod stops it before the editor takes the screen.
+			// Stop the spinner before the picker draws.
 			loading := NewUI(status).Spinner("Reading secrets")
 			chosen, label, e := CopyPicked(ctx, c, dir, *origin, os.Stdin, status, sink, loading.Stop)
 			loading.Stop()
@@ -353,8 +337,7 @@ func (a App) Run(args []string) int {
 			fmt.Fprintln(a.Err, e)
 			return ExitConfig
 		}
-		// The spinner has to stop before the editor takes the screen, or it
-		// redraws over it on its next tick.
+		// Stop the spinner before the editor takes the screen.
 		loading := NewUI(a.Out).Spinner("Loading secrets")
 		e = Mod(context.Background(), c, dir, *origin, loading.Stop)
 		loading.Stop()
@@ -580,8 +563,7 @@ func (a App) help() {
 	fmt.Fprintln(a.Out, "Usage: envi <command> [flags]\n\nCommands:\n  auth       Authenticate this device in the browser (--email for a code, --key for an API key)\n  logout     Revoke this device's session\n  key        Personal API keys (key create --name <name> | key list | key revoke <id>)\n  project    Create a project (project create <name>)\n  origin     This project's origins (origin list | origin switch <name> | origin create <name>)\n  env        Alias for origin create\n  init       Initialize project context\n  pull       Write remote secrets to .env\n  push       Send .env secrets to Envi (push [file] [origin <name>] [--force] [--clean])\n  diff       Compare local and remote keys\n  mod        Edit this origin's secrets in a terminal editor, nothing written to disk\n  clean      Delete the local .env once the server already has it\n  copy       Copy secrets to the clipboard (copy | copy KEY | copy --single)\n  run        Run a command with the secrets injected, no .env on disk (run -- npm start)\n  hook       Load secrets automatically when you cd into a project (hook install)\n  allow      Let this folder load its secrets automatically (--production for production)\n  deny       Stop this folder loading its secrets automatically\n  reload     Fetch the secrets again at your next prompt\n  activity   Show recent activity for your organization\n  share      Invite a project collaborator\n  invite     Accept an invitation\n  token      Manage service tokens\n  update     Check for or install a new version (update check | update now)\n  uninstall  Remove envi from this machine\n  version    Print version\n  help       Show help")
 }
 
-// tokenStore resolves the session store, reporting the exit code to use when it
-// cannot be opened. A nil store means the caller should return that code.
+// tokenStore resolves the session store, reporting the exit code to use when it cannot be opened.
 func (a App) tokenStore() (TokenStore, int) {
 	if a.Store != nil {
 		return a.Store, ExitOK
@@ -607,15 +589,7 @@ func (a App) input() io.Reader {
 	return a.In
 }
 
-// authenticated resolves a session and runs a command against it, showing a
-// spinner labelled with what is happening. The command is handed the writer to
-// print to: the first write stops the spinner, so commands that stream results
-// need no knowledge of it, and commands that print only at the end get a clean
-// line to print on.
-// session resolves a ready-to-use client, reporting through the spinner and
-// returning the exit code to use when it cannot. Split out of authenticated so
-// that run, whose exit status belongs to its child process, can get a client
-// without inheriting the rest of that wrapper.
+// authenticated runs a command with a signed-in client, behind a spinner.
 func (a App) session() (Client, int) {
 	store, code := a.tokenStore()
 	if store == nil {
@@ -668,18 +642,9 @@ func ExitCode(err error) int {
 	return ExitAPI
 }
 
-// parsePushArgs reads the positional part of
-//
-//	envi push [file] [origin <name>] [flags]
 const copyUsage = "usage: envi copy [KEY | --single] [--origin <name>] [--stdout]"
 
-// parseCopyArgs splits
-//
-//	envi copy [KEY] [flags]
-//
-// into the secret's name and the rest. The name goes first and is optional, so
-// `envi copy` copies the whole origin and `envi copy DATABASE_URL` copies one
-// value — without a --key flag nobody would type.
+// parseCopyArgs splits `envi copy [KEY] [flags]` into the key and the flags.
 func parseCopyArgs(args []string) (key string, rest []string) {
 	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
 		return args[0], args[1:]
@@ -687,9 +652,7 @@ func parseCopyArgs(args []string) (key string, rest []string) {
 	return "", args
 }
 
-// and hands the rest to the flag set. A leading word is the env file to push
-// unless it is "origin" or a flag, which is what lets the file stay optional
-// without a --file flag nobody would type.
+// parsePushArgs reads `envi push [file] [origin <name>] [flags]` and returns the flags left over.
 func parsePushArgs(args []string) (file, origin string, rest []string, err error) {
 	rest = args
 	if len(rest) > 0 && rest[0] != "origin" && !strings.HasPrefix(rest[0], "-") {

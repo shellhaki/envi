@@ -6,21 +6,16 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 )
 
-// Resend sends mail through the Resend HTTP API (https://resend.com) —
-// no SMTP, no app passwords, just an API key and a from-address.
-//
-// Without a verified sending domain on the Resend account, "From" is
-// restricted to their sandbox address (onboarding@resend.dev) and mail can
-// only be delivered to the address the Resend account itself was signed up
-// with — verify a domain in the Resend dashboard to send to arbitrary
-// recipients (invitations, OTP codes for any user) in production.
+// Resend sends mail through the Resend API (https://resend.com).
 type Resend struct {
 	APIKey string
 	From   string
 }
 
+// Send tries up to three times, since a dropped connection or a 5xx is usually brief.
 func (r Resend) Send(m Message) error {
 	if r.APIKey == "" {
 		return fmt.Errorf("RESEND_API_KEY is required")
@@ -28,7 +23,14 @@ func (r Resend) Send(m Message) error {
 	if r.From == "" {
 		return fmt.Errorf("RESEND_FROM is required")
 	}
-	return withRetry(func() error { return r.send(m) })
+	var err error
+	for _, wait := range []time.Duration{0, time.Second, 3 * time.Second} {
+		time.Sleep(wait)
+		if err = r.send(m); err == nil {
+			return nil
+		}
+	}
+	return err
 }
 
 func (r Resend) send(m Message) error {

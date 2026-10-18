@@ -1,9 +1,6 @@
 package cli
 
-// A one-of-many list for the terminal: arrow keys to move, type to narrow,
-// Return to choose. Used by envi copy --single, where naming the key you want
-// means remembering it, and remembering it is the thing you opened the list to
-// avoid.
+// A one-of-many list for the terminal: arrow keys to move, type to narrow, Return to choose.
 
 import (
 	"errors"
@@ -16,15 +13,12 @@ import (
 	"golang.org/x/term"
 )
 
-// How many rows of the list are on screen at once. Beyond this it scrolls, so
-// a project with eighty secrets does not push its own prompt off the top.
+// How many rows of the list are on screen at once.
 const pickerWindow = 10
 
 var errPickerCancelled = errors.New("cancelled")
 
-// picker is the list's state with no terminal in it: which items exist, what
-// has been typed, and where the cursor is. Keeping it separate from the drawing
-// is what makes the key handling testable without a pty.
+// picker holds the list's state: items, the typed filter and the cursor.
 type picker struct {
 	items   []string
 	filter  string
@@ -38,9 +32,7 @@ func newPicker(items []string) *picker {
 	return p
 }
 
-// refilter recomputes the visible set. The cursor is kept on screen rather
-// than remembered: after narrowing to one result, that result should be the
-// selected one, not whatever happened to be selected before.
+// refilter recomputes the visible set.
 func (p *picker) refilter() {
 	p.matches = p.matches[:0]
 	needle := strings.ToLower(p.filter)
@@ -57,13 +49,7 @@ func (p *picker) refilter() {
 	}
 }
 
-// subsequence reports whether every character of needle appears in item, in
-// order but not necessarily together. Both are already lowercased.
-//
-// Plain substring matching is the obvious choice and the wrong one here:
-// "db" would miss DATABASE_URL, which is exactly the key somebody typing "db"
-// is reaching for. Matching in order is enough to narrow a list of secret
-// names, and short enough to stay predictable.
+// subsequence reports whether needle's characters appear in item in order, e.g. "db" in DATABASE_URL.
 func subsequence(item, needle string) bool {
 	if needle == "" {
 		return true
@@ -82,8 +68,7 @@ func (p *picker) move(delta int) {
 		return
 	}
 	p.cursor += delta
-	// Wrapping, because a list you can run off the end of makes you check
-	// whether you ran off the end of it.
+	// The cursor wraps around at both ends.
 	if p.cursor < 0 {
 		p.cursor = len(p.matches) - 1
 	}
@@ -100,8 +85,7 @@ func (p *picker) selected() (string, bool) {
 	return p.items[p.matches[p.cursor]], true
 }
 
-// window returns the slice of matches to draw, and the offset it starts at, so
-// the cursor stays visible in a list longer than the window.
+// window returns the part of the list to draw so the cursor stays visible.
 func (p *picker) window() (rows []int, offset int) {
 	if len(p.matches) <= pickerWindow {
 		return p.matches, 0
@@ -125,8 +109,7 @@ const (
 	pickerCancel
 )
 
-// key applies one keystroke. Escape sequences arrive here already decoded into
-// the single byte that follows "ESC [", which is how arrow keys reach it.
+// key applies one keystroke.
 func (p *picker) key(b byte, escaped bool) pickerAction {
 	if escaped {
 		switch b {
@@ -166,15 +149,7 @@ func (p *picker) key(b byte, escaped bool) pickerAction {
 	return pickerContinue
 }
 
-/*
-runPicker draws the list and reads keys until one is chosen or the list is
-cancelled, returning the chosen item.
-
-It draws in place and rubs itself out afterwards rather than taking the whole
-screen the way the editor does: choosing one key out of a list is a step in a
-command, not a mode you enter, and it should leave the scrollback as it found
-it.
-*/
+// runPicker draws the list and reads keys until an item is chosen or the list is cancelled.
 func runPicker(in *os.File, out io.Writer, title string, items []string) (string, error) {
 	if !term.IsTerminal(int(in.Fd())) {
 		return "", errors.New("envi copy --single needs an interactive terminal; name the secret instead, as envi copy KEY")
@@ -209,8 +184,7 @@ func runPicker(in *os.File, out io.Writer, title string, items []string) (string
 		for i := 0; i < n; i++ {
 			escaped := false
 			b := buf[i]
-			// An arrow key is ESC [ <letter>. A bare Escape is a cancel, so
-			// the two are told apart by whether anything follows.
+			// An arrow key is ESC [ <letter>.
 			if b == 0x1b && i+2 < n && buf[i+1] == '[' {
 				escaped, b = true, buf[i+2]
 				i += 2
@@ -236,8 +210,7 @@ func erase(out io.Writer, n int) {
 	}
 }
 
-// drawPicker writes the list and returns how many lines it used, which is what
-// the next redraw needs in order to erase exactly this much and no more.
+// drawPicker writes the list and returns how many lines it used, so the next redraw can erase them.
 func drawPicker(out io.Writer, title string, p *picker) int {
 	lines := 0
 	write := func(format string, a ...any) {

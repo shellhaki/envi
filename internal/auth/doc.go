@@ -1,4 +1,2 @@
-// Package auth signs people in: email login codes, the CLI device flow, and
-// the access and refresh token pairs that both end in. Tokens are stored only
-// as hashes.
+// Package auth signs people in (email codes, CLI device login) and manages their sessions.
 package auth

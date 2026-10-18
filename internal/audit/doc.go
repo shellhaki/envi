@@ -1,3 +1,2 @@
-// Package audit lists the record of who did what in an organization: secret
-// reads and writes, invitations, tokens.
+// Package audit lists who did what in an organization.
 package audit

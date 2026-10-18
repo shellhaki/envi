@@ -5,9 +5,7 @@ import (
 	"runtime"
 )
 
-// openURL tries to open a URL in the user's default browser. It is best-effort:
-// the URL is always printed too, so a failure here is not fatal to auth. The
-// child is started detached and never waited on.
+// openURL tries to open a URL in the user's default browser.
 func openURL(url string) error {
 	var name string
 	var args []string

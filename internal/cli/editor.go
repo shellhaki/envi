@@ -1,16 +1,6 @@
 package cli
 
-// A small full-screen editor for an environment's secrets, so they can be
-// changed without ever writing a .env to disk.
-//
-// Keys follow nano, which is what most people reach for in a terminal:
-//
-//	Ctrl+O   push the buffer back to Envi
-//	Ctrl+X   leave (asks first if the buffer changed)
-//	Ctrl+K   delete the current line
-//
-// The buffer is the same KEY=VALUE text .env uses, so what you edit here and
-// what envi pull writes are the same thing.
+// A small full-screen editor for an environment's secrets, so no .env touches the disk.
 
 import (
 	"errors"
@@ -130,8 +120,7 @@ func (e *editor) clamp() {
 	}
 }
 
-// visibleRows is the buffer area, leaving room for the title and two footer
-// lines.
+// visibleRows is the buffer area, leaving room for the title and two footer lines.
 func (e *editor) visibleRows() int {
 	n := e.height - 4
 	if n < 1 {
@@ -140,8 +129,7 @@ func (e *editor) visibleRows() int {
 	return n
 }
 
-// draw repaints the whole screen. Small buffers make this cheap enough that
-// tracking dirty regions would only add ways to be wrong.
+// draw repaints the whole screen.
 func (e *editor) draw() {
 	rows := e.visibleRows()
 	top := 0
@@ -193,13 +181,7 @@ const (
 	editorPush
 )
 
-// run reads keys until the user pushes or quits. confirm is called when
-// quitting with unsaved changes; returning false keeps editing.
-//
-// A read can carry several keys at once — a paste, or fast typing — so the
-// buffer is consumed byte by byte rather than matched as a whole. Switching on
-// the length of the read would drop a Return that arrived alongside the text
-// after it.
+// run reads keys until the user pushes or quits; confirm guards quitting with unsaved changes.
 func (e *editor) run(in io.Reader, confirm func() bool) (editorResult, error) {
 	buf := make([]byte, 1024)
 	pending := []byte{}
@@ -220,8 +202,7 @@ func (e *editor) run(in io.Reader, confirm func() bool) (editorResult, error) {
 	}
 }
 
-// consume applies every complete key in the buffer, returning whatever is left
-// over: a partial escape sequence split across two reads waits for the rest.
+// consume applies every complete key press in buf and returns the unfinished rest.
 func (e *editor) consume(in []byte, confirm func() bool) (result editorResult, quit bool, rest []byte) {
 	e.status = ""
 	for i := 0; i < len(in); {
@@ -297,8 +278,7 @@ func (e *editor) move(key byte) {
 	e.clamp()
 }
 
-// decodeRune reads one UTF-8 rune, returning size 0 when the bytes are a
-// prefix of a character whose remainder has not arrived yet.
+// decodeRune reads one UTF-8 character, or returns size 0 if it hasn't fully arrived.
 func decodeRune(b []byte) (rune, int) {
 	r, size := utf8.DecodeRune(b)
 	if r == utf8.RuneError && size <= 1 && !utf8.FullRune(b) {
@@ -310,8 +290,7 @@ func decodeRune(b []byte) (rune, int) {
 	return r, size
 }
 
-// secretsAsText renders secrets in .env order: sorted, quoted the same way
-// envi pull writes them, so the buffer is byte-identical to the file it replaces.
+// secretsAsText renders secrets exactly as envi pull writes them.
 func secretsAsText(values map[string]string) string {
 	keys := make([]string, 0, len(values))
 	for k := range values {
@@ -325,8 +304,7 @@ func secretsAsText(values map[string]string) string {
 	return b.String()
 }
 
-// parseEditorText reads the buffer back, reporting the first bad line by
-// number rather than failing with a message nobody can act on.
+// parseEditorText reads the buffer back, naming the first bad line.
 func parseEditorText(text string) (map[string]string, error) {
 	values := map[string]string{}
 	for i, line := range strings.Split(text, "\n") {
@@ -349,8 +327,7 @@ func parseEditorText(text string) (map[string]string, error) {
 
 var errNotATerminal = errors.New("envi mod needs an interactive terminal; use envi pull and envi push instead")
 
-// terminalSize falls back to a sane default when the size cannot be read, so a
-// slightly odd terminal still gets a usable screen.
+// terminalSize falls back to 80x24 when the size can't be read.
 func terminalSize(fd int, size func(int) (int, int, error)) (int, int) {
 	w, h, err := size(fd)
 	if err != nil || w < 20 || h < 6 {

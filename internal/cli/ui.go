@@ -9,10 +9,7 @@ import (
 	"time"
 )
 
-// UI is the CLI's presentation layer. Styling is decided once, at construction,
-// from the writer it was given: piping to a file or a CI log yields plain text
-// with no escape codes and no in-place redraws, so `envi pull > out.txt` stays
-// machine-readable and the test suite keeps asserting on clean strings.
+// UI is the CLI's presentation layer.
 type UI struct {
 	Out   io.Writer
 	Style bool
@@ -21,7 +18,6 @@ type UI struct {
 func NewUI(w io.Writer) UI { return UI{Out: w, Style: styled(w)} }
 
 // styled reports whether w is an interactive terminal that wants escape codes.
-// NO_COLOR is honoured (https://no-color.org), as is TERM=dumb.
 func styled(w io.Writer) bool {
 	if os.Getenv("NO_COLOR") != "" || os.Getenv("TERM") == "dumb" {
 		return false
@@ -53,13 +49,7 @@ func (u UI) paint(code, text string) string {
 func (u UI) Bold(text string) string { return u.paint(ansiBold, text) }
 func (u UI) Dim(text string) string  { return u.paint(ansiDim, text) }
 
-// Success, Warn, Fail and Step are the whole vocabulary. Commands stay quiet by
-// default — a marker and a sentence — so the only place that draws anything
-// elaborate is a download, where there is genuinely something to watch.
-//
-// Off a terminal the glyphs are dropped rather than transliterated. Output that
-// lands in a CI log or a command substitution should read as plain prose, and
-// `TOKEN=$(envi token create ...)` must never capture decoration.
+// Success, Warn, Fail and Step are the whole vocabulary.
 func (u UI) marker(color, glyph, plain string) string {
 	if !u.Style {
 		return plain
@@ -80,9 +70,7 @@ func (u UI) Step(format string, a ...any) {
 }
 func (u UI) Print(format string, a ...any) { fmt.Fprintf(u.Out, format+"\n", a...) }
 
-// Spinner marks time during a network round trip, so a command that takes a
-// second reads as working rather than as hung. Off a terminal it draws nothing
-// at all: piped output and the test suite stay byte-for-byte clean.
+// Spinner shows that a slow network call is still working.
 type Spinner struct {
 	ui    UI
 	label string
@@ -117,8 +105,7 @@ func (s *Spinner) run() {
 	}
 }
 
-// Stop halts the animation and wipes the line, leaving the cursor where the
-// next line of real output belongs. Safe to call more than once.
+// Stop ends the animation and clears its line.
 func (s *Spinner) Stop() {
 	s.once.Do(func() {
 		close(s.stop)
@@ -130,7 +117,6 @@ func (s *Spinner) Stop() {
 }
 
 // Writer wraps w so the first byte a command prints stops the spinner first.
-// Commands that stream their results therefore need no knowledge of it.
 func (s *Spinner) Writer(w io.Writer) io.Writer { return &spinnerWriter{s: s, w: w} }
 
 type spinnerWriter struct {
@@ -143,9 +129,7 @@ func (sw *spinnerWriter) Write(b []byte) (int, error) {
 	return sw.w.Write(b)
 }
 
-// Progress draws a download bar that redraws in place on a terminal. Off a
-// terminal it prints one line when the transfer finishes, so logs get a record
-// of what happened without thousands of carriage returns.
+// Progress draws a download bar that redraws in place on a terminal.
 type Progress struct {
 	ui     UI
 	label  string
@@ -161,8 +145,7 @@ func (u UI) Progress(label string, total int64) *Progress {
 	return &Progress{ui: u, label: label, total: total, width: 28}
 }
 
-// Wrap returns a reader that advances the bar as it is read, so the caller just
-// copies from it and the drawing takes care of itself.
+// Wrap returns a reader that advances the bar as it is read.
 func (p *Progress) Wrap(r io.Reader) io.Reader { return &progressReader{p: p, r: r} }
 
 type progressReader struct {
@@ -185,8 +168,7 @@ func (p *Progress) Add(n int64) {
 	if !p.ui.Style {
 		return
 	}
-	// ~20fps is smooth to the eye and cheap; redrawing per chunk would spend
-	// more time writing escape codes than reading the socket.
+	// Redraw at most ~20 times a second.
 	if time.Since(p.lastAt) < 50*time.Millisecond && p.done < p.total {
 		return
 	}
@@ -214,8 +196,7 @@ func (p *Progress) stats() string {
 	return fmt.Sprintf("%3.0f%%  %s / %s", 100*float64(p.done)/float64(p.total), humanBytes(p.done), humanBytes(p.total))
 }
 
-// Done closes out the bar. On a terminal it clears the line so the caller can
-// print a normal result in its place; elsewhere it emits the single summary.
+// Done closes out the bar.
 func (p *Progress) Done() {
 	p.mu.Lock()
 	defer p.mu.Unlock()

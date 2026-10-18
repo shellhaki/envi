@@ -1,9 +1,4 @@
 // Package welcome sends the one email somebody gets for signing up.
-//
-// It is deliberately a note from a person rather than a product announcement.
-// Somebody who has just handed over their email to a secrets manager built by
-// a stranger is deciding whether to trust it, and a templated marketing blast
-// is evidence against. The From name carries that too — see SenderNote.
 package welcome
 
 import (
@@ -17,39 +12,14 @@ import (
 	"shellhaki/envi/internal/mailer"
 )
 
-/*
-SenderNote records a configuration fact that is not visible in this file.
-
-The display name on the email comes from RESEND_FROM, not from here, so the
-"Haki from Envi" part of the sender is set in the environment:
-
-	RESEND_FROM=Haki from Envi <haki@envisecrets.com>
-
-With a bare address there, the mail still sends and still reads correctly — it
-just arrives from "haki@envisecrets.com" instead of from a person.
-*/
-const SenderNote = "RESEND_FROM carries the display name, e.g. `Haki from Envi <haki@envisecrets.com>`"
-
-// Service sends the welcome. WebURL and DocsURL are woven into the body so a
-// self-hosted instance links to itself rather than to the hosted product.
+// The sender name ("Haki from Envi") comes from RESEND_FROM.
 type Service struct {
 	Mailer  mailer.Sender
 	WebURL  string
 	DocsURL string
 }
 
-/*
-Greet emails somebody who has just signed up.
-
-It never returns an error, because there is nothing a caller could usefully do
-with one: the account exists either way, and failing a sign-up because an SMTP
-hop timed out would be a worse outcome than a missing email. Failures are
-logged and dropped.
-
-It runs on its own context with a deadline rather than the request's. The
-request that triggered it is finished, and a context cancelled by the reply
-going out would cancel this with it.
-*/
+// Greet emails a new user in the background. A failure is only logged; the account exists either way.
 func (s Service) Greet(email string) {
 	if s.Mailer == nil || strings.TrimSpace(email) == "" {
 		return
@@ -77,22 +47,16 @@ func (s Service) message(to string) mailer.Message {
 	docs := strings.TrimRight(orDefault(s.DocsURL, "https://docs.envisecrets.com"), "/")
 
 	return mailer.Message{
-		To: to,
-		// No exclamation mark and no "welcome aboard": subject lines that read
-		// as a campaign are scored as one.
+		To:      to,
 		Subject: "You're home — a note from Haki at Envi",
 		Text:    text(web, docs),
 		HTML:    htmlBody(web, docs),
 		Headers: map[string]string{
-			// Gmail and Yahoo weigh this when deciding whether bulk mail was
-			// wanted. A sender without it is judged harder, and this is a
-			// one-off note, so honouring it costs nothing.
 			"List-Unsubscribe": fmt.Sprintf("<mailto:unsubscribe@%s?subject=unsubscribe>", hostOf(web)),
 		},
 	}
 }
 
-// hostOf strips the scheme, for building a mailto out of a web URL.
 func hostOf(url string) string {
 	host := strings.TrimPrefix(strings.TrimPrefix(url, "https://"), "http://")
 	if i := strings.IndexAny(host, "/:"); i > 0 {
@@ -108,9 +72,6 @@ func orDefault(value, fallback string) string {
 	return value
 }
 
-// text is the plain-text part, and it is a real letter rather than a stripped
-// copy of the HTML. Plenty of people read mail as text, and a wall of orphaned
-// link markup is how a sender ends up in a spam folder.
 func text(web, docs string) string {
 	return fmt.Sprintf(`Hey,
 
@@ -141,14 +102,7 @@ Envi
 `, web, docs)
 }
 
-/*
-htmlBody is the same letter, in the product's own palette.
-
-The colours are the tokens from ui/app/globals.css, written as literal hex
-because an email client has no stylesheet to inherit from and no custom
-property support worth relying on. Everything is inline for the same reason —
-Gmail strips <style> blocks.
-*/
+// htmlBody uses inline styles because email clients drop <style> blocks.
 func htmlBody(web, docs string) string {
 	const (
 		bg      = "#fafafa"

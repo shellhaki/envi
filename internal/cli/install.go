@@ -1,11 +1,6 @@
 package cli
 
 // How this copy of envi was installed, and therefore how to update it.
-//
-// There is no marker file to rely on: most installs predate this code, so the
-// answer has to be readable from where the binary sits. npm puts it under
-// node_modules, Homebrew under its own prefix, and the install script puts it
-// wherever the user asked.
 
 import (
 	"os/exec"
@@ -16,8 +11,7 @@ import (
 type InstallMethod struct {
 	// Kind is "npm", "homebrew", or "script".
 	Kind string
-	// Manager is which package manager owns an npm install: npm, pnpm, yarn
-	// or bun. Empty for the other kinds.
+	// Manager is which package manager owns an npm install: npm, pnpm, yarn or bun.
 	Manager string
 }
 
@@ -26,14 +20,11 @@ const NPMPackage = "@shellhaki/envi-cli"
 
 // DetectInstall works out how the binary at path was installed.
 func DetectInstall(path string) InstallMethod {
-	// Symlinks are the norm for globally installed commands, and the link
-	// itself says nothing; the file it points at does.
+	// Follow the symlink to the real binary.
 	if resolved, err := filepath.EvalSymlinks(path); err == nil {
 		path = resolved
 	}
-	// Normalise separators by hand rather than with filepath.ToSlash, which
-	// does nothing off Windows: a Windows path can reach this code from a
-	// config file or a test on any platform.
+	// Normalise slashes by hand: filepath.ToSlash does nothing outside Windows.
 	lower := strings.ToLower(strings.ReplaceAll(path, `\`, "/"))
 
 	if strings.Contains(lower, "/node_modules/") {
@@ -45,8 +36,7 @@ func DetectInstall(path string) InstallMethod {
 	return InstallMethod{Kind: "script"}
 }
 
-// managerFromPath reads the package manager off the global install directory,
-// each of which keeps its packages somewhere recognisable.
+// managerFromPath tells npm, pnpm, yarn and bun apart by their install folders.
 func managerFromPath(lower string) string {
 	switch {
 	case strings.Contains(lower, "/.bun/"):
@@ -60,8 +50,7 @@ func managerFromPath(lower string) string {
 	}
 }
 
-// UpdateCommand is the command that updates an npm install in place, as
-// program plus arguments. Only meaningful when Kind is "npm".
+// UpdateCommand is the command that updates an npm install in place, as program plus arguments.
 func (m InstallMethod) UpdateCommand(version string) []string {
 	target := NPMPackage
 	if version != "" {
@@ -79,8 +68,7 @@ func (m InstallMethod) UpdateCommand(version string) []string {
 	}
 }
 
-// Available reports whether the package manager is actually on PATH, so the
-// caller can fall back to printing the command rather than failing oddly.
+// Available reports whether the package manager is on PATH.
 func (m InstallMethod) Available() bool {
 	cmd := m.UpdateCommand("")
 	if len(cmd) == 0 {

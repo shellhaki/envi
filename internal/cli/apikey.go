@@ -1,11 +1,6 @@
 package cli
 
 // Personal API keys, from the terminal.
-//
-//	envi auth --key envi_...      log in with a key instead of the browser
-//	envi key create --name ci     make a key
-//	envi key list                 show your keys
-//	envi key revoke <id>          stop one working
 
 import (
 	"context"
@@ -25,9 +20,7 @@ type apiKey struct {
 	CreatedAt  time.Time  `json:"created_at"`
 }
 
-// LoginWithKey trades an API key for a session and stores it, so the key itself
-// never lands on disk. Nothing else about the session is special: it refreshes
-// and expires like one made in a browser.
+// LoginWithKey trades an API key for a session and stores it, so the key itself never lands on disk.
 func LoginWithKey(ctx context.Context, c Client, store TokenStore, key string, out io.Writer) error {
 	var session sessionResponse
 	if err := c.Do(ctx, "POST", "/auth/api-key", map[string]string{"key": key}, &session); err != nil {

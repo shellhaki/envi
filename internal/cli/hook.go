@@ -1,16 +1,7 @@
 package cli
 
-// Loading secrets automatically when you cd into a project.
-//
-// `envi hook <shell>` prints a few lines of shell code that run before every
-// prompt. They call `envi export <shell>`, which compares where you are with
-// what is already loaded and prints only the commands needed to bring the
-// shell up to date: nothing at all on almost every prompt, exports when you
-// enter an allowed project, and unsets when you leave it.
-//
-// What is loaded is tracked in a few ENVI_HOOK_* variables in the shell
-// itself, so each shell is independent and nothing about it is written to
-// disk. The secrets are never written to disk either.
+// Loading secrets automatically when you cd into a project. Before each prompt the shell runs
+// `envi export <shell>`, which prints the export/unset commands needed; what is loaded is kept in ENVI_HOOK_* variables.
 
 import (
 	"context"
@@ -39,8 +30,7 @@ const (
 	stateRestore = "ENVI_HOOK_RESTORE"
 )
 
-// The hook runs while somebody waits for their prompt. A slow network is
-// reported and given up on rather than waited out.
+// Give up on a slow network rather than hold up the prompt.
 const hookTimeout = 4 * time.Second
 
 func normaliseShell(name string) (string, error) {
@@ -57,9 +47,7 @@ func normaliseShell(name string) (string, error) {
 	return "", fmt.Errorf("unsupported shell %q; use one of: %s", name, strings.Join(hookShells, ", "))
 }
 
-// HookScript is what `envi hook <shell>` prints. exe is the absolute path to
-// this binary, so the hook never goes through a package manager's launcher on
-// every prompt.
+// HookScript is what `envi hook <shell>` prints. exe is this binary's absolute path.
 func HookScript(shell, exe string) (string, error) {
 	shell, err := normaliseShell(shell)
 	if err != nil {
@@ -124,8 +112,7 @@ func quoteFish(v string) string {
 	return "'" + strings.ReplaceAll(v, "'", `\'`) + "'"
 }
 
-// PowerShell treats the typographic single quotes as quote marks too, so they
-// are doubled along with the plain one.
+// PowerShell also treats curly single quotes as quotes, so those are doubled too.
 func quotePwsh(v string) string {
 	for _, q := range []string{"'", "‘", "’", "‚", "‛"} {
 		v = strings.ReplaceAll(v, q, q+q)
@@ -177,26 +164,21 @@ func readHookEnv(getenv func(string) string) hookEnv {
 	return h
 }
 
-// exportDeps is everything Export needs from outside, so it can be tested
-// without a shell, a server or a home directory.
+// exportDeps is what Export needs from outside, so tests can supply fakes.
 type exportDeps struct {
 	getenv func(string) string
 	trust  map[string]Allowed
 	epoch  string
-	// fetch reads an environment's secrets. Called only when something has
-	// to load, so the usual prompt never opens the token store.
+	// fetch is called only when something has to load.
 	fetch func(ctx context.Context, envID string) (map[string]string, error)
 }
 
-// Export returns the shell commands that bring this shell up to date for cwd,
-// and the one-line notices to show on stderr.
+// Export returns the shell commands that bring this shell up to date for cwd, plus notices for stderr.
 func Export(ctx context.Context, shell, cwd string, d exportDeps) (string, []string) {
 	prev := readHookEnv(d.getenv)
 	root := findRoot(cwd)
 
-	// The stamp changes whenever this shell's secrets could be out of date:
-	// another environment named, permission given or taken away, `envi
-	// reload`, or a push or pull here moving the revision.
+	// The stamp changes whenever the loaded secrets could be stale: new target, allow/deny, reload, or a new revision.
 	stamp := ""
 	if root != "" {
 		target, revision := "unreadable", "0"
@@ -233,8 +215,7 @@ func Export(ctx context.Context, shell, cwd string, d exportDeps) (string, []str
 		return strings.Join(lines, "\n") + "\n", notes
 	}
 
-	// From here on, remember this folder and stamp whatever happens, so a
-	// failure is reported once rather than on every prompt.
+	// Remember this folder whatever happens, so a failure is reported only once.
 	remember := func(keys []string, restore map[string]string) {
 		lines = append(lines, setVar(shell, stateDir, root), setVar(shell, stateStamp, stamp))
 		if len(keys) > 0 {
@@ -271,8 +252,7 @@ func Export(ctx context.Context, shell, cwd string, d exportDeps) (string, []str
 		return strings.Join(lines, "\n") + "\n", notes
 	}
 
-	// What the shell holds once the previous project is undone: the values
-	// this project might overwrite, and must put back when you leave.
+	// The value a key had before this project, to restore when leaving.
 	base := func(k string) (string, bool) {
 		for _, p := range prev.keys {
 			if p == k {
@@ -315,9 +295,7 @@ func Export(ctx context.Context, shell, cwd string, d exportDeps) (string, []str
 
 // --- allow, deny, reload ----------------------------------------------------
 
-// AllowHere lets the hook load the project at or above dir. origins is how
-// the environment's production flag is found; production needs explicit
-// consent because every command run in the folder would get live keys.
+// AllowHere lets the hook load the project at or above dir. Production needs --production.
 func AllowHere(ctx context.Context, c Client, dir string, production bool, out io.Writer) error {
 	root := findRoot(dir)
 	if root == "" {
@@ -415,8 +393,7 @@ const (
 	hookEnd   = "# <<< envi hook <<<"
 )
 
-// hookLine is what goes in the startup file: it asks envi for the hook each
-// time a shell starts, and does nothing if envi has since been removed.
+// hookLine goes in the startup file. It does nothing if envi has been uninstalled.
 func hookLine(shell string) string {
 	switch shell {
 	case "fish":
@@ -441,8 +418,7 @@ func detectShell() (string, error) {
 	return "", errors.New("couldn't tell which shell you use; name it: envi hook install zsh|bash|fish|pwsh")
 }
 
-// rcFiles are the startup files a shell reads, the first being where the hook
-// is installed and the rest only checked or cleaned up.
+// rcFiles are a shell's startup files; the hook is installed in the first.
 func rcFiles(shell string) []string {
 	home, _ := os.UserHomeDir()
 	switch shell {
@@ -453,8 +429,7 @@ func rcFiles(shell string) []string {
 		}
 		return []string{filepath.Join(dir, ".zshrc")}
 	case "bash":
-		// macOS Terminal starts bash as a login shell, which reads
-		// .bash_profile and not .bashrc.
+		// macOS Terminal starts login shells, which read .bash_profile.
 		if isDarwin() {
 			return []string{filepath.Join(home, ".bash_profile"), filepath.Join(home, ".bashrc")}
 		}
@@ -482,8 +457,7 @@ func HookInstalled() bool {
 	return false
 }
 
-// InstallHook adds the hook to the startup file for shell (detected when
-// empty). Running it again changes nothing.
+// InstallHook adds the hook to shell's startup file (detected if empty). Running it twice is harmless.
 func InstallHook(shell string, out io.Writer) error {
 	if shell == "" {
 		var err error
@@ -499,11 +473,7 @@ func InstallHook(shell string, out io.Writer) error {
 	if len(files) == 0 {
 		return errors.New("couldn't find a profile file for PowerShell")
 	}
-	// Every PowerShell gets it, since 7 and Windows PowerShell keep separate
-	// profiles. So does every bash file on macOS: Terminal starts login shells,
-	// which read .bash_profile, while a plain `bash`, tmux and many editors start
-	// ones that read only .bashrc. Loading the hook twice in one shell is
-	// harmless; it registers itself once. Other shells use one startup file.
+	// Every PowerShell profile, and on macOS both bash files (login and non-login shells read different ones).
 	targets := files[:1]
 	if shell == "pwsh" || (shell == "bash" && isDarwin()) {
 		targets = files

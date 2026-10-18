@@ -11,8 +11,7 @@ import (
 	projectctx "shellhaki/envi/internal/cli/project"
 )
 
-// Activity prints the recent audit log for the caller's organization. The org
-// is derived from envi.toml when present, otherwise from the personal account.
+// Activity prints the recent audit log for the caller's organization.
 func Activity(ctx context.Context, c Client, dir string, limit int, out io.Writer) error {
 	orgID, e := resolveOrg(ctx, c, dir)
 	if e != nil {
@@ -51,8 +50,7 @@ func Activity(ctx context.Context, c Client, dir string, limit int, out io.Write
 	return w.Flush()
 }
 
-// resolveOrg finds the organization to report on: the one that owns the
-// initialized project if there is one, else the account's personal org.
+// resolveOrg picks the organization owning this project, or the account's personal one.
 func resolveOrg(ctx context.Context, c Client, dir string) (string, error) {
 	if x, e := projectctx.Load(dir); e == nil {
 		var ps []struct{ ID, OrgID string }

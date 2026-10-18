@@ -9,24 +9,9 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-/*
-The job that turns pay-as-you-go months into charges.
+// The job that turns pay-as-you-go months into charges.
 
-It runs inside the API process every hour. Each pass is safe to repeat and
-safe to run on two servers at once, because of three things:
-
-  - A month gets one payg_charges row, enforced by UNIQUE (org_id, month), so
-    two passes cannot both create it.
-  - Every charge goes to Bachs with an idempotency key naming the
-    organization, month and attempt, so sending the same attempt twice returns
-    the first charge instead of making a second.
-  - A pass holds a Postgres advisory lock, so on several servers only one does
-    the work at a time. The first two make that an efficiency, not a
-    correctness requirement.
-*/
-
-// jobLock is the advisory lock key for the charge job. Any constant works as
-// long as nothing else in the database uses it.
+// jobLock is the advisory lock key for the charge job.
 const jobLock int64 = 0x656e7669_62696c6c // "envibill"
 
 // Run works through billing every interval until ctx ends.
@@ -77,9 +62,7 @@ func (s Service) Pass(ctx context.Context) error {
 	return nil
 }
 
-// sweep records everybody who currently counts, for every pay-as-you-go
-// organization, against this month. Somebody removed before the next sweep
-// has already been recorded, which is the point: they had access this month.
+// sweep records everybody who currently counts, for every pay-as-you-go organization, against this month.
 func (s Service) sweep(ctx context.Context) error {
 	_, err := s.DB.Exec(ctx, `
 		INSERT INTO billable_members (org_id, user_id, month)
@@ -103,14 +86,7 @@ func (s Service) sweepOrg(ctx context.Context, orgID string) error {
 	return err
 }
 
-/*
-closeMonths creates the charge for every finished month that has none yet.
-
-A month is finished once the calendar has moved past it. Its total is the
-people counted in it times the per-person price, plus any earlier months that
-were too small to charge on their own. If that total is still below the
-minimum, the month is carried too; otherwise it is charged.
-*/
+// closeMonths creates the charge for every finished month that has none yet.
 func (s Service) closeMonths(ctx context.Context) error {
 	current := monthOf(s.now())
 	rows, err := s.DB.Query(ctx, `
@@ -165,9 +141,7 @@ func (s Service) closeMonth(ctx context.Context, orgID string, month time.Time, 
 	currency := a.Currency
 	amount := int64(members) * PerMember[currency]
 
-	// Earlier months in the same currency that were too small to charge. They
-	// are taken over by this month as it is created, so no later month can
-	// count them a second time.
+	// Earlier months in the same currency that were too small to charge.
 	var carried int64
 	if err := tx.QueryRow(ctx, `
 		SELECT coalesce(sum(amount_minor + carried_minor), 0) FROM payg_charges
@@ -237,17 +211,7 @@ func (s Service) retryDue(ctx context.Context) error {
 	return rows.Err()
 }
 
-/*
-attempt sends one charge for a month.
-
-The attempt number is part of the idempotency key. Within one attempt a retry
-of the request returns the original charge; a new attempt needs a new key, or
-Bachs would hand back the original failure instead of trying the card again.
-
-The row is marked processing before Bachs is called and only the webhook marks
-it paid. A charge whose reply was lost in transit therefore stays processing
-until Bachs reports on it, rather than being charged again.
-*/
+// attempt sends one charge for a month.
 func (s Service) attempt(ctx context.Context, chargeID string) error {
 	var orgID, currency string
 	var month time.Time

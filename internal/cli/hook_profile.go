@@ -16,10 +16,7 @@ var (
 	pwshFound []string
 )
 
-// pwshProfiles are the PowerShell profile files for this user: one for
-// PowerShell 7 and one for Windows PowerShell where both are present. Asked of
-// PowerShell itself, because Documents may live in OneDrive and the path is not
-// guessable. A variable so tests can replace it without starting PowerShell.
+// pwshProfiles are this user's PowerShell profile files (PowerShell 7 and Windows PowerShell).
 var pwshProfiles = func() []string {
 	pwshOnce.Do(func() {
 		seen := map[string]bool{}

@@ -12,12 +12,10 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// ErrNotFound reports that no session has been stored yet, as distinct from a
-// store that exists but could not be read.
+// ErrNotFound means no session is stored yet (as opposed to a store that couldn't be read).
 var ErrNotFound = errors.New("no stored session")
 
-// Session is a locally cached login. AccessExpiry lets the CLI refresh before a
-// request fails rather than after.
+// Session is a locally cached login.
 type Session struct {
 	Access, Refresh string
 	AccessExpiry    time.Time
@@ -26,13 +24,11 @@ type Session struct {
 type Store struct{ Path string }
 
 func (s Store) Save(v Session) error {
-	// The directory is the real boundary: SQLite writes -journal/-wal sidecars
-	// next to the database under its own umask, and those can hold token bytes.
+	// Keep the session folder private to this user.
 	if err := os.MkdirAll(filepath.Dir(s.Path), 0700); err != nil {
 		return err
 	}
-	// Create the file restricted before SQLite opens it, so tokens are never
-	// briefly world-readable on a fresh login.
+	// Create the file with private permissions before SQLite opens it.
 	f, err := os.OpenFile(s.Path, os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
 		return err
@@ -51,8 +47,7 @@ func (s Store) Save(v Session) error {
 	if _, err = db.Exec(`CREATE TABLE IF NOT EXISTS session (id INTEGER PRIMARY KEY CHECK(id=1), access TEXT NOT NULL, refresh TEXT NOT NULL, access_expiry INTEGER NOT NULL DEFAULT 0)`); err != nil {
 		return err
 	}
-	// Upgrade databases written before access_expiry existed; the column already
-	// being present is the expected case, not a failure.
+	// Add the access_expiry column to stores created before it existed.
 	if _, err = db.Exec(`ALTER TABLE session ADD COLUMN access_expiry INTEGER NOT NULL DEFAULT 0`); err != nil && !isDuplicateColumn(err) {
 		return err
 	}
@@ -89,8 +84,7 @@ func (s Store) Load() (Session, error) {
 	if errors.Is(err, sql.ErrNoRows) {
 		return Session{}, ErrNotFound
 	}
-	// A corrupt or unreadable store is a real failure and must not be reported as
-	// "not logged in", which would send the user in circles through envi auth.
+	// A damaged store is an error, not "not logged in".
 	if err != nil {
 		return Session{}, fmt.Errorf("read session: %w", err)
 	}

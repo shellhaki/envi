@@ -7,29 +7,7 @@ import (
 	"strings"
 )
 
-/*
-Deployment mode, read from envi.config.json beside the binary, or from the
-ENVI_MODE and ENVI_CURRENCY environment variables, which win.
-
-	{
-	  "mode": "hosted",
-	  "currency": "NGN"
-	}
-
-Two modes:
-
-  - "self-hosted" — somebody running their own instance. No billing, no quotas,
-    no revenue to report. This is the default, deliberately: the repository is
-    public and the whole stack is self-hostable, so a missing or unreadable
-    config file must never switch billing on in somebody else's
-    infrastructure.
-
-  - "hosted" — the commercial deployment. Billing applies, revenue is reported.
-
-The mode is a product decision, not a security boundary, which is why a file is
-fine for it. Who may read the operator screen is a security boundary, and that
-stays in ENVI_ADMINS, where only whoever can deploy can change it.
-*/
+// Deployment mode comes from ENVI_MODE and ENVI_CURRENCY, or from envi.config.json if those are unset.
 
 type Mode string
 
@@ -41,32 +19,21 @@ const (
 // Deployment is what envi.config.json says, after defaults are applied.
 type Deployment struct {
 	Mode Mode `json:"mode"`
-	// Currency the operator screen reports in, and the default for a new
-	// expense. Per-expense currency is still recorded on the row.
+	// Currency the operator screen reports in, and the default for a new expense.
 	Currency string `json:"currency"`
-	// Source says where the mode came from, for the startup log. Without it
-	// "self-hosted" is ambiguous: chosen on purpose, or a variable that never
-	// arrived?
+	// Source says where the mode came from, for the startup log.
 	Source string `json:"-"`
 }
 
 // Billing reports whether this deployment charges anybody.
 func (d Deployment) Billing() bool { return d.Mode == Hosted }
 
-// DefaultDeployment is what an instance gets with no config file: somebody
-// else's, running for free.
+// DefaultDeployment is self-hosted, with no billing.
 func DefaultDeployment() Deployment {
 	return Deployment{Mode: SelfHosted, Currency: "NGN"}
 }
 
-/*
-LoadDeployment reads envi.config.json from path.
-
-A missing file is not an error — it is the ordinary case for a fresh clone, and
-it means self-hosted. A malformed file is also not an error for the same
-reason: refusing to start because somebody mistyped a currency would turn a
-cosmetic setting into an outage. Either way the safe default applies.
-*/
+// LoadDeployment reads envi.config.json from path.
 func LoadDeployment(path string) Deployment {
 	d := DefaultDeployment()
 
@@ -81,10 +48,7 @@ func LoadDeployment(path string) Deployment {
 		}
 	}
 
-	// The environment wins over the file. A container image built from this
-	// repository does not carry envi.config.json — the final stage copies
-	// only the binaries — so on Coolify or any other container platform the
-	// mode has to arrive as a variable, the way every other setting does.
+	// The environment wins over the file.
 	if v := Setting("ENVI_MODE"); v != "" {
 		parsed.Mode = Mode(v)
 		source = "ENVI_MODE"
@@ -100,8 +64,7 @@ func LoadDeployment(path string) Deployment {
 		d.Mode = SelfHosted
 	case "":
 	default:
-		// Named, but not a mode. Said out loud, because the fallback is the
-		// quiet one: billing off, and nothing else looks wrong.
+		// Named, but not a mode.
 		source = fmt.Sprintf("%s=%q is not hosted or self-hosted", source, string(parsed.Mode))
 	}
 	d.Source = source
@@ -114,9 +77,7 @@ func LoadDeployment(path string) Deployment {
 	return d
 }
 
-// DeploymentPath is where the config file lives, overridable for tests and for
-// deployments that keep configuration somewhere other than the working
-// directory.
+// DeploymentPath is envi.config.json, or the path in ENVI_CONFIG_FILE.
 func DeploymentPath() string {
 	if p := strings.TrimSpace(os.Getenv("ENVI_CONFIG_FILE")); p != "" {
 		return p
@@ -124,17 +85,7 @@ func DeploymentPath() string {
 	return "envi.config.json"
 }
 
-/*
-Setting reads an environment variable the way a person typed it into a
-deployment dashboard: surrounding spaces and one pair of matching quotes are
-dropped.
-
-Hosting panels differ on whether quotes are part of the value. Typed as
-"hosted", some pass the quote marks through, and the mode then fails to match
-and billing silently stays off; a key that starts with a quote fails its
-sk_live_ check the same way. No value Envi reads is meant to begin and end
-with a quote, so stripping them is always safe.
-*/
+// Setting reads an environment variable, dropping surrounding spaces and one pair of quotes.
 func Setting(name string) string {
 	v := strings.TrimSpace(os.Getenv(name))
 	if len(v) >= 2 && (v[0] == '"' || v[0] == '\'') && v[len(v)-1] == v[0] {

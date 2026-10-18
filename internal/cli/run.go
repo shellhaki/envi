@@ -14,21 +14,7 @@ import (
 	"syscall"
 )
 
-// Run fetches the linked origin's secrets and hands them to a child process as
-// its environment, returning that child's exit status.
-//
-// Nothing is written to disk. The secrets exist in the child's environment block
-// and nowhere else, for as long as it runs — which is the point of the command:
-// `envi pull` leaves a plaintext .env lying around long after the process that
-// needed it has gone.
-//
-// The returned int is meaningful only when the error is nil. An error means the
-// child never started, and the caller reports it with envi's own exit codes.
-//
-// ready is called once the network work is done and before anything is written
-// or executed, so a caller animating a spinner can stop it before the child owns
-// the terminal. It must be safe to call more than once; the caller is expected to
-// call it again on the error paths.
+// Run starts argv with the origin's secrets in its environment and returns its exit status.
 func Run(ctx context.Context, c Client, dir, originName string, preserve bool, argv []string, errOut io.Writer, ready func()) (int, error) {
 	if len(argv) == 0 {
 		return 0, errors.New("no command given; usage: envi run [flags] -- <command> [args...]")
@@ -46,21 +32,14 @@ func Run(ctx context.Context, c Client, dir, originName string, preserve bool, a
 	for _, key := range skipped {
 		ui.Warn("Skipped %q: a secret name cannot contain '=' or a null byte.", key)
 	}
-	// Which origin you are about to run against is worth knowing, but it is not
-	// the command's output: stderr only, and only for a human watching.
+	// Say which origin is being used, on stderr and only for a person at a terminal.
 	if ui.Style {
 		fmt.Fprintln(errOut, ui.Dim(fmt.Sprintf("%s · %d secret%s injected", source, injected, plural(injected))))
 	}
 	return execute(argv, env)
 }
 
-// secretsToInject finds the secrets to hand the command, and names where they
-// came from for the line printed above.
-//
-// A linked directory is the normal case: envi.toml says which environment, and
-// --origin can point at another. Without one — a container, most often — the
-// credential and the environment say it instead, which is what lets an image
-// carry no configuration at all.
+// secretsToInject fetches the secrets to inject and describes where they came from.
 func secretsToInject(ctx context.Context, c Client, dir, originName string) (map[string]string, string, error) {
 	x, err := loadContext(dir)
 	if err == nil {
@@ -80,8 +59,7 @@ func secretsToInject(ctx context.Context, c Client, dir, originName string) (map
 		return secrets, x.Project.Name + " · " + envName, err
 	}
 
-	// No envi.toml. A service token already names one environment, so it needs
-	// nothing else; anything else has to be told, by flag or by environment.
+	// No envi.toml.
 	project := strings.TrimSpace(os.Getenv("ENVI_PROJECT"))
 	environment := strings.TrimSpace(os.Getenv("ENVI_ENVIRONMENT"))
 	if originName != "" {
@@ -91,14 +69,6 @@ func secretsToInject(ctx context.Context, c Client, dir, originName string) (map
 }
 
 // composeEnv lays the fetched secrets over the environment envi itself was given.
-//
-// A secret wins over an inherited value, because the whole point is that Envi is
-// where the value lives; preserve flips that, for the case where you deliberately
-// set one on the command line. The replacement is done in place rather than by
-// appending a second entry for the same name: os/exec does de-duplicate in favour
-// of the last value, but relying on that is a silent dependency on an
-// implementation detail, and a child that reads its own environ directly would
-// see both.
 func composeEnv(parent []string, secrets map[string]string, preserve bool) ([]string, int, []string) {
 	out := append([]string(nil), parent...)
 	at := make(map[string]int, len(parent))
@@ -135,17 +105,12 @@ func composeEnv(parent []string, secrets map[string]string, preserve bool) ([]st
 	return out, injected, skipped
 }
 
-// validEnvName rejects the two things that cannot survive an environment block:
-// an '=' would quietly define a differently-named variable, and a null byte
-// truncates it. Nothing else is policed — the server does not validate key names
-// on write, and a name that is merely unusual is still the user's to choose.
+// validEnvName rejects '=' and null bytes, which break an environment variable.
 func validEnvName(k string) bool {
 	return k != "" && !strings.ContainsAny(k, "=\x00")
 }
 
-// ExecError is a failure to start the child at all, carrying the exit status a
-// shell would report for it. Envi's own exit codes do not apply here: the caller
-// asked to run a command, so the answer should be about that command.
+// ExecError means the child never started. Status is what a shell would report (126 or 127).
 type ExecError struct {
 	Status int
 	Err    error
@@ -154,22 +119,17 @@ type ExecError struct {
 func (e *ExecError) Error() string { return e.Err.Error() }
 func (e *ExecError) Unwrap() error { return e.Err }
 
-// forwarded are the signals a supervisor or a terminal is likely to send. They
-// are taken over rather than left to Go's default handler, which would kill envi
-// on the first Ctrl-C and leave the child orphaned with its status unreported.
+// forwarded are the signals a supervisor or a terminal is likely to send.
 var forwarded = []os.Signal{os.Interrupt, syscall.SIGTERM, syscall.SIGHUP}
 
 func execute(argv []string, env []string) (int, error) {
 	cmd := exec.Command(argv[0], argv[1:]...)
 	cmd.Env = env
-	// The real descriptors, not pipes: the child keeps its terminal, so colour,
-	// progress bars, and interactive prompts behave as if envi were not here.
+	// Give the child our real terminal, so colours and prompts work as normal.
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
 
 	if err := cmd.Start(); err != nil {
-		// A shell reports 127 for a command it cannot find and 126 for one it
-		// can find but cannot execute. Anything wrapping envi run is really
-		// wrapping the command, so it should see the same numbers.
+		// A shell reports 127 for a command it cannot find and 126 for one it can find but cannot execute.
 		if errors.Is(err, exec.ErrNotFound) || errors.Is(err, os.ErrNotExist) {
 			return 0, &ExecError{Status: 127, Err: fmt.Errorf("%s: command not found", argv[0])}
 		}
@@ -184,8 +144,7 @@ func execute(argv []string, env []string) (int, error) {
 		for {
 			select {
 			case s := <-sig:
-				// Windows can only deliver Kill this way; a refusal there is
-				// expected and there is nothing better to do about it.
+				// Windows refuses most signals; nothing to do about it.
 				_ = cmd.Process.Signal(s)
 			case <-done:
 				return
@@ -201,8 +160,7 @@ func execute(argv []string, env []string) (int, error) {
 	return exitStatus(cmd.ProcessState), nil
 }
 
-// exitStatus reports the child's status the way a shell would, so `envi run`
-// is transparent to anything checking $?.
+// exitStatus reports the child's status the way a shell would.
 func exitStatus(state *os.ProcessState) int {
 	if code := state.ExitCode(); code >= 0 {
 		return code
@@ -215,10 +173,6 @@ func exitStatus(state *os.ProcessState) int {
 }
 
 // parseRunArgs splits envi's own flags from the command to be run.
-//
-// Go's flag package stops at the first non-flag word or at a bare "--", and
-// strips only that first separator, so `envi run -- npm run dev -- --port 3000`
-// hands the inner "--" through untouched.
 func parseRunArgs(args []string) (origin string, preserve bool, argv []string, err error) {
 	fs := flag.NewFlagSet("run", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)

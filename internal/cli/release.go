@@ -21,8 +21,7 @@ import (
 
 const (
 	releaseRepo = "shellhaki/envi"
-	// Downloads are capped well above any real archive: a compromised or
-	// confused host must not be able to fill the disk.
+	// Cap downloads, so a bad host can't fill the disk.
 	maxArchiveBytes = 128 << 20
 )
 
@@ -61,15 +60,10 @@ func LatestRelease(ctx context.Context) (Release, error) {
 	return Release{Tag: body.Tag}, nil
 }
 
-// npmRegistry is where an npm install's updates come from. A variable so tests
-// can point it at a fake registry.
+// npmRegistry is where an npm install's updates come from.
 var npmRegistry = "https://registry.npmjs.org"
 
 // LatestNPM asks the npm registry for the version npm itself would install.
-//
-// An npm install updates through npm, so it must ask npm what is newest, not
-// GitHub: the two are published by separate steps, and a release that reached
-// GitHub but not npm would otherwise be offered and then fail to install.
 func LatestNPM(ctx context.Context) (Release, error) {
 	url := npmRegistry + "/" + strings.ReplaceAll(NPMPackage, "/", "%2f") + "/latest"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -104,16 +98,14 @@ func latestFor(ctx context.Context, install InstallMethod) (Release, error) {
 	return LatestRelease(ctx)
 }
 
-// assetName mirrors the archive naming in .goreleaser.yaml. Keeping the two in
-// step matters: a mismatch here is a 404 at the worst possible moment.
+// assetName mirrors the archive naming in .goreleaser.yaml.
 func assetName(version string) (string, error) {
 	goos := runtime.GOOS
 	arch := runtime.GOARCH
 	switch arch {
 	case "amd64", "arm64":
 	case "arm":
-		// GOARM=7 is the only arm build published, and goreleaser names it
-		// armv7 — the same mapping install.sh makes.
+		// Only GOARM=7 is published, named armv7, as in install.sh.
 		arch = "armv7"
 	default:
 		return "", fmt.Errorf("no published build for %s/%s", goos, runtime.GOARCH)
@@ -127,9 +119,7 @@ func assetName(version string) (string, error) {
 	return fmt.Sprintf("envi_%s_%s_%s.tar.gz", version, goos, arch), nil
 }
 
-// FetchBinary downloads the release archive for this platform, verifies it
-// against the release's checksums.txt, and extracts the envi binary into dir.
-// Nothing is trusted until the checksum matches.
+// FetchBinary downloads this platform's release, checks it against checksums.txt, and extracts envi into dir.
 func FetchBinary(ctx context.Context, ui UI, tag, dir string) (string, error) {
 	version := strings.TrimPrefix(tag, "v")
 	name, err := assetName(version)
@@ -186,8 +176,7 @@ func checksumFor(sums, name string) string {
 	return ""
 }
 
-// download streams url to path, drawing a progress bar, and returns the
-// SHA-256 of what actually landed on disk.
+// download saves url to path with a progress bar and returns the file's SHA-256.
 func download(ctx context.Context, ui UI, url, path string) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -211,8 +200,7 @@ func download(ctx context.Context, ui UI, url, path string) (string, error) {
 
 	bar := ui.Progress("downloading", total)
 	digest := sha256.New()
-	// Hash what is written, not what was promised, so the checksum covers the
-	// exact bytes on disk.
+	// Hash what is written, not what was promised, so the checksum covers the exact bytes on disk.
 	_, err = io.Copy(io.MultiWriter(file, digest), io.LimitReader(bar.Wrap(res.Body), maxArchiveBytes))
 	bar.Done()
 	if err != nil {
@@ -221,8 +209,7 @@ func download(ctx context.Context, ui UI, url, path string) (string, error) {
 	return hex.EncodeToString(digest.Sum(nil)), nil
 }
 
-// extractBinary pulls just the envi executable out of the archive, ignoring
-// the LICENSE and README that ship alongside it.
+// extractBinary takes only the envi executable out of the archive.
 func extractBinary(archive, dir string) (string, error) {
 	if strings.HasSuffix(archive, ".zip") {
 		return extractZip(archive, dir)

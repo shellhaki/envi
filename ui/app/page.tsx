@@ -69,7 +69,7 @@ export default async function Home() {
               </div>
             </div>
           </div>
-          {/* The .env being drawn into a sealed block (motion/blender). Decorative:
+          {/* The .env being drawn into a sealed block. Decorative:
               the headline already says it in words. Two renders, one per theme,
               toggled the way the logo is. sizes collapses to almost nothing on
               narrow screens, where it is hidden, so phones download a sliver

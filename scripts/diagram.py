@@ -1,11 +1,11 @@
 """
-Builds excalidraw.json at the repository root: one frame holding, side by
+Builds architecture/excalidraw.json: one frame holding, side by
 side, how Envi fits together, every program and package, the data model as a
 crow's foot diagram, and every API endpoint.
 
     make diagram
 
-The endpoint cards are read from ENDPOINTS.md, so after adding, removing or
+The endpoint cards are read from architecture/ENDPOINTS.md, so after adding, removing or
 changing an endpoint, update ENDPOINTS.md and run this again. The data model is
 read from migrations/schema.sql, so after a schema change, update schema.sql
 and run this again. The services are read from cmd/ and internal/: each card
@@ -123,7 +123,7 @@ def arrow(points, label=None, start=None, end=None, both=False, color="#1e1e1e",
 # --- endpoints, from ENDPOINTS.md -------------------------------------------
 
 def read_endpoints():
-    src = open(os.path.join(ROOT, "ENDPOINTS.md")).read()
+    src = open(os.path.join(ROOT, "architecture", "ENDPOINTS.md")).read()
     groups = []
     for sec in re.split(r"\n## ", src)[1:]:
         title = sec.split("\n", 1)[0].strip()
@@ -632,7 +632,7 @@ els[:] = [frame_box] + outer + els[:els_before] + [title]
 
 out = {"type": "excalidraw", "version": 2, "source": "https://excalidraw.com",
        "elements": els, "appState": {"viewBackgroundColor": "#ffffff", "gridSize": None}, "files": {}}
-with open(os.path.join(ROOT, "excalidraw.json"), "w") as f:
+with open(os.path.join(ROOT, "architecture", "excalidraw.json"), "w") as f:
     json.dump(out, f, indent=1, ensure_ascii=False)
     f.write("\n")
 print(f"excalidraw.json: {TOTAL} endpoints, {len(TABLES)} tables, {len(FKS)} relationships, {SERVICE_COUNT} services, {len(els)} elements")

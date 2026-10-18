@@ -7,28 +7,13 @@ import (
 	"time"
 )
 
-/*
-Who may act on the instance, and what each of them may do.
-
-Two sources, and the order matters:
-
-  - ENVI_ADMINS, the environment variable. Whoever can deploy is an admin, no
-    database row required. This is the bootstrap, and it is what stops a write
-    to the operators table from being a way to grant yourself the instance.
-
-  - The operators table, which an admin manages from the dashboard.
-
-A row can never override the environment: somebody in ENVI_ADMINS is an admin
-whatever the table says, including if a row demotes them to announcer.
-*/
+// Who may act on the instance, and what each of them may do.
 
 // Roles, in descending order of what they may do.
 const (
-	// RoleAdmin may do everything an operator can, including appointing and
-	// removing other operators.
+	// RoleAdmin may do everything an operator can, including appointing and removing other operators.
 	RoleAdmin = "admin"
-	// RoleAnnouncer may write and send announcements. Nothing else — not the
-	// instance figures, not expenses, not other operators.
+	// RoleAnnouncer may write and send announcements.
 	RoleAnnouncer = "announcer"
 )
 
@@ -38,9 +23,7 @@ type Operator struct {
 	Email string `json:"email"`
 	Name  string `json:"name"`
 	Role  string `json:"role"`
-	// FromEnv marks an operator who is an admin because of ENVI_ADMINS rather
-	// than because of a row. The dashboard shows these but cannot remove them:
-	// the only way to revoke one is to change the environment and redeploy.
+	// FromEnv marks an operator who is an admin because of ENVI_ADMINS rather than because of a row.
 	FromEnv   bool      `json:"from_env"`
 	CreatedAt time.Time `json:"created_at,omitempty"`
 }
@@ -48,8 +31,7 @@ type Operator struct {
 // MayAnnounce reports whether this role can send announcements.
 func MayAnnounce(role string) bool { return role == RoleAdmin || role == RoleAnnouncer }
 
-// MayManage reports whether this role can do everything else — the figures,
-// expenses, and appointing operators.
+// MayManage reports whether this role may see the figures, record expenses and appoint operators.
 func MayManage(role string) bool { return role == RoleAdmin }
 
 var (
@@ -58,12 +40,7 @@ var (
 	errOperatorRole  = errors.New("role must be admin or announcer")
 )
 
-/*
-RoleFor resolves somebody's role, environment first.
-
-An empty string means they are not an operator at all. envAdmins is the set
-from ENVI_ADMINS, already normalised.
-*/
+// RoleFor resolves somebody's role, environment first.
 func (s Service) RoleFor(ctx context.Context, email string, envAdmins map[string]struct{}) (string, error) {
 	email = strings.ToLower(strings.TrimSpace(email))
 	if email == "" {
@@ -73,8 +50,7 @@ func (s Service) RoleFor(ctx context.Context, email string, envAdmins map[string
 		return RoleAdmin, nil
 	}
 
-	// Survives the table not existing, so the operator screen keeps working
-	// between deploying this code and running the migration.
+	// Works even before the operators table has been migrated.
 	var exists bool
 	if err := s.DB.QueryRow(ctx, `SELECT to_regclass('public.operators') IS NOT NULL`).Scan(&exists); err != nil {
 		return "", err
@@ -159,8 +135,7 @@ func (s Service) AddOperator(ctx context.Context, actorID, email, name, role str
 	return o, err
 }
 
-// RemoveOperator revokes somebody appointed through the table. It cannot touch
-// an ENVI_ADMINS entry, which has no row to delete.
+// RemoveOperator revokes somebody appointed through the table.
 func (s Service) RemoveOperator(ctx context.Context, id string) error {
 	_, err := s.DB.Exec(ctx, `DELETE FROM operators WHERE id = $1`, id)
 	return err

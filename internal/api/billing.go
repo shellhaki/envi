@@ -8,40 +8,24 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"shellhaki/envi/internal/bachs"
-	"shellhaki/envi/internal/billing"
 )
 
-/*
-Billing endpoints.
+// Billing routes act only on the caller's own personal organization, never one named in the request.
 
-Everything here acts on the caller's own organization — the personal one they
-own — and only its owner may change the plan. There is no endpoint that takes
-an organization id from the request, so there is no way to point one at
-somebody else's.
-
-The webhook is the exception: Bachs calls it, with no session, and it is
-trusted only because the signature verifies.
-*/
-
-// ownedOrg returns the organization the caller owns, and their email for the
-// Bachs customer record.
-func ownedOrg(c *gin.Context, db *pgxpool.Pool) (orgID, email string, ok bool) {
+// ownedOrg finds the caller's personal organization and email. On failure it has already replied.
+func (s *server) ownedOrg(c *gin.Context) (orgID, email string, ok bool) {
 	userID := c.GetString("user_id")
 	if userID == "" {
-		// A service token acts for an environment, not a person, and has no
-		// business with anybody's payment details.
 		c.JSON(403, gin.H{"code": "forbidden", "error": "billing needs a signed-in person, not a service token"})
 		return "", "", false
 	}
-	err := db.QueryRow(c, `
+	err := s.db.QueryRow(c, `
 		SELECT o.id, u.email FROM users u
 		  JOIN memberships m ON m.user_id = u.id AND m.role = 'owner'
 		  JOIN organizations o ON o.id = m.org_id AND o.type = 'personal'
-		 WHERE u.id = $1
-	`, userID).Scan(&orgID, &email)
+		 WHERE u.id = $1`, userID).Scan(&orgID, &email)
 	if err != nil {
 		c.JSON(500, gin.H{"code": "internal", "error": "account unavailable"})
 		return "", "", false
@@ -49,15 +33,10 @@ func ownedOrg(c *gin.Context, db *pgxpool.Pool) (orgID, email string, ok bool) {
 	return orgID, email, true
 }
 
-// billingError reports a failure from a plan change. Bachs's own reply is not
-// passed through: it can name internal ids, and it is not actionable for the
-// person looking at the billing page.
+// billingError hides the payment provider's reply from the user and logs it instead.
 func billingError(c *gin.Context, err error) {
-	var api *bachs.APIError
-	if errors.As(err, &api) {
-		// The person sees a generic message; the operator needs the real one.
-		// Bachs's reply goes to the log only, where it can say exactly which
-		// field was wrong without showing anybody an internal id.
+	var providerErr *bachs.APIError
+	if errors.As(err, &providerErr) {
 		log.Printf("billing %s: %v", c.FullPath(), err)
 		c.JSON(502, gin.H{"code": "payment_provider", "error": "the payment provider refused the request; try again shortly"})
 		return
@@ -65,122 +44,112 @@ func billingError(c *gin.Context, err error) {
 	c.JSON(400, gin.H{"code": "billing", "error": err.Error()})
 }
 
-func addBillingRoutes(r *gin.Engine, db *pgxpool.Pool, m gin.HandlerFunc, service billing.Service) {
-	g := r.Group("/billing", m)
+// GET /billing
+func (s *server) billingOverview(c *gin.Context) {
+	org, _, ok := s.ownedOrg(c)
+	if !ok {
+		return
+	}
+	overview, err := s.billing.Overview(c, org)
+	if err != nil {
+		c.JSON(500, gin.H{"code": "internal", "error": "billing unavailable"})
+		return
+	}
+	c.JSON(200, overview)
+}
 
-	g.GET("", func(c *gin.Context) {
-		org, _, ok := ownedOrg(c, db)
-		if !ok {
-			return
-		}
-		overview, err := service.Overview(c, org)
-		if err != nil {
-			c.JSON(500, gin.H{"code": "internal", "error": "billing unavailable"})
-			return
-		}
-		c.JSON(200, overview)
-	})
+// POST /billing/payg {currency}. An empty url means a card was already saved and the switch is done.
+func (s *server) startPAYG(c *gin.Context) {
+	var in struct {
+		Currency string `json:"currency"`
+	}
+	_ = c.ShouldBindJSON(&in)
+	org, email, ok := s.ownedOrg(c)
+	if !ok {
+		return
+	}
+	url, err := s.billing.StartPAYG(c, org, email, in.Currency)
+	if err != nil {
+		billingError(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"url": url})
+}
 
-	g.POST("/payg", func(c *gin.Context) {
-		var body struct {
-			Currency string `json:"currency"`
-		}
-		_ = c.ShouldBindJSON(&body)
-		org, email, ok := ownedOrg(c, db)
-		if !ok {
-			return
-		}
-		url, err := service.StartPAYG(c, org, email, body.Currency)
-		if err != nil {
-			billingError(c, err)
-			return
-		}
-		// An empty URL means a card was already saved and the switch is done.
-		c.JSON(200, gin.H{"url": url})
-	})
+// POST /billing/team
+func (s *server) startTeam(c *gin.Context) {
+	org, email, ok := s.ownedOrg(c)
+	if !ok {
+		return
+	}
+	url, err := s.billing.StartTeam(c, org, email)
+	if err != nil {
+		billingError(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"url": url})
+}
 
-	g.POST("/team", func(c *gin.Context) {
-		org, email, ok := ownedOrg(c, db)
-		if !ok {
-			return
-		}
-		url, err := service.StartTeam(c, org, email)
-		if err != nil {
-			billingError(c, err)
-			return
-		}
-		c.JSON(200, gin.H{"url": url})
-	})
+// POST /billing/cancel
+func (s *server) cancelPlan(c *gin.Context) {
+	org, _, ok := s.ownedOrg(c)
+	if !ok {
+		return
+	}
+	if err := s.billing.Cancel(c, org); err != nil {
+		billingError(c, err)
+		return
+	}
+	c.Status(204)
+}
 
-	g.POST("/cancel", func(c *gin.Context) {
-		org, _, ok := ownedOrg(c, db)
-		if !ok {
-			return
-		}
-		if err := service.Cancel(c, org); err != nil {
-			billingError(c, err)
-			return
-		}
-		c.Status(204)
-	})
+// POST /billing/portal
+func (s *server) billingPortal(c *gin.Context) {
+	org, _, ok := s.ownedOrg(c)
+	if !ok {
+		return
+	}
+	url, err := s.billing.Portal(c, org)
+	if err != nil {
+		billingError(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"url": url})
+}
 
-	g.POST("/portal", func(c *gin.Context) {
-		org, _, ok := ownedOrg(c, db)
-		if !ok {
-			return
-		}
-		url, err := service.Portal(c, org)
-		if err != nil {
-			billingError(c, err)
-			return
-		}
-		c.JSON(200, gin.H{"url": url})
-	})
+// POST /billing/retry
+func (s *server) retryCharge(c *gin.Context) {
+	org, _, ok := s.ownedOrg(c)
+	if !ok {
+		return
+	}
+	if err := s.billing.RetryNow(c, org); err != nil {
+		billingError(c, err)
+		return
+	}
+	c.Status(204)
+}
 
-	g.POST("/retry", func(c *gin.Context) {
-		org, _, ok := ownedOrg(c, db)
-		if !ok {
-			return
-		}
-		if err := service.RetryNow(c, org); err != nil {
-			billingError(c, err)
-			return
-		}
-		c.Status(204)
-	})
-
-	/*
-	   The Bachs webhook. Responses follow Bachs's rules:
-
-	     400  only for a delivery that fails verification, which Bachs does
-	          not retry
-	     500  when Envi's own write fails, so Bachs retries it
-	     200  otherwise, including events billing has no interest in
-
-	   Bachs gives each delivery 10 seconds; applying an event is one short
-	   transaction.
-	*/
-	r.POST("/webhooks/bachs", func(c *gin.Context) {
-		if !service.Enabled() {
-			c.Status(404)
-			return
-		}
-		// Read raw: the signature is over these exact bytes, and decoding
-		// then re-encoding JSON changes them.
-		body, err := io.ReadAll(io.LimitReader(c.Request.Body, 1<<20))
-		if err != nil {
-			c.Status(400)
-			return
-		}
-		event, err := bachs.VerifyWebhook(service.WebhookSecret, c.Request.Header, body, time.Now())
-		if err != nil {
-			c.JSON(400, gin.H{"error": "signature does not verify"})
-			return
-		}
-		if err := service.Apply(c, event); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "could not apply event"})
-			return
-		}
-		c.Status(200)
-	})
+// POST /webhooks/bachs. Bachs retries on 500 but not on 400, so 400 is only for a bad signature.
+func (s *server) bachsWebhook(c *gin.Context) {
+	if !s.billing.Enabled() {
+		c.Status(404)
+		return
+	}
+	// The signature covers these exact bytes, so read them raw rather than decoding JSON.
+	body, err := io.ReadAll(io.LimitReader(c.Request.Body, 1<<20))
+	if err != nil {
+		c.Status(400)
+		return
+	}
+	event, err := bachs.VerifyWebhook(s.billing.WebhookSecret, c.Request.Header, body, time.Now())
+	if err != nil {
+		c.JSON(400, gin.H{"error": "signature does not verify"})
+		return
+	}
+	if err := s.billing.Apply(c, event); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not apply event"})
+		return
+	}
+	c.Status(200)
 }

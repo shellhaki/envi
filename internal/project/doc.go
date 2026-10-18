@@ -1,3 +1,2 @@
-// Package project creates, lists and deletes projects and their
-// environments, for the people allowed to see them.
+// Package project manages projects and their environments.
 package project

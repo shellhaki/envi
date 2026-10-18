@@ -3,13 +3,10 @@ rules.txt
 query.sql
 .env
 dist/
-motion/
 
 bin/
 /api
 logs/
-beta_testers.json
-info.txt
 node_modules/
 .next
 envi.toml

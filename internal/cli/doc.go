@@ -1,3 +1,2 @@
-// Package cli is the envi command: login, pull, push, run, copy and the rest,
-// talking to the API over HTTP.
+// Package cli implements the envi commands.
 package cli

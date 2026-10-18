@@ -1,3 +1,2 @@
-// Package mailer sends email through Resend, retrying on failure. Every
-// message carries both a text and an HTML part.
+// Package mailer sends email through Resend.
 package mailer

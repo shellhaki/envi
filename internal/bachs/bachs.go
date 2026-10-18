@@ -1,14 +1,4 @@
-// Package bachs is the client for Bachs (https://docs.bachs.io), the payment
-// provider behind Envi's billing.
-//
-// It is deliberately thin: it turns Go calls into Bachs requests and verifies
-// Bachs's webhooks, and nothing else. What a payment means for an
-// organization is internal/billing's business.
-//
-// Two Bachs conventions run through it. Money is a decimal string with an ISO
-// currency ("4.00", "USD"), never minor units, so amounts are converted at
-// this boundary and nowhere else. And ids carry prefixes (cust_, chk_, sub_,
-// ch_, evt_), which this package passes through untouched.
+// Package bachs is the client for Bachs (https://docs.bachs.io), Envi's payment provider.
 package bachs
 
 import (
@@ -39,14 +29,7 @@ type Client struct {
 	HTTP *http.Client
 }
 
-/*
-New builds a client for key, choosing the base URL from the key itself.
-
-A sk_sandbox_ key goes to the sandbox and a sk_live_ key to live, with no
-separate setting to get wrong: the failure this rules out is a sandbox key sent
-to the live API, or the reverse, because somebody updated one variable and not
-the other.
-*/
+// New builds a client for key, choosing the base URL from the key itself.
 func New(key string) (Client, error) {
 	key = strings.TrimSpace(key)
 	var base string
@@ -114,8 +97,7 @@ func (c Client) do(ctx context.Context, method, path string, body any, idempoten
 	return json.Unmarshal(raw, out)
 }
 
-// Money converts minor units to the decimal string Bachs wants. Both
-// currencies Envi bills in have two decimal places.
+// Money converts minor units to the decimal string Bachs wants.
 func Money(minor int64) string {
 	sign := ""
 	if minor < 0 {
@@ -124,8 +106,7 @@ func Money(minor int64) string {
 	return fmt.Sprintf("%s%d.%02d", sign, minor/100, minor%100)
 }
 
-// MinorUnits parses a Bachs amount back into minor units. It works on the
-// string rather than a float, for the same reason Money does.
+// MinorUnits parses a Bachs amount back into minor units.
 func MinorUnits(amount string) (int64, error) {
 	amount = strings.TrimSpace(amount)
 	whole, fraction, _ := strings.Cut(amount, ".")
@@ -149,9 +130,7 @@ func MinorUnits(amount string) (int64, error) {
 
 // --- customers ----------------------------------------------------------
 
-// CreateCustomer creates the Bachs customer an organization pays as. metadata
-// carries Envi's own ids, which is how a webhook is matched back to an
-// organization whatever shape its customer field has.
+// CreateCustomer creates the Bachs customer for an organization. metadata holds Envi's IDs, to match webhooks back.
 func (c Client) CreateCustomer(ctx context.Context, email, name string, metadata map[string]string) (string, error) {
 	var out struct {
 		CustomerID string `json:"customer_id"`
@@ -172,9 +151,7 @@ func (c Client) CreateCustomer(ctx context.Context, email, name string, metadata
 	return "", errors.New("bachs: customer created with no id in the reply")
 }
 
-// PortalURL starts a customer portal session — card updates, cancellation,
-// invoice history — and returns where to send the customer. Sessions are
-// short-lived, so a new one is made on every click.
+// PortalURL returns a link to the Bachs portal, where a customer updates their card or sees invoices.
 func (c Client) PortalURL(ctx context.Context, customerID string) (string, error) {
 	var out struct {
 		URL string `json:"url"`
@@ -193,8 +170,7 @@ type Checkout struct {
 	URL string `json:"checkout_url"`
 }
 
-// SaveCardCheckout starts a checkout that saves a card without charging it:
-// no pricing is sent, so Bachs runs it in setup mode at 0.00.
+// SaveCardCheckout starts a checkout that saves a card without charging it.
 func (c Client) SaveCardCheckout(ctx context.Context, customerID, successURL, cancelURL string, metadata map[string]string) (Checkout, error) {
 	var out Checkout
 	err := c.do(ctx, http.MethodPost, "/v1/checkout-sessions", map[string]any{
@@ -207,9 +183,7 @@ func (c Client) SaveCardCheckout(ctx context.Context, customerID, successURL, ca
 	return out, err
 }
 
-// SubscriptionCheckout starts a checkout for a recurring product. There is no
-// create-subscription endpoint: the subscription exists once this completes,
-// and Bachs copies metadata onto it.
+// SubscriptionCheckout starts a checkout for a recurring product.
 func (c Client) SubscriptionCheckout(ctx context.Context, customerID, productID, successURL, cancelURL string, metadata map[string]string) (Checkout, error) {
 	var out Checkout
 	err := c.do(ctx, http.MethodPost, "/v1/checkout-sessions", map[string]any{
@@ -223,8 +197,7 @@ func (c Client) SubscriptionCheckout(ctx context.Context, customerID, productID,
 	return out, err
 }
 
-// CancelSubscription cancels at the end of the paid period, never
-// immediately: somebody who has paid for the month keeps it.
+// CancelSubscription cancels at the end of the paid period, not immediately.
 func (c Client) CancelSubscription(ctx context.Context, subscriptionID string) error {
 	return c.do(ctx, http.MethodDelete, "/v1/subscriptions/"+subscriptionID,
 		map[string]any{"cancel_at_period_end": true, "reason": "Cancelled from the Envi dashboard"}, "", nil)
@@ -238,15 +211,7 @@ type Charge struct {
 	Status string `json:"status"`
 }
 
-/*
-ChargeSavedCard charges the customer's default saved card, off-session.
-
-The reply is usually "processing": the outcome arrives later as
-collection.succeeded or collection.failed, and nothing should be treated as
-paid until then. key is both the idempotency key and the reference, so a retry
-of the same attempt returns the original charge instead of a second one — and a
-new attempt must use a new key, or Bachs returns the original failure.
-*/
+// ChargeSavedCard charges the customer's default saved card, off-session.
 func (c Client) ChargeSavedCard(ctx context.Context, customerID string, minor int64, currency, description, key string) (Charge, error) {
 	var out struct {
 		Charge
@@ -267,9 +232,7 @@ func (c Client) ChargeSavedCard(ctx context.Context, customerID string, minor in
 
 // --- webhooks ---------------------------------------------------------------
 
-// Event is the envelope every webhook arrives in. Data is left raw: each event
-// type is decoded where it is handled, leniently, because Bachs adds fields
-// without notice.
+// Event is the envelope every webhook arrives in.
 type Event struct {
 	ID        string          `json:"id"`
 	Type      string          `json:"type"`
@@ -277,23 +240,12 @@ type Event struct {
 	Data      json.RawMessage `json:"data"`
 }
 
-// SignatureTolerance is how old a signed delivery may be. Older ones are
-// refused, so a captured request cannot be replayed later.
+// SignatureTolerance is how old a signed delivery may be.
 const SignatureTolerance = 5 * time.Minute
 
 var ErrBadSignature = errors.New("bachs: webhook signature does not verify")
 
-/*
-VerifyWebhook checks a delivery against the signing secret and decodes it.
-
-body must be the raw request body, exactly as received: verification is over
-the bytes, and re-encoding parsed JSON changes them.
-
-The V2 header carries one v1= signature per currently valid secret, and any
-one matching is enough. That is what lets a secret be rotated without a window
-in which deliveries fail. The older single-signature header is accepted as a
-fallback.
-*/
+// VerifyWebhook checks a delivery against the signing secret and decodes it.
 func VerifyWebhook(secret string, header http.Header, body []byte, now time.Time) (Event, error) {
 	if secret == "" {
 		return Event{}, errors.New("bachs: no webhook signing secret configured")
@@ -326,8 +278,7 @@ func VerifyWebhook(secret string, header http.Header, body []byte, now time.Time
 	matched := false
 	for _, signature := range signatures {
 		got, err := hex.DecodeString(strings.TrimSpace(signature))
-		// hmac.Equal is constant-time: a byte-by-byte compare that stops at
-		// the first difference leaks how much of a forged signature was right.
+		// hmac.Equal takes the same time however much matches, so it leaks nothing about the signature.
 		if err == nil && hmac.Equal(got, want) {
 			matched = true
 		}
@@ -363,8 +314,7 @@ func parseSignatureHeader(value string) (timestamp string, signatures []string) 
 	return timestamp, signatures
 }
 
-// Sign produces a V2 header for body, the way Bachs does. It exists for tests
-// and for local tooling that wants to replay a delivery.
+// Sign produces a V2 header for body, the way Bachs does.
 func Sign(secret string, body []byte, at time.Time) string {
 	timestamp := strconv.FormatInt(at.Unix(), 10)
 	mac := hmac.New(sha256.New, []byte(secret))

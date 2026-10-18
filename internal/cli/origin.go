@@ -14,7 +14,6 @@ import (
 )
 
 // An origin is one environment of the current project — dev, staging, prod.
-// The one you are on lives in envi.toml, and pull and push act on it.
 
 type origin struct {
 	ID         string
@@ -79,11 +78,7 @@ func ListOrigins(ctx context.Context, c Client, dir string, out io.Writer) error
 	return nil
 }
 
-// SwitchOrigin points envi.toml at another origin and loads its secrets into
-// .env, so the working directory always matches the origin it claims to be on.
-//
-// Local edits that were never pushed would be silently overwritten by that
-// pull, so they stop the switch unless the caller forces it.
+// SwitchOrigin points envi.toml at another origin and pulls its secrets into .env.
 func SwitchOrigin(ctx context.Context, c Client, in io.Reader, out io.Writer, dir, name string, force bool) error {
 	x, err := loadContext(dir)
 	if err != nil {
@@ -117,8 +112,7 @@ func SwitchOrigin(ctx context.Context, c Client, in io.Reader, out io.Writer, di
 	if err = projectctx.Write(dir, x); err != nil {
 		return err
 	}
-	// Pull rewrites .env and records the new origin's revision, so the next
-	// push compares against the right one.
+	// Pull also records the new origin's revision, so the next push compares against it.
 	n, err := Pull(ctx, c, dir)
 	if err != nil {
 		return err
@@ -160,11 +154,6 @@ func localChanges(ctx context.Context, c Client, dir, envID string) (bool, error
 }
 
 // PushToOrigin pushes a local env file to an origin other than the current one.
-// It is the destructive shape of push — overwriting an origin you are not
-// looking at — so it states exactly what will change and waits for a yes, which
-// only --yes or --force skips. It writes against the target's own revision,
-// read a moment earlier, so it is never rejected for the current origin having
-// moved on.
 func PushToOrigin(ctx context.Context, c Client, in io.Reader, out io.Writer, dir, file, name string, assumeYes, force bool) error {
 	x, err := loadContext(dir)
 	if err != nil {
@@ -186,8 +175,7 @@ func PushToOrigin(ctx context.Context, c Client, in io.Reader, out io.Writer, di
 	}
 	shown := filepath.Base(path)
 
-	// The target's own revision, not the cached one for the current origin:
-	// they count independently.
+	// The target's own revision, not the cached one for the current origin: they count independently.
 	remote, revision, err := fetchSnapshot(ctx, c, target.ID)
 	if err != nil {
 		return err
@@ -223,8 +211,7 @@ func PushToOrigin(ctx context.Context, c Client, in io.Reader, out io.Writer, di
 	return nil
 }
 
-// confirmWith accepts y or yes in any case. Anything else, including an empty
-// line or no stdin at all, is a no.
+// confirmWith accepts y or yes in any case.
 func confirmWith(ui UI, in io.Reader, prompt string) bool {
 	fmt.Fprintf(ui.Out, "%s [y/N] ", prompt)
 	if in == nil {

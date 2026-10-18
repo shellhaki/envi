@@ -10,17 +10,7 @@ import (
 	"shellhaki/envi/internal/config"
 )
 
-/*
-New builds billing for this instance from its configuration.
-
-Billing is on only on a hosted deployment with a valid Bachs key. Anything
-less returns a Service with no Bachs client, which allows everything — and,
-deliberately, does not fail startup, since that would take sign-in down with
-it.
-
-The one error is a live key on a developer's machine, which must not start at
-all.
-*/
+// New builds billing for this instance from its configuration.
 func New(db *pgxpool.Pool, c config.Config, d config.Deployment) (Service, error) {
 	s := Service{DB: db, WebURL: c.WebURL, ReturnURL: c.Bachs.ReturnURL,
 		TeamProductID: c.Bachs.TeamProductID, WebhookSecret: c.Bachs.WebhookSecret}
@@ -33,9 +23,7 @@ func New(db *pgxpool.Pool, c config.Config, d config.Deployment) (Service, error
 		log.Printf("WARNING: billing is OFF: %v (hosted mode needs BACHS_SECRET_KEY)", err)
 		return s, nil
 	}
-	// ENVIRONMENT alone can't tell a laptop from production: a .env copied
-	// from production carries ENVIRONMENT=production. A local database or
-	// dashboard is something production never has.
+	// A live key on a machine with a local database or dashboard is a laptop, whatever ENVIRONMENT says.
 	if client.Live() && (c.Environment == "" || config.IsLocalURL(c.DatabaseURL) || config.IsLocalURL(c.WebURL)) {
 		return s, errors.New("refusing to start: a live Bachs key (sk_live_) on a local instance; use an sk_sandbox_ key locally")
 	}

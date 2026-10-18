@@ -89,7 +89,6 @@ func newAdminFixture(t *testing.T) *adminFixture {
 		service_token.Service{DB: db},
 		invitation.Service{DB: db},
 		"http://web.test",
-		false,
 		config.DefaultDeployment(),
 		announce.Service{Admin: admin.Service{DB: db}},
 		billing.Service{DB: db},

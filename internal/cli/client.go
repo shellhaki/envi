@@ -26,8 +26,7 @@ func (e *APIError) Error() string {
 type Client struct {
 	BaseURL, Token string
 	HTTP           *http.Client
-	// Refresh, when set, is called once after an unauthorized response to obtain a
-	// fresh access token. Returning an error surfaces the original 401.
+	// Refresh, when set, is called once after an unauthorized response to obtain a fresh access token.
 	Refresh func() (string, error)
 }
 

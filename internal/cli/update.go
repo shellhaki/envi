@@ -13,8 +13,7 @@ import (
 	"time"
 )
 
-// CompareVersions orders two semver-ish versions, tolerating a leading v and a
-// pre-release suffix. It returns -1 if a is older, 0 if equal, 1 if newer.
+// CompareVersions orders two semver-ish versions, tolerating a leading v and a pre-release suffix.
 func CompareVersions(a, b string) int {
 	an, apre := splitVersion(a)
 	bn, bpre := splitVersion(b)
@@ -26,8 +25,7 @@ func CompareVersions(a, b string) int {
 			return 1
 		}
 	}
-	// 1.0.0-rc1 precedes 1.0.0; two different pre-releases of the same version
-	// are ordered lexically, which is enough to avoid a pointless reinstall.
+	// A pre-release (1.0.0-rc1) comes before its release (1.0.0).
 	switch {
 	case apre == bpre:
 		return 0
@@ -87,12 +85,6 @@ func UpdateCheck(ctx context.Context, ui UI, current string) error {
 }
 
 // UpdateNow replaces the running binary with the latest release.
-//
-// The sequence is deliberately paranoid, because the failure mode is a machine
-// with no working envi at all: the archive's checksum is verified, the new
-// binary is executed and asked its version before it is trusted, the old one is
-// kept aside until the swap succeeds, and any failure after the swap begins
-// puts the original back.
 func UpdateNow(ctx context.Context, ui UI, current string, force bool) error {
 	if IsDevBuild(current) && !force {
 		return errors.New("this is a development build; run with --force to overwrite it with the latest release")
@@ -102,8 +94,7 @@ func UpdateNow(ctx context.Context, ui UI, current string, force bool) error {
 	if err != nil {
 		return fmt.Errorf("couldn't locate the running binary: %w", err)
 	}
-	// A Homebrew-style install is usually a symlink; replacing the link itself
-	// would leave the real binary stale and the link dangling.
+	// Replace the real binary, not the symlink pointing at it.
 	if resolved, err := filepath.EvalSymlinks(self); err == nil {
 		self = resolved
 	}
@@ -120,9 +111,7 @@ func UpdateNow(ctx context.Context, ui UI, current string, force bool) error {
 		return nil
 	}
 
-	// An npm install is owned by the package manager. Swapping the file
-	// underneath it would leave npm still reporting the old version, and the
-	// next install or update would undo the change, so hand the job over.
+	// An npm install is owned by the package manager.
 	if install.Kind == "npm" {
 		return updateThroughPackageManager(ctx, ui, install, current, latest)
 	}
@@ -133,9 +122,7 @@ func UpdateNow(ctx context.Context, ui UI, current string, force bool) error {
 	}
 	ui.Step("Updating %s → %s", current, ui.Bold(latest))
 
-	// Staged in the destination directory so the final move is a rename within
-	// one filesystem, which is atomic. /tmp is frequently a different mount,
-	// where a rename silently becomes a copy that can be interrupted halfway.
+	// Download next to the binary so the final rename stays on one filesystem and is atomic.
 	staging, err := os.MkdirTemp(dir, ".envi-update-")
 	if err != nil {
 		return fmt.Errorf("couldn't create a staging directory next to %s: %w", self, err)
@@ -152,8 +139,7 @@ func UpdateNow(ctx context.Context, ui UI, current string, force bool) error {
 
 	backup := self + ".old"
 	_ = os.Remove(backup)
-	// Rename rather than delete: Windows will not unlink a running image, and
-	// on every platform this is what makes a rollback possible.
+	// Rename rather than delete.
 	if err = os.Rename(self, backup); err != nil {
 		return fmt.Errorf("couldn't move the current binary aside: %w", err)
 	}
@@ -167,8 +153,7 @@ func UpdateNow(ctx context.Context, ui UI, current string, force bool) error {
 	if err = os.Chmod(self, 0o755); err != nil {
 		ui.Warn("Installed, but couldn't set the executable bit: %v", err)
 	}
-	// A running Windows image cannot be removed; leaving it is harmless and the
-	// next update overwrites it.
+	// Windows can't delete a running binary; the next update overwrites it.
 	if err = os.Remove(backup); err != nil && runtime.GOOS != "windows" {
 		ui.Warn("Left the previous binary at %s", backup)
 	}
@@ -177,8 +162,7 @@ func UpdateNow(ctx context.Context, ui UI, current string, force bool) error {
 	return nil
 }
 
-// checkWritable fails early, with an actionable message, rather than letting
-// the rename fail after a multi-megabyte download.
+// checkWritable fails before the download rather than after it.
 func checkWritable(dir string) error {
 	probe, err := os.CreateTemp(dir, ".envi-write-test-")
 	if err != nil {
@@ -189,10 +173,7 @@ func checkWritable(dir string) error {
 	return os.Remove(name)
 }
 
-// verifyBinary runs the freshly downloaded executable and confirms it reports
-// the version we expect. A correct checksum only proves the bytes match the
-// release; this proves they actually run on this machine before the working
-// binary is moved out of the way.
+// verifyBinary runs the freshly downloaded executable and confirms it reports the version we expect.
 func verifyBinary(ctx context.Context, path, want string) error {
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
@@ -207,9 +188,7 @@ func verifyBinary(ctx context.Context, path, want string) error {
 	return nil
 }
 
-// updateThroughPackageManager runs the package manager's own upgrade, so npm's
-// metadata and the binary stay in step. If it can't be run, the command is
-// printed instead of guessed at.
+// updateThroughPackageManager updates an npm install with its own package manager.
 func updateThroughPackageManager(ctx context.Context, ui UI, install InstallMethod, current, latest string) error {
 	command := install.UpdateCommand(latest)
 	printable := strings.Join(command, " ")

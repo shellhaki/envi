@@ -7,21 +7,9 @@ import (
 	"time"
 )
 
-/*
-What the instance costs to run.
+// What the instance costs to run.
 
-This is the one write path in an otherwise read-only package. It is here rather
-than in its own package because it exists only for the operator screen, and
-confining it keeps the rule easy to state: admin reads everything and writes
-nothing except expenses.
-
-Money is handled in whole minor units throughout — kobo, cents. No float ever
-touches an amount. Rounding a tenth of a kobo per row is the kind of bug that
-is invisible until the totals are compared against a bank statement.
-*/
-
-// Recurrence says whether an expense repeats, which is what separates a
-// lifetime total from a monthly run rate.
+// Recurrence says whether an expense repeats: once, monthly or yearly.
 const (
 	Once    = "once"
 	Monthly = "monthly"
@@ -40,15 +28,12 @@ type Expense struct {
 	CreatedAt   time.Time `json:"created_at"`
 }
 
-// CurrencyTotal is the sum for one currency. Totals are never added across
-// currencies: there is no exchange rate here, by design.
+// CurrencyTotal is the sum for one currency.
 type CurrencyTotal struct {
 	Currency string `json:"currency"`
 	// Everything ever recorded in this currency.
 	TotalMinor int64 `json:"total_minor"`
-	// What the recurring items cost every month: monthly items at face value,
-	// yearly ones divided by twelve. One-off purchases are excluded, because
-	// a laptop bought once is not a monthly cost.
+	// What the recurring items cost every month: monthly items at face value, yearly ones divided by twelve.
 	MonthlyMinor int64 `json:"monthly_minor"`
 	Count        int64 `json:"count"`
 }
@@ -75,8 +60,7 @@ var (
 	errRecurring = errors.New("recurring must be once, monthly or yearly")
 )
 
-// AddExpense records one. It validates rather than trusting the caller, because
-// the operator screen is still a web form and a web form is still input.
+// AddExpense records one.
 func (s Service) AddExpense(ctx context.Context, operatorID string, e Expense) (Expense, error) {
 	if e.AmountMinor <= 0 {
 		return Expense{}, errAmount
@@ -117,9 +101,6 @@ func (s Service) DeleteExpense(ctx context.Context, id string) error {
 }
 
 // Spending gathers the totals and the recent rows.
-//
-// Like revenue, it survives the table not existing, so the operator screen
-// works before the migration is applied and keeps working after.
 func (s Service) Spending(ctx context.Context, limit int) (Spending, error) {
 	var out Spending
 	var exists bool
@@ -147,9 +128,6 @@ func (s Service) Spending(ctx context.Context, limit int) (Spending, error) {
 
 func (s Service) currencyTotals(ctx context.Context) ([]CurrencyTotal, error) {
 	// The monthly figure divides yearly costs by twelve in integer arithmetic.
-	// It is a run rate for a dashboard, not an invoice, so losing up to eleven
-	// kobo a year to truncation is the right trade against carrying a decimal
-	// type through for it.
 	rows, err := s.DB.Query(ctx, `
 		SELECT currency,
 		       sum(amount_minor),

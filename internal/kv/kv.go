@@ -1,13 +1,4 @@
-// Package kv is the project-wide key-value store applications read and write
-// over HTTP.
-//
-// It sits beside secrets rather than inside them. A secret belongs to one
-// environment, keeps every version it has ever had, and is reached through
-// per-environment grants. A kv entry belongs to the whole project, keeps only
-// its current value, and is the thing an application sets while it runs.
-//
-// Values are encrypted with the same cipher as secrets, so a stolen database
-// still gives up nothing readable.
+// Package kv is a project-wide key-value store that applications read and write over HTTP.
 package kv
 
 import (
@@ -20,11 +11,10 @@ import (
 	crypt "shellhaki/envi/internal/crypto"
 )
 
-// ErrForbidden means the caller may not touch this project.
+// Unlike secrets, entries belong to the whole project and keep no history. Values are encrypted.
+
 var ErrForbidden = errors.New("forbidden")
 
-// MaxValueBytes caps a single value. Generous for configuration, small enough
-// that the store cannot quietly become a file host.
 const MaxValueBytes = 64 << 10
 
 type Store struct {
@@ -45,7 +35,7 @@ func (s Store) All(ctx context.Context, projectID string) (map[string]string, er
 	for rows.Next() {
 		var key string
 		var sealed []byte
-		if err = rows.Scan(&key, &sealed); err != nil {
+		if err := rows.Scan(&key, &sealed); err != nil {
 			return nil, err
 		}
 		plain, err := s.Cipher.Open(sealed)
@@ -57,8 +47,7 @@ func (s Store) All(ctx context.Context, projectID string) (map[string]string, er
 	return values, rows.Err()
 }
 
-// Set writes a value, replacing whatever was there. Unlike a secret, no history
-// is kept: this is current state, not a record of changes.
+// Set writes a value, replacing any previous one.
 func (s Store) Set(ctx context.Context, projectID, key, value string) error {
 	key = strings.TrimSpace(key)
 	if err := ValidKey(key); err != nil {
@@ -71,22 +60,19 @@ func (s Store) Set(ctx context.Context, projectID, key, value string) error {
 	if err != nil {
 		return err
 	}
-	_, err = s.DB.Exec(ctx,
-		`INSERT INTO kv_entries (project_id, key_name, ciphertext) VALUES ($1, $2, $3)
-		 ON CONFLICT (project_id, key_name) DO UPDATE SET ciphertext = EXCLUDED.ciphertext, updated_at = now()`,
+	_, err = s.DB.Exec(ctx, `
+		INSERT INTO kv_entries (project_id, key_name, ciphertext) VALUES ($1, $2, $3)
+		    ON CONFLICT (project_id, key_name) DO UPDATE SET ciphertext = EXCLUDED.ciphertext, updated_at = now()`,
 		projectID, key, sealed)
 	return err
 }
 
-// Delete removes an entry. Deleting something that was never there is not an
-// error worth reporting to a caller trying to make it gone.
+// Delete removes an entry. Deleting a missing entry is not an error.
 func (s Store) Delete(ctx context.Context, projectID, key string) error {
 	_, err := s.DB.Exec(ctx, `DELETE FROM kv_entries WHERE project_id = $1 AND key_name = $2`, projectID, key)
 	return err
 }
 
-// ValidKey rejects names that would be confusing or unusable. Anything printable
-// is allowed otherwise: this is the caller's namespace, not ours.
 func ValidKey(key string) error {
 	switch {
 	case key == "":
@@ -95,7 +81,6 @@ func ValidKey(key string) error {
 		return errors.New("key is too long; the limit is 255 characters")
 	case strings.ContainsAny(key, "\x00\n\r"):
 		return errors.New("a key cannot contain newlines or null bytes")
-	default:
-		return nil
 	}
+	return nil
 }

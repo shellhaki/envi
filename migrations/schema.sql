@@ -236,7 +236,6 @@ CREATE INDEX announcements_created_idx ON announcements(created_at DESC);
 CREATE INDEX organizations_subscribed_idx ON organizations(is_subscribed) WHERE is_subscribed;
 
 -- Billing ---------------------------------------------------------------------
--- See migrations/011_billing.sql and BILLING.md.
 CREATE TABLE billing_accounts (
   org_id               uuid PRIMARY KEY REFERENCES organizations(id) ON DELETE CASCADE,
   plan                 text NOT NULL DEFAULT 'free' CHECK (plan IN ('free', 'payg', 'team')),

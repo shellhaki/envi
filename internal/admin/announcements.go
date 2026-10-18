@@ -7,24 +7,7 @@ import (
 	"time"
 )
 
-/*
-Announcements: one message to everybody who wants to hear from the instance.
-
-Three rules this file is built around.
-
-Subscription is honoured without exception. The recipient query filters on
-organizations.is_subscribed and there is no flag, parameter or "important
-announcement" path that skips it. A product that keeps secrets has to be the
-kind of product that keeps its word about a mailing list too.
-
-Every send is recorded before anybody is emailed, with who sent it and what it
-said. A mass email nobody is accountable for is not a feature.
-
-Sending is somebody else's job. This package resolves recipients and keeps the
-record; the caller delivers. That keeps the mailer out of a package that is
-otherwise about reading the database, and makes the recipient query testable
-without a working SMTP connection.
-*/
+// Announcements: one message to everybody who wants to hear from the instance.
 
 // Announcement is one message that went out.
 type Announcement struct {
@@ -42,13 +25,7 @@ var (
 	errBody    = errors.New("body is required")
 )
 
-/*
-Recipients returns the addresses an announcement would go to.
-
-One address per person, not per organization: somebody who owns a personal
-workspace and belongs to two teams is one human with one inbox, and mailing
-them three times is how a sender earns a spam complaint.
-*/
+// Recipients returns the addresses an announcement would go to.
 func (s Service) Recipients(ctx context.Context) ([]string, error) {
 	rows, err := s.DB.Query(ctx, `
 		SELECT DISTINCT u.email
@@ -74,8 +51,7 @@ func (s Service) Recipients(ctx context.Context) ([]string, error) {
 	return out, rows.Err()
 }
 
-// RecipientCount is how many an announcement would reach, for showing on the
-// form before anybody commits to sending it.
+// RecipientCount is how many people an announcement would reach.
 func (s Service) RecipientCount(ctx context.Context) (int, error) {
 	var n int
 	err := s.DB.QueryRow(ctx, `
@@ -88,8 +64,7 @@ func (s Service) RecipientCount(ctx context.Context) (int, error) {
 	return n, err
 }
 
-// RecordAnnouncement writes the record and returns it. It is called before
-// delivery, so an announcement that half-sends is still accounted for.
+// RecordAnnouncement writes the record and returns it.
 func (s Service) RecordAnnouncement(ctx context.Context, actorID, actorEmail, subject, body string, recipients int) (Announcement, error) {
 	subject = strings.TrimSpace(subject)
 	if subject == "" {

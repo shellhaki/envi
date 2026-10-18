@@ -1,6 +1,4 @@
-// Command api is the Envi backend. It reads configuration, connects to
-// Postgres and Redis, wires the services together and serves HTTP. The rules
-// live in internal/; this file only assembles them.
+// Command api is the Envi backend server.
 package main
 
 import (
@@ -23,7 +21,6 @@ import (
 	"shellhaki/envi/internal/api"
 	"shellhaki/envi/internal/audit"
 	"shellhaki/envi/internal/auth"
-	"shellhaki/envi/internal/beta"
 	"shellhaki/envi/internal/billing"
 	"shellhaki/envi/internal/config"
 	crypt "shellhaki/envi/internal/crypto"
@@ -39,7 +36,7 @@ import (
 )
 
 func main() {
-	// .env is for local development; deployed, the environment is already set.
+	// .env is only for local development; a deployment sets real environment variables.
 	if err := godotenv.Load(); err != nil && !errors.Is(err, os.ErrNotExist) {
 		log.Fatal(err)
 	}
@@ -47,7 +44,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	warnAboutLinks(c)
+	if c.WritesToRemoteDatabaseWithLocalLinks() {
+		log.Printf("WARNING: ENVI_WEB_URL is %s but DATABASE_URL is not local — invitations land in the shared database with links only you can open", c.WebURL)
+	} else if c.IsLocalWebURL() {
+		log.Printf("WARNING: ENVI_WEB_URL is %s — invitation and device links will only work on this machine", c.WebURL)
+	}
 
 	ctx := context.Background()
 	db := connectPostgres(ctx, c.DatabaseURL)
@@ -63,20 +64,10 @@ func main() {
 
 	accounts := workspace.Service{DB: db}
 	accounts.OnNewUser = welcome.Service{Mailer: mail, WebURL: c.WebURL, DocsURL: c.DocsURL()}.Greet
-
-	isBeta := c.Environment == "beta"
 	login := auth.LoginSettings{
 		Codes:               otp.Service{Store: otp.Redis{Client: rc}, TTL: 10 * time.Minute, MaxAttempts: 10, RequestLimit: 20},
 		Mailer:              otp.Resend{Client: mail},
 		FindOrCreateAccount: accounts.Identity,
-	}
-	if isBeta {
-		allowlist, err := beta.Load("beta_testers.json")
-		if err != nil {
-			log.Fatal(err)
-		}
-		login.AllowEmail = allowlist.Allowed
-		log.Printf("beta mode: sign-in restricted to beta_testers.json")
 	}
 
 	deployment := config.LoadDeployment(config.DeploymentPath())
@@ -98,7 +89,7 @@ func main() {
 		kv.Store{DB: db, Cipher: cipher},
 		audit.Service{DB: db},
 		service_token.Service{DB: db},
-		invitations, c.WebURL, isBeta, deployment,
+		invitations, c.WebURL, deployment,
 		announce.Service{Admin: admin.Service{DB: db}, Mailer: mail, WebURL: c.WebURL},
 		bill,
 	)
@@ -128,18 +119,7 @@ func connectRedis(ctx context.Context, url string) *redis.Client {
 	return rc
 }
 
-// warnAboutLinks catches the instance that writes to a shared database but
-// emails links only this machine can open.
-func warnAboutLinks(c config.Config) {
-	if c.WritesToRemoteDatabaseWithLocalLinks() {
-		log.Printf("WARNING: ENVI_WEB_URL is %s but DATABASE_URL is not local — invitations land in the shared database with links only you can open", c.WebURL)
-	} else if c.IsLocalWebURL() {
-		log.Printf("WARNING: ENVI_WEB_URL is %s — invitation and device links will only work on this machine", c.WebURL)
-	}
-}
-
-// serve runs the server until SIGINT or SIGTERM, then gives in-flight
-// requests ten seconds to finish.
+// serve runs until SIGINT or SIGTERM, then gives in-flight requests ten seconds to finish.
 func serve(s *http.Server) {
 	go func() {
 		log.Printf("API listening on %s", s.Addr)

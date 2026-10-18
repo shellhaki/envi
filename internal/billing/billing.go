@@ -1,15 +1,4 @@
-// Package billing decides what an organization owes and whether it may add
-// another person. Bachs moves the money; everything about what is owed and
-// when is decided here, against Envi's own database.
-//
-// The plans are in BILLING.md. In short: free is the owner alone, pay as you
-// go charges per extra person per month to a saved card in USD or NGN, and
-// team is a flat USD subscription.
-//
-// "Extra person" means somebody holding an access grant on one of the
-// organization's projects who is not a member of the organization. That is
-// what accepting an invitation creates; counting memberships instead would
-// find nobody and bill nothing.
+// Package billing decides what an organization owes and whether it may add another person.
 package billing
 
 import (
@@ -32,39 +21,27 @@ const (
 	Team = "team"
 )
 
-// PerMember is what pay as you go charges per extra person per month, in
-// minor units. Changing a price is changing a number here.
+// PerMember is what pay as you go charges per extra person per month, in minor units.
 var PerMember = map[string]int64{
 	"USD": 40,    // $0.40
 	"NGN": 60000, // ₦600
 }
 
-/*
-Minimum is the smallest monthly total worth charging, in minor units. Anything
-below it is carried into the next month instead.
-
-USD cards cost 5% plus a fixed $0.40 a charge, so a $0.40 month would cost
-more to collect than it brings in. $3 keeps about 82% after fees. NGN local
-cards cost a flat 2% with no fixed part, so every naira month is worth
-charging.
-*/
+// Minimum is the smallest monthly total worth charging, in minor units.
 var Minimum = map[string]int64{
 	"USD": 300,
 	"NGN": 0,
 }
 
-// TeamPriceMinor is shown on the billing page. The amount actually charged is
-// whatever the Bachs product says; keep the two in step.
+// TeamPriceMinor is shown on the billing page.
 const TeamPriceMinor int64 = 400
 
-// MaxAttempts is how many times a month is charged before the organization is
-// past due: the first attempt, then after 3 days, then after 7.
+// MaxAttempts is how many charge attempts a month gets: at once, after 3 days, after 7.
 const MaxAttempts = 3
 
 var retryAfter = []time.Duration{3 * 24 * time.Hour, 7 * 24 * time.Hour}
 
-// Provider is the part of Bachs billing needs. An interface so the service can
-// be tested without a network, and so a self-hosted instance has none at all.
+// Provider is the part of Bachs billing needs.
 type Provider interface {
 	CreateCustomer(ctx context.Context, email, name string, metadata map[string]string) (string, error)
 	SaveCardCheckout(ctx context.Context, customerID, successURL, cancelURL string, metadata map[string]string) (bachs.Checkout, error)
@@ -77,15 +54,11 @@ type Provider interface {
 // Service is billing for one instance.
 type Service struct {
 	DB *pgxpool.Pool
-	// Bachs is nil on any instance that does not bill — self-hosted, or hosted
-	// with no keys configured — and every method is then a no-op that allows.
+	// Bachs is nil when billing is off; every method then allows everything.
 	Bachs         Provider
 	TeamProductID string
 	WebURL        string
-	// ReturnURL is where Bachs sends somebody after checkout, when that must
-	// differ from WebURL. Bachs refuses localhost as a return address even in
-	// the sandbox, so local testing points this at any public URL. Empty
-	// means WebURL.
+	// ReturnURL is where Bachs sends somebody after checkout, when that must differ from WebURL.
 	ReturnURL string
 	// WebhookSecret verifies Bachs's webhooks.
 	WebhookSecret string
@@ -111,13 +84,7 @@ func monthOf(t time.Time) time.Time {
 
 // --- refusals ---------------------------------------------------------------
 
-/*
-Refusal is why an organization may not add somebody, in a form the API turns
-into 402 Payment Required.
-
-Code is what a script acts on, so it is stable and short; Message is for a
-person, so it says what to do next.
-*/
+// Refusal is why an organization may not add somebody, in a form the API turns into 402 Payment Required.
 type Refusal struct {
 	Code    string `json:"code"`
 	Message string `json:"error"`
@@ -155,9 +122,7 @@ type Account struct {
 	subscriptionID     string
 }
 
-// teamActive is whether a team subscription is currently paid for. past_due
-// still counts: Bachs is retrying the card, and nobody loses access while it
-// does.
+// teamActive is whether a team subscription is currently paid for. past_due still counts.
 func (a Account) teamActive() bool {
 	if a.Plan != Team {
 		return false
@@ -203,8 +168,7 @@ func (s Service) ensureRow(ctx context.Context, orgID string) error {
 
 // --- counting ----------------------------------------------------------------
 
-// collaboratorsSQL selects everybody who counts as an extra person for $1 right
-// now: holds a grant on one of its projects and is not one of its members.
+// collaboratorsSQL selects the extra people in org $1: grant holders on its projects who aren't members.
 const collaboratorsSQL = `
 	SELECT DISTINCT g.subject_user_id
 	  FROM access_grants g
@@ -218,9 +182,7 @@ func (s Service) extraCount(ctx context.Context, q querier, orgID string) (int, 
 	return n, err
 }
 
-// alreadyIn reports whether email is already counted for orgID — a member, or
-// somebody who already holds a grant. Adding them to another project is not a
-// new person and costs nothing.
+// alreadyIn reports whether email is already a member or grant holder in orgID.
 func (s Service) alreadyIn(ctx context.Context, q querier, orgID, email string) (bool, error) {
 	var in bool
 	err := q.QueryRow(ctx, `
@@ -242,16 +204,7 @@ func (s Service) pastDue(ctx context.Context, q querier, orgID string) (bool, er
 	return due, err
 }
 
-/*
-AllowNewPerson decides whether orgID may give email access.
-
-It is called when an invitation is sent and again when it is accepted:
-checking only at sending lets an organization one place below its cap send ten
-invitations and land eleven people.
-
-Nothing already in place is ever taken away by this. It refuses the next
-addition, and only that.
-*/
+// AllowNewPerson decides whether orgID may give email access.
 func (s Service) AllowNewPerson(ctx context.Context, orgID, email string) error {
 	if !s.Enabled() {
 		return nil
@@ -295,8 +248,7 @@ func (s Service) AllowNewPerson(ctx context.Context, orgID, email string) error 
 	return nil
 }
 
-// RecordPerson notes that userID counts for orgID this month. Called when an
-// invitation is accepted; the hourly sweep catches everybody else.
+// RecordPerson notes that userID counts for orgID this month.
 func (s Service) RecordPerson(ctx context.Context, orgID, userID string) error {
 	if !s.Enabled() {
 		return nil
@@ -379,8 +331,7 @@ func (s Service) Overview(ctx context.Context, orgID string) (Overview, error) {
 		orgID, monthOf(s.now())).Scan(&o.CountedMonth); err != nil {
 		return o, err
 	}
-	// On pay as you go, this month so far is at least everybody counted plus
-	// anybody here now who the sweep has not reached yet.
+	// This month so far: everyone counted, plus anyone here now the sweep hasn't counted yet.
 	if o.Account.Plan == PAYG {
 		billed := o.CountedMonth
 		if len(o.People) > billed {
@@ -425,13 +376,7 @@ func (s Service) returnURLs() (success, cancel string) {
 	return base + "/billing/success", base + "/dashboard/billing?checkout=cancelled"
 }
 
-/*
-customer returns the organization's Bachs customer, creating it the first time.
-
-The row is locked while the customer is created, so two clicks in a row make
-one customer rather than two — a duplicate would split a card from the
-subscription it is meant to pay.
-*/
+// customer returns the organization's Bachs customer, creating it the first time.
 func (s Service) customer(ctx context.Context, orgID, email string) (string, error) {
 	if err := s.ensureRow(ctx, orgID); err != nil {
 		return "", err
@@ -461,14 +406,7 @@ func (s Service) customer(ctx context.Context, orgID, email string) (string, err
 
 var errDisabled = errors.New("billing is not enabled on this instance")
 
-/*
-StartPAYG moves an organization onto pay as you go in currency.
-
-With a card already saved this is immediate and returns no URL. Otherwise it
-returns a Bachs checkout that saves a card without charging it; the plan only
-changes when the checkout.completed webhook says the card was saved, so
-abandoning the checkout leaves everything as it was.
-*/
+// StartPAYG moves an organization onto pay as you go in currency.
 func (s Service) StartPAYG(ctx context.Context, orgID, email, currency string) (string, error) {
 	if !s.Enabled() {
 		return "", errDisabled
@@ -507,8 +445,7 @@ func (s Service) StartPAYG(ctx context.Context, orgID, email, currency string) (
 	return checkout.URL, nil
 }
 
-// StartTeam returns a checkout for the Team subscription. The plan changes when
-// customer.subscription.created arrives, not here.
+// StartTeam returns a checkout for the Team subscription.
 func (s Service) StartTeam(ctx context.Context, orgID, email string) (string, error) {
 	if !s.Enabled() {
 		return "", errDisabled
@@ -536,16 +473,7 @@ func (s Service) StartTeam(ctx context.Context, orgID, email string) (string, er
 	return checkout.URL, nil
 }
 
-/*
-Cancel ends the current paid plan.
-
-Team is cancelled at the end of the period already paid for, through Bachs;
-the webhook moves the organization to free when it actually ends. Pay as you
-go stops counting at once — the month so far is still charged at the start of
-the next, because those people did have access.
-
-Nobody's access is removed by either. Free only refuses the next addition.
-*/
+// Cancel ends the current paid plan.
 func (s Service) Cancel(ctx context.Context, orgID string) error {
 	if !s.Enabled() {
 		return errDisabled
@@ -586,8 +514,7 @@ func (s Service) Portal(ctx context.Context, orgID string) (string, error) {
 	return s.Bachs.PortalURL(ctx, a.CustomerID)
 }
 
-// RetryNow lets an owner who has fixed their card try a failed month again
-// without waiting for the schedule. It grants one more attempt.
+// RetryNow charges a failed month again immediately, e.g. after the owner fixes their card.
 func (s Service) RetryNow(ctx context.Context, orgID string) error {
 	if !s.Enabled() {
 		return errDisabled

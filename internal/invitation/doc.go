@@ -1,4 +1,2 @@
-// Package invitation invites people to a project by email, accepts those
-// invitations as access grants, and removes collaborators. Billing can refuse
-// an extra member.
+// Package invitation invites people to projects by email and manages collaborators.
 package invitation

@@ -1,17 +1,10 @@
 package mailer
 
-// Message is an email to send. Callers always fill both Text and HTML: a
-// text-only body is itself a signal spam filters weigh against a sender,
-// so every message here goes out as proper multipart/alternative mail with
-// both parts present, not HTML bolted onto a plain-text sender after the
-// fact.
+// Message is one email. Fill in both Text and HTML; text-only mail is more likely to be marked as spam.
 type Message struct {
 	To, Subject, Text, HTML string
-	// Headers are extra SMTP headers. The one that matters is
-	// List-Unsubscribe: Gmail and Yahoo weigh its presence when deciding
-	// whether bulk mail is wanted, and a sender without it is judged harder.
-	Headers map[string]string
+	Headers                 map[string]string // e.g. List-Unsubscribe
 }
 
-// Sender delivers a Message. Resend implements it.
+// Sender delivers a Message.
 type Sender interface{ Send(Message) error }

@@ -85,32 +85,6 @@ docker compose up -d
   person receiving it.
 </Warning>
 
-## Restricting who can sign in
-
-By default anyone who can reach the dashboard can request a sign-in code. To
-run a closed instance, set `ENVIRONMENT=beta` and point `ENVI_BETA_ALLOWLIST`
-at a JSON file of permitted addresses:
-
-```json
-[
-  "you@yourdomain.com",
-  "teammate@yourdomain.com"
-]
-```
-
-```bash
-docker compose restart api
-```
-
-The file is mounted read-only, not baked into the image, so adding someone is
-an edit and a restart — no rebuild.
-
-<Note>
-  The allowlist gates sign-in only. Someone already signed in keeps their
-  session until it expires, so removing an address is not a way to revoke
-  access — remove their access grants for that.
-</Note>
-
 ## Updating
 
 ```bash

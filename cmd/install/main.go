@@ -1,13 +1,4 @@
-// Command install serves the envi CLI install scripts over plain HTTP, so
-// installing is a one-liner:
-//
-//	curl -fsSL https://install.envisecrets.com | sh
-//	irm https://install.envisecrets.com/install.ps1 | iex
-//
-// It has no database, no auth, and no dependency on the main API — a script
-// that never changes based on who's asking doesn't need a request to reach
-// past this process. scripts/install.sh and scripts/install.ps1 are read
-// once at startup; restart this process after editing either one.
+// Command install serves the envi CLI install scripts over plain HTTP, so installing is a one-liner.
 package main
 
 import (
@@ -37,8 +28,7 @@ func main() {
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`{"status":"ok"}`))
 	})
-	// The bare root is the *nix path — curl ... | sh doesn't care what the URL
-	// path is, only the body, so "/" and "/install.sh" serve the same script.
+	// curl | sh ignores the path, so / and /install.sh serve the same script.
 	mux.HandleFunc("GET /", serveScript(sh, "text/x-sh; charset=utf-8"))
 	mux.HandleFunc("GET /install.sh", serveScript(sh, "text/x-sh; charset=utf-8"))
 	mux.HandleFunc("GET /install.ps1", serveScript(ps1, "text/plain; charset=utf-8"))

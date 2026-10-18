@@ -11,13 +11,7 @@ import (
 	"strings"
 )
 
-// Uninstall removes this binary and, unless the caller keeps it, the local
-// session store. It never touches anything server-side: secrets, projects and
-// collaborators are untouched, and the session is revoked only if the user
-// runs `envi logout` first — which is exactly what we tell them.
-//
-// Everything to be removed is listed before anything is removed, and the
-// removal only happens on an explicit "y", so a mistyped command costs nothing.
+// Uninstall removes this binary and, unless the caller keeps it, the local session store.
 func Uninstall(ui UI, in io.Reader, keepConfig, assumeYes bool) error {
 	self, err := os.Executable()
 	if err != nil {
@@ -48,8 +42,7 @@ func Uninstall(ui UI, in io.Reader, keepConfig, assumeYes bool) error {
 		return nil
 	}
 
-	// The startup-file line checks for envi before running, so leaving it would
-	// be harmless; it is removed anyway, because uninstalling means gone.
+	// Remove the shell hook too.
 	if HookInstalled() {
 		if err := UninstallHook(ui.Out); err != nil {
 			ui.Warn("Couldn't remove the shell hook: %v", err)
@@ -57,9 +50,7 @@ func Uninstall(ui UI, in io.Reader, keepConfig, assumeYes bool) error {
 	}
 
 	if !keepConfig && cfgErr == nil && configDir != "" && filepath.Base(configDir) == "envi" {
-		// The base-name guard is deliberate: ENVI_CONFIG_DIR is user-supplied,
-		// and a recursive delete of an arbitrary path is not something this
-		// command should ever be talked into.
+		// Only delete a folder named envi: ENVI_CONFIG_DIR is user-supplied.
 		if err = os.RemoveAll(configDir); err != nil {
 			ui.Warn("Couldn't remove %s: %v", configDir, err)
 		} else {
@@ -74,8 +65,7 @@ func Uninstall(ui UI, in io.Reader, keepConfig, assumeYes bool) error {
 			return fmt.Errorf("no permission to remove %s; re-run with elevated permissions, or delete it by hand", self)
 		}
 		if runtime.GOOS == "windows" {
-			// A running image cannot delete itself here; renaming is the best
-			// available outcome and leaves nothing on PATH.
+			// Windows can't delete a running binary, so rename it out of the way.
 			if renameErr := os.Rename(self, self+".old"); renameErr == nil {
 				ui.Success("Uninstalled. Delete %s.old when convenient.", self)
 				return nil

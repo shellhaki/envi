@@ -10,33 +10,37 @@ import (
 
 type Cipher struct{ gcm cipher.AEAD }
 
+// New returns an AES-256-GCM cipher. The key must be exactly 32 bytes.
 func New(key []byte) (*Cipher, error) {
 	if len(key) != 32 {
 		return nil, errors.New("encryption key must be 32 bytes")
 	}
-	b, err := aes.NewCipher(key)
+	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
 	}
-	g, err := cipher.NewGCM(b)
+	gcm, err := cipher.NewGCM(block)
 	if err != nil {
 		return nil, err
 	}
-	return &Cipher{g}, nil
+	return &Cipher{gcm}, nil
 }
 
+// Seal encrypts plain and returns the random nonce followed by the ciphertext.
 func (c *Cipher) Seal(plain []byte) ([]byte, error) {
-	n := make([]byte, c.gcm.NonceSize())
-	if _, err := io.ReadFull(rand.Reader, n); err != nil {
+	nonce := make([]byte, c.gcm.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
 		return nil, err
 	}
-	return c.gcm.Seal(n, n, plain, nil), nil
+	return c.gcm.Seal(nonce, nonce, plain, nil), nil
 }
 
-func (c *Cipher) Open(data []byte) ([]byte, error) {
-	n := c.gcm.NonceSize()
-	if len(data) < n {
+// Open decrypts what Seal produced.
+func (c *Cipher) Open(sealed []byte) ([]byte, error) {
+	size := c.gcm.NonceSize()
+	if len(sealed) < size {
 		return nil, errors.New("invalid ciphertext")
 	}
-	return c.gcm.Open(nil, data[:n], data[n:], nil)
+	nonce, ciphertext := sealed[:size], sealed[size:]
+	return c.gcm.Open(nil, nonce, ciphertext, nil)
 }

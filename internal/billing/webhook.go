@@ -14,24 +14,9 @@ import (
 	"shellhaki/envi/internal/bachs"
 )
 
-/*
-Applying Bachs webhooks.
+// Applying Bachs webhooks.
 
-The webhook is the only place payment state changes. Clicking "upgrade" only
-starts a checkout; the plan changes when Bachs says the money or the card is
-real. Four rules, from Bachs's own guidance:
-
-  - The signature is verified before anything else (bachs.VerifyWebhook).
-  - Each event id is applied once. It is recorded in the same transaction as
-    the change it causes, so a delivery that fails halfway leaves no record
-    and is retried whole.
-  - Subscription events older than the last one applied to an organization
-    are skipped, because delivery order is not guaranteed.
-  - Payloads are decoded leniently, because Bachs adds fields without notice.
-*/
-
-// ErrUnmatched marks an event that names no organization Envi knows. It is
-// acknowledged rather than retried: retrying cannot make it match.
+// ErrUnmatched marks an event that names no organization Envi knows.
 var ErrUnmatched = errors.New("event matches no organization")
 
 // Apply applies one verified event.
@@ -60,8 +45,7 @@ func (s Service) Apply(ctx context.Context, event bachs.Event) error {
 	case "collection.succeeded", "collection.failed":
 		err = s.collection(ctx, tx, event)
 	default:
-		// Recorded and ignored: every event Bachs sends arrives here, and
-		// most are none of billing's business.
+		// Recorded and ignored: every event Bachs sends arrives here, and most are none of billing's business.
 	}
 	if errors.Is(err, ErrUnmatched) {
 		log.Printf("bachs event %s (%s): %v", event.ID, event.Type, err)
@@ -87,8 +71,7 @@ type payload struct {
 	CardLast4         string            `json:"card_last4"`
 	Reason            string            `json:"reason"`
 	Metadata          map[string]string `json:"metadata"`
-	// Bachs names the customer differently per event: a bare id, or an object
-	// with "id", or one with "customer_id". Held raw and read by customerID.
+	// Bachs sends the customer as an id, or an object with "id" or "customer_id".
 	Customer   json.RawMessage `json:"customer"`
 	CustomerID string          `json:"customer_id"`
 }
@@ -121,14 +104,7 @@ func (p payload) customerID() string {
 	return ""
 }
 
-/*
-orgFor finds which organization an event is about.
-
-Envi's own org id travels in metadata on every customer, checkout and
-subscription it creates, so that is tried first and the customer id second.
-Either alone would do on a good day; both means a payload Bachs reshapes does
-not leave a paid subscription attached to nobody.
-*/
+// orgFor finds which organization an event is about.
 func orgFor(ctx context.Context, tx pgx.Tx, p payload) (string, error) {
 	if id := p.Metadata["org_id"]; id != "" {
 		var found string
@@ -152,8 +128,7 @@ func ensureRowTx(ctx context.Context, tx pgx.Tx, orgID string) error {
 	return err
 }
 
-// checkoutCompleted is the only signal for a save-card checkout: Bachs sends
-// no collection event when nothing was charged.
+// checkoutCompleted is the only signal for a save-card checkout.
 func (s Service) checkoutCompleted(ctx context.Context, tx pgx.Tx, event bachs.Event) error {
 	p := decode(event)
 	if p.Mode != "setup" {
@@ -169,8 +144,7 @@ func (s Service) checkoutCompleted(ctx context.Context, tx pgx.Tx, event bachs.E
 	if _, err := tx.Exec(ctx, `UPDATE billing_accounts SET card_saved = true, updated_at = now() WHERE org_id = $1`, orgID); err != nil {
 		return err
 	}
-	// The card was saved in order to start pay as you go, in the currency
-	// chosen when the checkout was made.
+	// The card was saved in order to start pay as you go, in the currency chosen when the checkout was made.
 	if p.Metadata["plan"] == PAYG {
 		currency := strings.ToUpper(p.Metadata["currency"])
 		if _, ok := PerMember[currency]; !ok {
@@ -209,8 +183,7 @@ func (s Service) cardSaved(ctx context.Context, tx pgx.Tx, event bachs.Event) er
 
 func (s Service) subscriptionChanged(ctx context.Context, tx pgx.Tx, event bachs.Event) error {
 	p := decode(event)
-	// Only the Team product moves an organization onto Team. Anything else
-	// sold through the same Bachs account is not this plan.
+	// Only the Team product moves an organization onto Team.
 	if s.TeamProductID != "" && p.ProductID != "" && p.ProductID != s.TeamProductID {
 		return nil
 	}
@@ -235,8 +208,7 @@ func (s Service) subscriptionChanged(ctx context.Context, tx pgx.Tx, event bachs
 		status = "canceled"
 	}
 
-	// Paid for, or being retried: Team. Over: back to free, with everything
-	// kept — free only refuses the next addition.
+	// Paid for, or being retried.
 	plan := Team
 	switch status {
 	case "canceled", "unpaid", "incomplete_expired":
@@ -256,8 +228,7 @@ func (s Service) subscriptionChanged(ctx context.Context, tx pgx.Tx, event bachs
 	return err
 }
 
-// collection settles a pay-as-you-go month. Only references Envi made are
-// touched: a payment for anything else on the account is not billing's.
+// collection settles a pay-as-you-go month.
 func (s Service) collection(ctx context.Context, tx pgx.Tx, event bachs.Event) error {
 	p := decode(event)
 	if !strings.HasPrefix(p.Reference, "payg:") {
@@ -281,8 +252,7 @@ func (s Service) collection(ctx context.Context, tx pgx.Tx, event bachs.Event) e
 		return err
 	}
 
-	// A late report on an earlier attempt must not overrule a later one: the
-	// attempt number is the last part of the reference.
+	// Ignore a late report about an earlier attempt; the attempt number ends the reference.
 	if parts[3] != strconv.Itoa(attempts) {
 		return nil
 	}

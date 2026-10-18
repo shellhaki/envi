@@ -1,79 +1,60 @@
 package api
 
-// The key-value store, addressed by project name so nothing has to know a UUID.
-//
-//	GET    /kv?project=acme-api          every value in the project
-//	PUT    /kv   {project, key, value}   write one
-//	DELETE /kv   {project, key}          remove one
-//
-// Both credentials work. A service token is bound to one environment, and the
-// store is project-wide, so the token acts on the project that environment
-// belongs to — its permission still decides whether it may write.
-
 import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
 	"shellhaki/envi/internal/kv"
-	"shellhaki/envi/internal/project"
 )
 
-func addKVRoutes(router *gin.Engine, projects project.Service, store kv.Store, requireLogin gin.HandlerFunc) {
-	group := router.Group("/kv", requireLogin)
-	group.GET("", func(c *gin.Context) { handleKVList(c, projects, store) })
-	group.PUT("", func(c *gin.Context) { handleKVSet(c, projects, store) })
-	group.DELETE("", func(c *gin.Context) { handleKVDelete(c, projects, store) })
-}
-
-// kvCaller works out which project this request may act on, and whether it may
-// write to it. It answers once for both credential types so the handlers below
-// don't each have to branch.
-type kvCaller struct {
+// kvTarget is the project a key-value request acts on, and whether the caller may write to it.
+type kvTarget struct {
 	projectID   string
 	projectName string
 	canWrite    bool
 }
 
-func resolveKVCaller(c *gin.Context, projects project.Service, wantProject string) (kvCaller, bool) {
-	if serviceID := c.GetString("service_id"); serviceID != "" {
-		id, name, err := projects.ProjectForEnvironment(c, c.GetString("service_env"))
+// resolveKVTarget finds the project for this request. On failure it has already replied.
+// A service token acts on its environment's project; a person names the project.
+func (s *server) resolveKVTarget(c *gin.Context, wantProject string) (kvTarget, bool) {
+	if isServiceToken(c) {
+		id, name, err := s.projects.ProjectForEnvironment(c, c.GetString("service_env"))
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"code": "internal", "error": "project unavailable"})
-			return kvCaller{}, false
+			return kvTarget{}, false
 		}
-		// A named project that isn't the token's own is refused rather than
-		// silently redirected, so a misconfigured deploy fails loudly.
 		if wantProject != "" && wantProject != name {
 			c.JSON(http.StatusForbidden, gin.H{"code": "forbidden", "error": "this token belongs to " + name})
-			return kvCaller{}, false
+			return kvTarget{}, false
 		}
-		return kvCaller{projectID: id, projectName: name, canWrite: c.GetString("service_permission") != "read"}, true
+		return kvTarget{id, name, c.GetString("service_permission") != "read"}, true
 	}
 
 	userID := c.GetString("user_id")
 	if wantProject == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"code": "invalid_request", "error": "a project is required"})
-		return kvCaller{}, false
+		return kvTarget{}, false
 	}
-	found, err := projects.FindByName(c, userID, wantProject)
+	found, err := s.projects.FindByName(c, userID, wantProject)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"code": "project_not_found", "error": err.Error()})
-		return kvCaller{}, false
+		return kvTarget{}, false
 	}
-	if !projects.CanView(c, userID, found.ID) {
-		c.JSON(http.StatusForbidden, gin.H{"code": "forbidden", "error": "access denied"})
-		return kvCaller{}, false
+	if !s.projects.CanView(c, userID, found.ID) {
+		forbidden(c)
+		return kvTarget{}, false
 	}
-	return kvCaller{projectID: found.ID, projectName: found.Name, canWrite: projects.CanWrite(c, userID, found.ID)}, true
+	return kvTarget{found.ID, found.Name, s.projects.CanWrite(c, userID, found.ID)}, true
 }
 
-func handleKVList(c *gin.Context, projects project.Service, store kv.Store) {
-	caller, ok := resolveKVCaller(c, projects, c.Query("project"))
+// GET /kv?project=
+func (s *server) listKV(c *gin.Context) {
+	target, ok := s.resolveKVTarget(c, c.Query("project"))
 	if !ok {
 		return
 	}
-	values, err := store.All(c, caller.projectID)
+	values, err := s.kv.All(c, target.projectID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": "internal", "error": "values unavailable"})
 		return
@@ -81,56 +62,59 @@ func handleKVList(c *gin.Context, projects project.Service, store kv.Store) {
 	if values == nil {
 		values = map[string]string{}
 	}
-	c.JSON(http.StatusOK, gin.H{"project": caller.projectName, "values": values})
+	c.JSON(http.StatusOK, gin.H{"project": target.projectName, "values": values})
 }
 
-func handleKVSet(c *gin.Context, projects project.Service, store kv.Store) {
-	var request struct {
+// PUT /kv {project, key, value}
+func (s *server) setKV(c *gin.Context) {
+	var in struct {
 		Project string `json:"project"`
 		Key     string `json:"key" binding:"required"`
 		Value   string `json:"value"`
 	}
-	if c.ShouldBindJSON(&request) != nil {
+	if c.ShouldBindJSON(&in) != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": "invalid_request", "error": "key required"})
 		return
 	}
-	caller, ok := resolveKVCaller(c, projects, request.Project)
+	target, ok := s.resolveKVTarget(c, in.Project)
 	if !ok {
 		return
 	}
-	if !caller.canWrite {
+	if !target.canWrite {
 		c.JSON(http.StatusForbidden, gin.H{"code": "forbidden", "error": "this credential may only read"})
 		return
 	}
-	if err := store.Set(c, caller.projectID, request.Key, request.Value); err != nil {
-		if err == kv.ErrForbidden {
-			c.JSON(http.StatusForbidden, gin.H{"code": "forbidden", "error": "access denied"})
-			return
-		}
+	err := s.kv.Set(c, target.projectID, in.Key, in.Value)
+	if err == kv.ErrForbidden {
+		forbidden(c)
+		return
+	}
+	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": "invalid_request", "error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"project": caller.projectName, "key": request.Key})
+	c.JSON(http.StatusOK, gin.H{"project": target.projectName, "key": in.Key})
 }
 
-func handleKVDelete(c *gin.Context, projects project.Service, store kv.Store) {
-	var request struct {
+// DELETE /kv {project, key}
+func (s *server) deleteKV(c *gin.Context) {
+	var in struct {
 		Project string `json:"project"`
 		Key     string `json:"key" binding:"required"`
 	}
-	if c.ShouldBindJSON(&request) != nil {
+	if c.ShouldBindJSON(&in) != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": "invalid_request", "error": "key required"})
 		return
 	}
-	caller, ok := resolveKVCaller(c, projects, request.Project)
+	target, ok := s.resolveKVTarget(c, in.Project)
 	if !ok {
 		return
 	}
-	if !caller.canWrite {
+	if !target.canWrite {
 		c.JSON(http.StatusForbidden, gin.H{"code": "forbidden", "error": "this credential may only read"})
 		return
 	}
-	if err := store.Delete(c, caller.projectID, request.Key); err != nil {
+	if err := s.kv.Delete(c, target.projectID, in.Key); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": "internal", "error": "unable to delete"})
 		return
 	}

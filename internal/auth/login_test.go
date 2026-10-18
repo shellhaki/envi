@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"time"
 
@@ -58,22 +57,5 @@ func TestWrongCodeIsRejected(t *testing.T) {
 	}
 	if created {
 		t.Fatal("an account was created for a wrong code")
-	}
-}
-
-func TestBetaListBlocksOtherEmails(t *testing.T) {
-	mailer := &fakeMailer{}
-	created := false
-	settings := testLoginSettings(mailer, &created)
-	settings.AllowEmail = func(email string) bool { return email == "invited@b.com" }
-
-	if err := SendLoginCode(context.Background(), settings, "stranger@b.com"); !errors.Is(err, ErrNotInvited) {
-		t.Fatalf("got %v, want ErrNotInvited", err)
-	}
-	if mailer.lastCode != "" {
-		t.Fatal("a code was emailed to someone not on the list")
-	}
-	if err := SendLoginCode(context.Background(), settings, "invited@b.com"); err != nil {
-		t.Fatal(err)
 	}
 }

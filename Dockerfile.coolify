@@ -32,10 +32,6 @@ RUN chmod +x /usr/local/bin/envi-entrypoint
 # directory — not build-time assets.
 COPY scripts/install.sh scripts/install.ps1 ./scripts/
 
-# Beta mode additionally reads ./beta_testers.json and refuses to start without
-# it. That file is gitignored, so with ENVIRONMENT=beta you must add it to the
-# image or mount it as a Coolify file mount at /app/beta_testers.json.
-
 ENV ENVI_API_PORT=8080 ENVI_SERVER_PORT=8081
 EXPOSE 8080 8081
 

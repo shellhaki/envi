@@ -100,11 +100,13 @@ The CLI and the dashboard are two clients of the same API — neither one is a s
 | `cmd/api` | The API server — the entire backend |
 | `cmd/envi` | The CLI, released for macOS, Linux, Termux, and Windows |
 | `cmd/install` | Tiny server for the `curl \| sh` install scripts |
-| `internal/` | Domain packages: secrets, auth, access, invitations, audit, mail |
+| `internal/` | Domain packages: secrets, auth, access, invitations, billing, audit, mail |
+| `internal/api` | HTTP routes — every endpoint is listed in `server.go` |
 | `npm/` | Builds the npm packages that install the CLI binary |
 | `ui/` | The Next.js dashboard (deployable separately, e.g. to Vercel) |
 | `docs/` | The documentation site, its own Next.js app |
 | `migrations/` | `schema.sql` for a fresh database, numbered files to catch one up |
+| `architecture/` | `ENDPOINTS.md` (every route) and `excalidraw.json` (system diagram, data model) — rebuilt with `make diagram` |
 | `traefik/` | Reverse-proxy config for a non-Docker deployment |
 
 ## Security, briefly

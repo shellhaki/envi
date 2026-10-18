@@ -84,7 +84,7 @@ func billingRouter(t *testing.T, enabled bool) (*gin.Engine, *pgxpool.Pool, stri
 	router := Build(db, auth.LoginSettings{}, project.Service{DB: db},
 		secret.Service{DB: db, Access: access.Service{DB: db}, Cipher: cipher},
 		kv.Store{DB: db, Cipher: cipher}, audit.Service{DB: db}, service_token.Service{DB: db},
-		invitation.Service{DB: db, Billing: bill}, "https://envi.test", false, config.DefaultDeployment(),
+		invitation.Service{DB: db, Billing: bill}, "https://envi.test", config.DefaultDeployment(),
 		announce.Service{Admin: admin.Service{DB: db}}, bill)
 	return router, db, w.OrganizationID, token
 }

@@ -1,7 +1,7 @@
 -- Billing: what each organization is on, who it is paying for, and what it has
 -- been charged.
 --
--- Three plans, all with every feature (see BILLING.md):
+-- Three plans, all with every feature:
 --   free  — the owner alone
 --   payg  — $0.40 or ₦600 per extra person per month, charged to a saved card
 --   team  — a flat monthly Bachs subscription, USD only

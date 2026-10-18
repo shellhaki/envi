@@ -56,9 +56,7 @@ func (a App) runHook(args []string) int {
 		return ExitOK
 
 	case "export":
-		// Called by the hook before every prompt. It never fails the prompt:
-		// problems become one line on stderr, and stdout carries only shell
-		// code for the hook to evaluate.
+		// Called by the hook before every prompt.
 		if len(args) < 2 {
 			return ExitUsage
 		}
@@ -120,8 +118,7 @@ func (a App) runHook(args []string) int {
 	}
 }
 
-// hookFetch reads one environment's secrets for the hook, opening the token
-// store only now that something actually has to load.
+// hookFetch reads one environment's secrets for the hook.
 func (a App) hookFetch(ctx context.Context, envID string) (map[string]string, error) {
 	store := a.Store
 	if store == nil {
@@ -139,8 +136,7 @@ func (a App) hookFetch(ctx context.Context, envID string) (map[string]string, er
 	return values, err
 }
 
-// hookTip suggests the hook once, after the first envi init on a machine
-// without it.
+// hookTip suggests the hook once, after the first envi init on a machine without it.
 func hookTip(out io.Writer) {
 	if HookInstalled() {
 		return

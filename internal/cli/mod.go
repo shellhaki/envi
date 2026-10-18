@@ -1,7 +1,6 @@
 package cli
 
-// envi mod — edit an environment's secrets in place, with nothing written to
-// disk. Pull, edit, push, without the file in the middle.
+// envi mod — edit an environment's secrets in place, with nothing written to disk.
 
 import (
 	"context"
@@ -15,11 +14,7 @@ import (
 	projectctx "shellhaki/envi/internal/cli/project"
 )
 
-// Mod fetches the current secrets, opens them in the editor, and pushes back
-// when asked. The values exist in memory and on the screen, never in a file.
-//
-// ready is called once the fetch is done, before the screen is taken over, so a
-// caller animating a spinner can stop it first.
+// Mod fetches the current secrets, opens them in the editor, and pushes back when asked.
 func Mod(ctx context.Context, c Client, dir, originName string, ready func()) error {
 	if !term.IsTerminal(int(os.Stdin.Fd())) {
 		return errNotATerminal
@@ -55,8 +50,7 @@ func Mod(ctx context.Context, c Client, dir, originName string, ready func()) er
 	if err != nil {
 		return fmt.Errorf("could not take over the terminal: %w", err)
 	}
-	// Restore on every exit, including a panic: leaving a terminal in raw mode
-	// makes the shell afterwards unusable.
+	// Always restore the terminal, even on a panic, or the shell is unusable afterwards.
 	defer func() {
 		_ = term.Restore(fd, state)
 		fmt.Fprint(os.Stdout, "\x1b[?25h\x1b[2J\x1b[H") // cursor back, clear
@@ -89,8 +83,7 @@ func Mod(ctx context.Context, c Client, dir, originName string, ready func()) er
 		ed.dirty = false
 		ed.status = fmt.Sprintf("Pushed %d secret%s to %s.", len(edited), plural(len(edited)), envName)
 
-		// Keep envi.toml's revision in step so a later envi push from this
-		// directory is not rejected for being behind.
+		// Keep envi.toml's revision current so the next envi push isn't rejected.
 		if envID == x.Environment.ID {
 			x.Environment.Revision = newRevision
 			_ = projectctx.Write(dir, x)
@@ -119,8 +112,7 @@ func pushFailure(err error) string {
 	return err.Error()
 }
 
-// confirmRaw asks a yes/no question while the terminal is in raw mode, where
-// the usual line-buffered prompt would never see a newline.
+// confirmRaw asks yes/no while the terminal is in raw mode.
 func confirmRaw(in io.Reader, out io.Writer, question string) bool {
 	fmt.Fprintf(out, "\x1b[%dH\x1b[2K\x1b[7m%s\x1b[0m", 999, question)
 	buf := make([]byte, 4)

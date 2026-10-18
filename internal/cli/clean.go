@@ -1,7 +1,6 @@
 package cli
 
-// envi clean — remove the local .env once its contents are safely on the
-// server, so a pull, edit and push cycle leaves nothing plaintext behind.
+// envi clean deletes the local .env once the server already has the same values.
 
 import (
 	"context"
@@ -12,11 +11,7 @@ import (
 	"path/filepath"
 )
 
-// Clean deletes the env file, but only once the server already holds exactly
-// what it contains. Anything else would destroy the only copy of work that was
-// never pushed, which no flag default should ever risk.
-//
-// force skips that check, for a file the caller knows is stale or unwanted.
+// Clean deletes the env file, but only once the server already holds exactly what it contains.
 func Clean(ctx context.Context, c Client, dir, file string, force bool, out io.Writer) error {
 	path := resolveEnvFile(dir, file)
 	name := filepath.Base(path)
@@ -53,8 +48,7 @@ func Clean(ctx context.Context, c Client, dir, file string, force bool, out io.W
 	return nil
 }
 
-// cleanRefusal names what would be lost, so the answer is obvious: push it, or
-// say you meant to throw it away.
+// cleanRefusal explains which local changes would be lost.
 func cleanRefusal(name string, added, changed, removed []string) string {
 	differences := len(added) + len(changed) + len(removed)
 	return fmt.Sprintf(
@@ -63,8 +57,7 @@ func cleanRefusal(name string, added, changed, removed []string) string {
 	)
 }
 
-// summarise keeps the counts on one line, listing the first few keys so the
-// message says what rather than only how many.
+// summarise lists the first few keys and a count, on one line.
 func summarise(added, changed, removed []string) string {
 	parts := []string{}
 	for _, group := range []struct {
