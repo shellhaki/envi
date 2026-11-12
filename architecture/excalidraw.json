@@ -4,12 +4,12 @@
  "source": "https://excalidraw.com",
  "elements": [
   {
-   "id": "rec371",
+   "id": "rec374",
    "type": "rectangle",
    "x": -140,
    "y": -260,
    "width": 8568.199999999999,
-   "height": 3157.5,
+   "height": 3222.5,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "#ffffff",
@@ -23,9 +23,9 @@
    "roundness": {
     "type": 3
    },
-   "seed": 951089634,
+   "seed": 959169875,
    "version": 1,
-   "versionNonce": 1138260632,
+   "versionNonce": 2083285640,
    "isDeleted": false,
    "boundElements": [],
    "updated": 1,
@@ -33,12 +33,12 @@
    "locked": false
   },
   {
-   "id": "lin373",
+   "id": "lin376",
    "type": "line",
    "x": 1740.0,
    "y": -40,
    "width": 0.0,
-   "height": 2837.5,
+   "height": 2902.5,
    "angle": 0,
    "strokeColor": "#adb5bd",
    "backgroundColor": "transparent",
@@ -50,9 +50,9 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 2129293282,
+   "seed": 628710425,
    "version": 1,
-   "versionNonce": 804504125,
+   "versionNonce": 1689897757,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -65,7 +65,7 @@
     ],
     [
      0.0,
-     2837.5
+     2902.5
     ]
    ],
    "lastCommittedPoint": null,
@@ -76,12 +76,12 @@
    "polygon": false
   },
   {
-   "id": "lin374",
+   "id": "lin377",
    "type": "line",
    "x": 3189.6,
    "y": -40,
    "width": 0.0,
-   "height": 2837.5,
+   "height": 2902.5,
    "angle": 0,
    "strokeColor": "#adb5bd",
    "backgroundColor": "transparent",
@@ -93,9 +93,9 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 959169875,
+   "seed": 233467471,
    "version": 1,
-   "versionNonce": 2083285640,
+   "versionNonce": 914609341,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -108,7 +108,7 @@
     ],
     [
      0.0,
-     2837.5
+     2902.5
     ]
    ],
    "lastCommittedPoint": null,
@@ -119,12 +119,12 @@
    "polygon": false
   },
   {
-   "id": "lin375",
+   "id": "lin378",
    "type": "line",
    "x": 6121.4,
    "y": -40,
    "width": 0.0,
-   "height": 2837.5,
+   "height": 2902.5,
    "angle": 0,
    "strokeColor": "#adb5bd",
    "backgroundColor": "transparent",
@@ -136,9 +136,9 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1791126241,
+   "seed": 101484549,
    "version": 1,
-   "versionNonce": 242309499,
+   "versionNonce": 609503433,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -151,7 +151,7 @@
     ],
     [
      0.0,
-     2837.5
+     2902.5
     ]
    ],
    "lastCommittedPoint": null,
@@ -509,7 +509,7 @@
    "x": 340,
    "y": 160,
    "width": 560,
-   "height": 470,
+   "height": 360,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "#f8f9fa",
@@ -574,7 +574,7 @@
    "x": 370,
    "y": 230,
    "width": 120,
-   "height": 370,
+   "height": 260,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "#e9ecef",
@@ -601,7 +601,7 @@
    "id": "tex12",
    "type": "text",
    "x": 384,
-   "y": 450,
+   "y": 270,
    "width": 79.2,
    "height": 140.0,
    "angle": 0,
@@ -853,13 +853,13 @@
   {
    "id": "rec19",
    "type": "rectangle",
-   "x": 560,
-   "y": 510,
-   "width": 290,
-   "height": 90,
+   "x": 340,
+   "y": 560,
+   "width": 560,
+   "height": 560,
    "angle": 0,
    "strokeColor": "#1e1e1e",
-   "backgroundColor": "#ffffff",
+   "backgroundColor": "#fff4e6",
    "fillStyle": "solid",
    "strokeWidth": 2,
    "strokeStyle": "solid",
@@ -874,16 +874,7 @@
    "version": 1,
    "versionNonce": 2132084005,
    "isDeleted": false,
-   "boundElements": [
-    {
-     "id": "tex20",
-     "type": "text"
-    },
-    {
-     "id": "arr48",
-     "type": "arrow"
-    }
-   ],
+   "boundElements": [],
    "updated": 1,
    "link": null,
    "locked": false
@@ -891,10 +882,10 @@
   {
    "id": "tex20",
    "type": "text",
-   "x": 586.2,
-   "y": 521.25,
-   "width": 237.60000000000002,
-   "height": 67.5,
+   "x": 360,
+   "y": 574,
+   "width": 198.00000000000003,
+   "height": 25.0,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "transparent",
@@ -914,26 +905,26 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "envi-install :8081\ninstall.envisecrets.com\nserves install.sh / .ps1",
-   "originalText": "envi-install :8081\ninstall.envisecrets.com\nserves install.sh / .ps1",
-   "fontSize": 18,
+   "text": "Cloudflare Workers",
+   "originalText": "Cloudflare Workers",
+   "fontSize": 20,
    "fontFamily": 5,
-   "textAlign": "center",
-   "verticalAlign": "middle",
-   "containerId": "rec19",
+   "textAlign": "left",
+   "verticalAlign": "top",
+   "containerId": null,
    "autoResize": true,
    "lineHeight": 1.25
   },
   {
    "id": "rec21",
    "type": "rectangle",
-   "x": 340,
-   "y": 680,
-   "width": 560,
-   "height": 340,
+   "x": 370,
+   "y": 1010,
+   "width": 500,
+   "height": 80,
    "angle": 0,
    "strokeColor": "#1e1e1e",
-   "backgroundColor": "#fff4e6",
+   "backgroundColor": "#ffffff",
    "fillStyle": "solid",
    "strokeWidth": 2,
    "strokeStyle": "solid",
@@ -948,7 +939,16 @@
    "version": 1,
    "versionNonce": 1946412081,
    "isDeleted": false,
-   "boundElements": [],
+   "boundElements": [
+    {
+     "id": "tex22",
+     "type": "text"
+    },
+    {
+     "id": "arr48",
+     "type": "arrow"
+    }
+   ],
    "updated": 1,
    "link": null,
    "locked": false
@@ -956,10 +956,10 @@
   {
    "id": "tex22",
    "type": "text",
-   "x": 360,
-   "y": 694,
-   "width": 198.00000000000003,
-   "height": 25.0,
+   "x": 407.15,
+   "y": 1027.5,
+   "width": 425.70000000000005,
+   "height": 45.0,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "transparent",
@@ -979,13 +979,13 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Cloudflare Workers",
-   "originalText": "Cloudflare Workers",
-   "fontSize": 20,
+   "text": "envi-install · server/src/install.ts\ninstall.envisecrets.com · install.sh / .ps1",
+   "originalText": "envi-install · server/src/install.ts\ninstall.envisecrets.com · install.sh / .ps1",
+   "fontSize": 18,
    "fontFamily": 5,
-   "textAlign": "left",
-   "verticalAlign": "top",
-   "containerId": null,
+   "textAlign": "center",
+   "verticalAlign": "middle",
+   "containerId": "rec21",
    "autoResize": true,
    "lineHeight": 1.25
   },
@@ -1524,7 +1524,7 @@
    "id": "rec37",
    "type": "rectangle",
    "x": 0,
-   "y": 1120,
+   "y": 1180,
    "width": 520,
    "height": 120,
    "angle": 0,
@@ -1566,7 +1566,7 @@
    "id": "tex38",
    "type": "text",
    "x": 131.29999999999998,
-   "y": 1146.25,
+   "y": 1206.25,
    "width": 257.40000000000003,
    "height": 67.5,
    "angle": 0,
@@ -2030,8 +2030,8 @@
    "type": "arrow",
    "x": 244,
    "y": 760,
-   "width": 312,
-   "height": 205,
+   "width": 122,
+   "height": 290,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "transparent",
@@ -2067,11 +2067,11 @@
     ],
     [
      56,
-     -205
+     290
     ],
     [
-     312,
-     -205
+     122,
+     290
     ]
    ],
    "startArrowhead": null,
@@ -2083,7 +2083,7 @@
     "gap": 4
    },
    "endBinding": {
-    "elementId": "rec19",
+    "elementId": "rec21",
     "focus": 0,
     "gap": 4
    },
@@ -2092,8 +2092,8 @@
   {
    "id": "tex49",
    "type": "text",
-   "x": 388.4,
-   "y": 545.0,
+   "x": 260.4,
+   "y": 895.0,
    "width": 79.2,
    "height": 20.0,
    "angle": 0,
@@ -2513,9 +2513,9 @@
    "id": "arr58",
    "type": "arrow",
    "x": 120,
-   "y": 1116,
+   "y": 1176,
    "width": 0,
-   "height": 332,
+   "height": 392,
    "angle": 0,
    "strokeColor": "#6741d9",
    "backgroundColor": "transparent",
@@ -2547,7 +2547,7 @@
     ],
     [
      0,
-     -332
+     -392
     ]
    ],
    "startArrowhead": null,
@@ -2569,7 +2569,7 @@
    "id": "tex59",
    "type": "text",
    "x": 80.4,
-   "y": 930.0,
+   "y": 960.0,
    "width": 79.2,
    "height": 40.0,
    "angle": 0,
@@ -2605,9 +2605,9 @@
    "id": "arr60",
    "type": "arrow",
    "x": 524,
-   "y": 1160,
+   "y": 1230,
    "width": 96,
-   "height": 136,
+   "height": 106,
    "angle": 0,
    "strokeColor": "#6741d9",
    "backgroundColor": "transparent",
@@ -2643,7 +2643,7 @@
     ],
     [
      96,
-     -136
+     -106
     ]
    ],
    "startArrowhead": null,
@@ -2661,7 +2661,7 @@
    "id": "tex61",
    "type": "text",
    "x": 549.6,
-   "y": 1072.0,
+   "y": 1157.0,
    "width": 140.8,
    "height": 40.0,
    "angle": 0,
@@ -12899,17 +12899,17 @@
    "x": 2686.4,
    "y": 1630.0,
    "width": 383.2,
-   "height": 156.25,
+   "height": 123.75,
    "angle": 0,
    "strokeColor": "#1e1e1e",
-   "backgroundColor": "#fff4e6",
+   "backgroundColor": "#ffd8a8",
    "fillStyle": "solid",
    "strokeWidth": 2,
    "strokeStyle": "solid",
    "roughness": 0,
    "opacity": 100,
    "groupIds": [
-    "svc_services/access.ts"
+    "svc_server/src/install.ts"
    ],
    "frameId": null,
    "roundness": {
@@ -12929,7 +12929,7 @@
    "type": "text",
    "x": 2706.4,
    "y": 1648.0,
-   "width": 198.00000000000003,
+   "width": 231.00000000000003,
    "height": 25.0,
    "angle": 0,
    "strokeColor": "#1e1e1e",
@@ -12940,7 +12940,7 @@
    "roughness": 1,
    "opacity": 100,
    "groupIds": [
-    "svc_services/access.ts"
+    "svc_server/src/install.ts"
    ],
    "frameId": null,
    "roundness": null,
@@ -12952,8 +12952,8 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "services/access.ts",
-   "originalText": "services/access.ts",
+   "text": "server/src/install.ts",
+   "originalText": "server/src/install.ts",
    "fontSize": 20,
    "fontFamily": 5,
    "textAlign": "left",
@@ -12967,8 +12967,8 @@
    "type": "text",
    "x": 2706.4,
    "y": 1683.0,
-   "width": 280.8,
-   "height": 81.25,
+   "width": 327.59999999999997,
+   "height": 48.75,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "transparent",
@@ -12978,7 +12978,7 @@
    "roughness": 1,
    "opacity": 100,
    "groupIds": [
-    "svc_services/access.ts"
+    "svc_server/src/install.ts"
    ],
    "frameId": null,
    "roundness": null,
@@ -12990,8 +12990,8 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Who may read, write or manage an\nenvironment's secrets.\ntables: access_grants, environments,\nmemberships, projects\ntalks to: Postgres",
-   "originalText": "Who may read, write or manage an\nenvironment's secrets.\ntables: access_grants, environments,\nmemberships, projects\ntalks to: Postgres",
+   "text": "The install-script Worker for\ninstall.envisecrets.com, so installing the\nCLI is a one-liner.",
+   "originalText": "The install-script Worker for\ninstall.envisecrets.com, so installing the\nCLI is a one-liner.",
    "fontSize": 13,
    "fontFamily": 3,
    "textAlign": "left",
@@ -13006,7 +13006,7 @@
    "x": 2273.2,
    "y": 1702.5,
    "width": 383.2,
-   "height": 253.75,
+   "height": 156.25,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "#fff4e6",
@@ -13016,7 +13016,7 @@
    "roughness": 0,
    "opacity": 100,
    "groupIds": [
-    "svc_services/admin.ts"
+    "svc_services/access.ts"
    ],
    "frameId": null,
    "roundness": {
@@ -13036,7 +13036,7 @@
    "type": "text",
    "x": 2293.2,
    "y": 1720.5,
-   "width": 187.00000000000003,
+   "width": 198.00000000000003,
    "height": 25.0,
    "angle": 0,
    "strokeColor": "#1e1e1e",
@@ -13047,7 +13047,7 @@
    "roughness": 1,
    "opacity": 100,
    "groupIds": [
-    "svc_services/admin.ts"
+    "svc_services/access.ts"
    ],
    "frameId": null,
    "roundness": null,
@@ -13059,8 +13059,8 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "services/admin.ts",
-   "originalText": "services/admin.ts",
+   "text": "services/access.ts",
+   "originalText": "services/access.ts",
    "fontSize": 20,
    "fontFamily": 5,
    "textAlign": "left",
@@ -13074,8 +13074,8 @@
    "type": "text",
    "x": 2293.2,
    "y": 1755.5,
-   "width": 335.4,
-   "height": 178.75,
+   "width": 280.8,
+   "height": 81.25,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "transparent",
@@ -13085,7 +13085,7 @@
    "roughness": 1,
    "opacity": 100,
    "groupIds": [
-    "svc_services/admin.ts"
+    "svc_services/access.ts"
    ],
    "frameId": null,
    "roundness": null,
@@ -13097,8 +13097,8 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Instance-wide figures and tools for the\noperator screen.\ntables: access_grants, announcements,\napi_tokens, audit_events, billing_accounts,\nenvironments, expenses, invitations,\nkv_entries, memberships, operators,\norganizations, payg_charges, projects,\nsecret_versions, secrets,\nservice_identities, users\nuses: billing\ntalks to: Postgres",
-   "originalText": "Instance-wide figures and tools for the\noperator screen.\ntables: access_grants, announcements,\napi_tokens, audit_events, billing_accounts,\nenvironments, expenses, invitations,\nkv_entries, memberships, operators,\norganizations, payg_charges, projects,\nsecret_versions, secrets,\nservice_identities, users\nuses: billing\ntalks to: Postgres",
+   "text": "Who may read, write or manage an\nenvironment's secrets.\ntables: access_grants, environments,\nmemberships, projects\ntalks to: Postgres",
+   "originalText": "Who may read, write or manage an\nenvironment's secrets.\ntables: access_grants, environments,\nmemberships, projects\ntalks to: Postgres",
    "fontSize": 13,
    "fontFamily": 3,
    "textAlign": "left",
@@ -13113,7 +13113,7 @@
    "x": 1860.0,
    "y": 1718.75,
    "width": 383.2,
-   "height": 140.0,
+   "height": 253.75,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "#fff4e6",
@@ -13123,7 +13123,7 @@
    "roughness": 0,
    "opacity": 100,
    "groupIds": [
-    "svc_services/announce.ts"
+    "svc_services/admin.ts"
    ],
    "frameId": null,
    "roundness": {
@@ -13143,7 +13143,7 @@
    "type": "text",
    "x": 1880.0,
    "y": 1736.75,
-   "width": 220.00000000000003,
+   "width": 187.00000000000003,
    "height": 25.0,
    "angle": 0,
    "strokeColor": "#1e1e1e",
@@ -13154,7 +13154,7 @@
    "roughness": 1,
    "opacity": 100,
    "groupIds": [
-    "svc_services/announce.ts"
+    "svc_services/admin.ts"
    ],
    "frameId": null,
    "roundness": null,
@@ -13166,8 +13166,8 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "services/announce.ts",
-   "originalText": "services/announce.ts",
+   "text": "services/admin.ts",
+   "originalText": "services/admin.ts",
    "fontSize": 20,
    "fontFamily": 5,
    "textAlign": "left",
@@ -13182,7 +13182,7 @@
    "x": 1880.0,
    "y": 1771.75,
    "width": 335.4,
-   "height": 65.0,
+   "height": 178.75,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "transparent",
@@ -13192,7 +13192,7 @@
    "roughness": 1,
    "opacity": 100,
    "groupIds": [
-    "svc_services/announce.ts"
+    "svc_services/admin.ts"
    ],
    "frameId": null,
    "roundness": null,
@@ -13204,8 +13204,8 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Sending an operator's announcement to every\nsubscribed user.\nuses: admin\ntalks to: Resend",
-   "originalText": "Sending an operator's announcement to every\nsubscribed user.\nuses: admin\ntalks to: Resend",
+   "text": "Instance-wide figures and tools for the\noperator screen.\ntables: access_grants, announcements,\napi_tokens, audit_events, billing_accounts,\nenvironments, expenses, invitations,\nkv_entries, memberships, operators,\norganizations, payg_charges, projects,\nsecret_versions, secrets,\nservice_identities, users\nuses: billing\ntalks to: Postgres",
+   "originalText": "Instance-wide figures and tools for the\noperator screen.\ntables: access_grants, announcements,\napi_tokens, audit_events, billing_accounts,\nenvironments, expenses, invitations,\nkv_entries, memberships, operators,\norganizations, payg_charges, projects,\nsecret_versions, secrets,\nservice_identities, users\nuses: billing\ntalks to: Postgres",
    "fontSize": 13,
    "fontFamily": 3,
    "textAlign": "left",
@@ -13218,9 +13218,9 @@
    "id": "rec329",
    "type": "rectangle",
    "x": 2686.4,
-   "y": 1816.25,
+   "y": 1783.75,
    "width": 383.2,
-   "height": 156.25,
+   "height": 140.0,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "#fff4e6",
@@ -13230,7 +13230,7 @@
    "roughness": 0,
    "opacity": 100,
    "groupIds": [
-    "svc_services/apiKeys.ts"
+    "svc_services/announce.ts"
    ],
    "frameId": null,
    "roundness": {
@@ -13249,8 +13249,8 @@
    "id": "tex330",
    "type": "text",
    "x": 2706.4,
-   "y": 1834.25,
-   "width": 209.00000000000003,
+   "y": 1801.75,
+   "width": 220.00000000000003,
    "height": 25.0,
    "angle": 0,
    "strokeColor": "#1e1e1e",
@@ -13261,7 +13261,7 @@
    "roughness": 1,
    "opacity": 100,
    "groupIds": [
-    "svc_services/apiKeys.ts"
+    "svc_services/announce.ts"
    ],
    "frameId": null,
    "roundness": null,
@@ -13273,8 +13273,8 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "services/apiKeys.ts",
-   "originalText": "services/apiKeys.ts",
+   "text": "services/announce.ts",
+   "originalText": "services/announce.ts",
    "fontSize": 20,
    "fontFamily": 5,
    "textAlign": "left",
@@ -13287,9 +13287,9 @@
    "id": "tex331",
    "type": "text",
    "x": 2706.4,
-   "y": 1869.25,
+   "y": 1836.75,
    "width": 335.4,
-   "height": 81.25,
+   "height": 65.0,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "transparent",
@@ -13299,7 +13299,7 @@
    "roughness": 1,
    "opacity": 100,
    "groupIds": [
-    "svc_services/apiKeys.ts"
+    "svc_services/announce.ts"
    ],
    "frameId": null,
    "roundness": null,
@@ -13311,8 +13311,8 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Personal API keys, which a user exchanges\nfor a session instead of signing in through\na browser.\ntables: api_tokens, sessions\ntalks to: Postgres",
-   "originalText": "Personal API keys, which a user exchanges\nfor a session instead of signing in through\na browser.\ntables: api_tokens, sessions\ntalks to: Postgres",
+   "text": "Sending an operator's announcement to every\nsubscribed user.\nuses: admin\ntalks to: Resend",
+   "originalText": "Sending an operator's announcement to every\nsubscribed user.\nuses: admin\ntalks to: Resend",
    "fontSize": 13,
    "fontFamily": 3,
    "textAlign": "left",
@@ -13324,10 +13324,10 @@
   {
    "id": "rec332",
    "type": "rectangle",
-   "x": 1860.0,
+   "x": 2273.2,
    "y": 1888.75,
    "width": 383.2,
-   "height": 140.0,
+   "height": 156.25,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "#fff4e6",
@@ -13337,7 +13337,7 @@
    "roughness": 0,
    "opacity": 100,
    "groupIds": [
-    "svc_services/audit.ts"
+    "svc_services/apiKeys.ts"
    ],
    "frameId": null,
    "roundness": {
@@ -13355,9 +13355,9 @@
   {
    "id": "tex333",
    "type": "text",
-   "x": 1880.0,
+   "x": 2293.2,
    "y": 1906.75,
-   "width": 187.00000000000003,
+   "width": 209.00000000000003,
    "height": 25.0,
    "angle": 0,
    "strokeColor": "#1e1e1e",
@@ -13368,7 +13368,7 @@
    "roughness": 1,
    "opacity": 100,
    "groupIds": [
-    "svc_services/audit.ts"
+    "svc_services/apiKeys.ts"
    ],
    "frameId": null,
    "roundness": null,
@@ -13380,8 +13380,8 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "services/audit.ts",
-   "originalText": "services/audit.ts",
+   "text": "services/apiKeys.ts",
+   "originalText": "services/apiKeys.ts",
    "fontSize": 20,
    "fontFamily": 5,
    "textAlign": "left",
@@ -13393,10 +13393,10 @@
   {
    "id": "tex334",
    "type": "text",
-   "x": 1880.0,
+   "x": 2293.2,
    "y": 1941.75,
-   "width": 312.0,
-   "height": 65.0,
+   "width": 335.4,
+   "height": 81.25,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "transparent",
@@ -13406,7 +13406,7 @@
    "roughness": 1,
    "opacity": 100,
    "groupIds": [
-    "svc_services/audit.ts"
+    "svc_services/apiKeys.ts"
    ],
    "frameId": null,
    "roundness": null,
@@ -13418,8 +13418,8 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "The audit log of who did what to which\nsecret, per organization.\ntables: audit_events, memberships, users\ntalks to: Postgres",
-   "originalText": "The audit log of who did what to which\nsecret, per organization.\ntables: audit_events, memberships, users\ntalks to: Postgres",
+   "text": "Personal API keys, which a user exchanges\nfor a session instead of signing in through\na browser.\ntables: api_tokens, sessions\ntalks to: Postgres",
+   "originalText": "Personal API keys, which a user exchanges\nfor a session instead of signing in through\na browser.\ntables: api_tokens, sessions\ntalks to: Postgres",
    "fontSize": 13,
    "fontFamily": 3,
    "textAlign": "left",
@@ -13431,8 +13431,8 @@
   {
    "id": "rec335",
    "type": "rectangle",
-   "x": 2273.2,
-   "y": 1986.25,
+   "x": 2686.4,
+   "y": 1953.75,
    "width": 383.2,
    "height": 140.0,
    "angle": 0,
@@ -13444,7 +13444,7 @@
    "roughness": 0,
    "opacity": 100,
    "groupIds": [
-    "svc_services/bachs.ts"
+    "svc_services/audit.ts"
    ],
    "frameId": null,
    "roundness": {
@@ -13462,8 +13462,8 @@
   {
    "id": "tex336",
    "type": "text",
-   "x": 2293.2,
-   "y": 2004.25,
+   "x": 2706.4,
+   "y": 1971.75,
    "width": 187.00000000000003,
    "height": 25.0,
    "angle": 0,
@@ -13475,7 +13475,7 @@
    "roughness": 1,
    "opacity": 100,
    "groupIds": [
-    "svc_services/bachs.ts"
+    "svc_services/audit.ts"
    ],
    "frameId": null,
    "roundness": null,
@@ -13487,8 +13487,8 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "services/bachs.ts",
-   "originalText": "services/bachs.ts",
+   "text": "services/audit.ts",
+   "originalText": "services/audit.ts",
    "fontSize": 20,
    "fontFamily": 5,
    "textAlign": "left",
@@ -13500,9 +13500,9 @@
   {
    "id": "tex337",
    "type": "text",
-   "x": 2293.2,
-   "y": 2039.25,
-   "width": 304.2,
+   "x": 2706.4,
+   "y": 2006.75,
+   "width": 312.0,
    "height": 65.0,
    "angle": 0,
    "strokeColor": "#1e1e1e",
@@ -13513,7 +13513,7 @@
    "roughness": 1,
    "opacity": 100,
    "groupIds": [
-    "svc_services/bachs.ts"
+    "svc_services/audit.ts"
    ],
    "frameId": null,
    "roundness": null,
@@ -13525,8 +13525,8 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "The client for Bachs\n(https://docs.bachs.io), Envi's payment\nprovider.\ntalks to: Bachs",
-   "originalText": "The client for Bachs\n(https://docs.bachs.io), Envi's payment\nprovider.\ntalks to: Bachs",
+   "text": "The audit log of who did what to which\nsecret, per organization.\ntables: audit_events, memberships, users\ntalks to: Postgres",
+   "originalText": "The audit log of who did what to which\nsecret, per organization.\ntables: audit_events, memberships, users\ntalks to: Postgres",
    "fontSize": 13,
    "fontFamily": 3,
    "textAlign": "left",
@@ -13538,10 +13538,10 @@
   {
    "id": "rec338",
    "type": "rectangle",
-   "x": 2686.4,
+   "x": 1860.0,
    "y": 2002.5,
    "width": 383.2,
-   "height": 188.75,
+   "height": 140.0,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "#fff4e6",
@@ -13551,7 +13551,7 @@
    "roughness": 0,
    "opacity": 100,
    "groupIds": [
-    "svc_services/billing.ts"
+    "svc_services/bachs.ts"
    ],
    "frameId": null,
    "roundness": {
@@ -13569,9 +13569,9 @@
   {
    "id": "tex339",
    "type": "text",
-   "x": 2706.4,
+   "x": 1880.0,
    "y": 2020.5,
-   "width": 209.00000000000003,
+   "width": 187.00000000000003,
    "height": 25.0,
    "angle": 0,
    "strokeColor": "#1e1e1e",
@@ -13582,7 +13582,7 @@
    "roughness": 1,
    "opacity": 100,
    "groupIds": [
-    "svc_services/billing.ts"
+    "svc_services/bachs.ts"
    ],
    "frameId": null,
    "roundness": null,
@@ -13594,8 +13594,8 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "services/billing.ts",
-   "originalText": "services/billing.ts",
+   "text": "services/bachs.ts",
+   "originalText": "services/bachs.ts",
    "fontSize": 20,
    "fontFamily": 5,
    "textAlign": "left",
@@ -13607,10 +13607,10 @@
   {
    "id": "tex340",
    "type": "text",
-   "x": 2706.4,
+   "x": 1880.0,
    "y": 2055.5,
-   "width": 343.2,
-   "height": 113.75,
+   "width": 304.2,
+   "height": 65.0,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "transparent",
@@ -13620,7 +13620,7 @@
    "roughness": 1,
    "opacity": 100,
    "groupIds": [
-    "svc_services/billing.ts"
+    "svc_services/bachs.ts"
    ],
    "frameId": null,
    "roundness": null,
@@ -13632,8 +13632,8 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Billing decides what an organization owes\nand whether it may add another person.\ntables: access_grants, billable_members,\nbilling_accounts, memberships, payg_charges,\nprojects, users\nuses: bachs\ntalks to: Postgres, Bachs",
-   "originalText": "Billing decides what an organization owes\nand whether it may add another person.\ntables: access_grants, billable_members,\nbilling_accounts, memberships, payg_charges,\nprojects, users\nuses: bachs\ntalks to: Postgres, Bachs",
+   "text": "The client for Bachs\n(https://docs.bachs.io), Envi's payment\nprovider.\ntalks to: Bachs",
+   "originalText": "The client for Bachs\n(https://docs.bachs.io), Envi's payment\nprovider.\ntalks to: Bachs",
    "fontSize": 13,
    "fontFamily": 3,
    "textAlign": "left",
@@ -13645,10 +13645,10 @@
   {
    "id": "rec341",
    "type": "rectangle",
-   "x": 1860.0,
-   "y": 2058.75,
+   "x": 2273.2,
+   "y": 2075.0,
    "width": 383.2,
-   "height": 172.5,
+   "height": 188.75,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "#fff4e6",
@@ -13658,7 +13658,7 @@
    "roughness": 0,
    "opacity": 100,
    "groupIds": [
-    "svc_services/billingWebhook.ts"
+    "svc_services/billing.ts"
    ],
    "frameId": null,
    "roundness": {
@@ -13676,9 +13676,9 @@
   {
    "id": "tex342",
    "type": "text",
-   "x": 1880.0,
-   "y": 2076.75,
-   "width": 286.0,
+   "x": 2293.2,
+   "y": 2093.0,
+   "width": 209.00000000000003,
    "height": 25.0,
    "angle": 0,
    "strokeColor": "#1e1e1e",
@@ -13689,7 +13689,7 @@
    "roughness": 1,
    "opacity": 100,
    "groupIds": [
-    "svc_services/billingWebhook.ts"
+    "svc_services/billing.ts"
    ],
    "frameId": null,
    "roundness": null,
@@ -13701,8 +13701,8 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "services/billingWebhook.ts",
-   "originalText": "services/billingWebhook.ts",
+   "text": "services/billing.ts",
+   "originalText": "services/billing.ts",
    "fontSize": 20,
    "fontFamily": 5,
    "textAlign": "left",
@@ -13714,10 +13714,10 @@
   {
    "id": "tex343",
    "type": "text",
-   "x": 1880.0,
-   "y": 2111.75,
-   "width": 304.2,
-   "height": 97.5,
+   "x": 2293.2,
+   "y": 2128.0,
+   "width": 343.2,
+   "height": 113.75,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "transparent",
@@ -13727,7 +13727,7 @@
    "roughness": 1,
    "opacity": 100,
    "groupIds": [
-    "svc_services/billingWebhook.ts"
+    "svc_services/billing.ts"
    ],
    "frameId": null,
    "roundness": null,
@@ -13739,8 +13739,8 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Applying Bachs webhooks.\ntables: bachs_events, billable_members,\nbilling_accounts, organizations,\npayg_charges\nuses: bachs, billing\ntalks to: Postgres, Bachs",
-   "originalText": "Applying Bachs webhooks.\ntables: bachs_events, billable_members,\nbilling_accounts, organizations,\npayg_charges\nuses: bachs, billing\ntalks to: Postgres, Bachs",
+   "text": "Billing decides what an organization owes\nand whether it may add another person.\ntables: access_grants, billable_members,\nbilling_accounts, memberships, payg_charges,\nprojects, users\nuses: bachs\ntalks to: Postgres, Bachs",
+   "originalText": "Billing decides what an organization owes\nand whether it may add another person.\ntables: access_grants, billable_members,\nbilling_accounts, memberships, payg_charges,\nprojects, users\nuses: bachs\ntalks to: Postgres, Bachs",
    "fontSize": 13,
    "fontFamily": 3,
    "textAlign": "left",
@@ -13752,10 +13752,10 @@
   {
    "id": "rec344",
    "type": "rectangle",
-   "x": 2273.2,
-   "y": 2156.25,
+   "x": 2686.4,
+   "y": 2123.75,
    "width": 383.2,
-   "height": 140.0,
+   "height": 172.5,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "#fff4e6",
@@ -13765,7 +13765,7 @@
    "roughness": 0,
    "opacity": 100,
    "groupIds": [
-    "svc_services/device.ts"
+    "svc_services/billingWebhook.ts"
    ],
    "frameId": null,
    "roundness": {
@@ -13783,9 +13783,9 @@
   {
    "id": "tex345",
    "type": "text",
-   "x": 2293.2,
-   "y": 2174.25,
-   "width": 198.00000000000003,
+   "x": 2706.4,
+   "y": 2141.75,
+   "width": 286.0,
    "height": 25.0,
    "angle": 0,
    "strokeColor": "#1e1e1e",
@@ -13796,7 +13796,7 @@
    "roughness": 1,
    "opacity": 100,
    "groupIds": [
-    "svc_services/device.ts"
+    "svc_services/billingWebhook.ts"
    ],
    "frameId": null,
    "roundness": null,
@@ -13808,8 +13808,8 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "services/device.ts",
-   "originalText": "services/device.ts",
+   "text": "services/billingWebhook.ts",
+   "originalText": "services/billingWebhook.ts",
    "fontSize": 20,
    "fontFamily": 5,
    "textAlign": "left",
@@ -13821,10 +13821,10 @@
   {
    "id": "tex346",
    "type": "text",
-   "x": 2293.2,
-   "y": 2209.25,
-   "width": 226.2,
-   "height": 65.0,
+   "x": 2706.4,
+   "y": 2176.75,
+   "width": 304.2,
+   "height": 97.5,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "transparent",
@@ -13834,7 +13834,7 @@
    "roughness": 1,
    "opacity": 100,
    "groupIds": [
-    "svc_services/device.ts"
+    "svc_services/billingWebhook.ts"
    ],
    "frameId": null,
    "roundness": null,
@@ -13846,8 +13846,8 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Device login.\ntables: device_authorizations\nuses: sessions\ntalks to: Postgres",
-   "originalText": "Device login.\ntables: device_authorizations\nuses: sessions\ntalks to: Postgres",
+   "text": "Applying Bachs webhooks.\ntables: bachs_events, billable_members,\nbilling_accounts, organizations,\npayg_charges\nuses: bachs, billing\ntalks to: Postgres, Bachs",
+   "originalText": "Applying Bachs webhooks.\ntables: bachs_events, billable_members,\nbilling_accounts, organizations,\npayg_charges\nuses: bachs, billing\ntalks to: Postgres, Bachs",
    "fontSize": 13,
    "fontFamily": 3,
    "textAlign": "left",
@@ -13859,10 +13859,10 @@
   {
    "id": "rec347",
    "type": "rectangle",
-   "x": 2686.4,
-   "y": 2221.25,
+   "x": 1860.0,
+   "y": 2172.5,
    "width": 383.2,
-   "height": 172.5,
+   "height": 140.0,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "#fff4e6",
@@ -13872,7 +13872,7 @@
    "roughness": 0,
    "opacity": 100,
    "groupIds": [
-    "svc_services/invitations.ts"
+    "svc_services/device.ts"
    ],
    "frameId": null,
    "roundness": {
@@ -13890,9 +13890,9 @@
   {
    "id": "tex348",
    "type": "text",
-   "x": 2706.4,
-   "y": 2239.25,
-   "width": 253.00000000000003,
+   "x": 1880.0,
+   "y": 2190.5,
+   "width": 198.00000000000003,
    "height": 25.0,
    "angle": 0,
    "strokeColor": "#1e1e1e",
@@ -13903,7 +13903,7 @@
    "roughness": 1,
    "opacity": 100,
    "groupIds": [
-    "svc_services/invitations.ts"
+    "svc_services/device.ts"
    ],
    "frameId": null,
    "roundness": null,
@@ -13915,8 +13915,8 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "services/invitations.ts",
-   "originalText": "services/invitations.ts",
+   "text": "services/device.ts",
+   "originalText": "services/device.ts",
    "fontSize": 20,
    "fontFamily": 5,
    "textAlign": "left",
@@ -13928,10 +13928,10 @@
   {
    "id": "tex349",
    "type": "text",
-   "x": 2706.4,
-   "y": 2274.25,
-   "width": 335.4,
-   "height": 97.5,
+   "x": 1880.0,
+   "y": 2225.5,
+   "width": 226.2,
+   "height": 65.0,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "transparent",
@@ -13941,7 +13941,7 @@
    "roughness": 1,
    "opacity": 100,
    "groupIds": [
-    "svc_services/invitations.ts"
+    "svc_services/device.ts"
    ],
    "frameId": null,
    "roundness": null,
@@ -13953,8 +13953,8 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Invitations to a project or one environment\nof it, and the collaborators they create.\ntables: access_grants, environments,\ninvitations, memberships, projects, users\nuses: billing\ntalks to: Postgres, Resend",
-   "originalText": "Invitations to a project or one environment\nof it, and the collaborators they create.\ntables: access_grants, environments,\ninvitations, memberships, projects, users\nuses: billing\ntalks to: Postgres, Resend",
+   "text": "Device login.\ntables: device_authorizations\nuses: sessions\ntalks to: Postgres",
+   "originalText": "Device login.\ntables: device_authorizations\nuses: sessions\ntalks to: Postgres",
    "fontSize": 13,
    "fontFamily": 3,
    "textAlign": "left",
@@ -13966,10 +13966,10 @@
   {
    "id": "rec350",
    "type": "rectangle",
-   "x": 1860.0,
-   "y": 2261.25,
+   "x": 2273.2,
+   "y": 2293.75,
    "width": 383.2,
-   "height": 140.0,
+   "height": 172.5,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "#fff4e6",
@@ -13979,7 +13979,7 @@
    "roughness": 0,
    "opacity": 100,
    "groupIds": [
-    "svc_services/kv.ts"
+    "svc_services/invitations.ts"
    ],
    "frameId": null,
    "roundness": {
@@ -13997,9 +13997,9 @@
   {
    "id": "tex351",
    "type": "text",
-   "x": 1880.0,
-   "y": 2279.25,
-   "width": 154.0,
+   "x": 2293.2,
+   "y": 2311.75,
+   "width": 253.00000000000003,
    "height": 25.0,
    "angle": 0,
    "strokeColor": "#1e1e1e",
@@ -14010,7 +14010,7 @@
    "roughness": 1,
    "opacity": 100,
    "groupIds": [
-    "svc_services/kv.ts"
+    "svc_services/invitations.ts"
    ],
    "frameId": null,
    "roundness": null,
@@ -14022,8 +14022,8 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "services/kv.ts",
-   "originalText": "services/kv.ts",
+   "text": "services/invitations.ts",
+   "originalText": "services/invitations.ts",
    "fontSize": 20,
    "fontFamily": 5,
    "textAlign": "left",
@@ -14035,10 +14035,10 @@
   {
    "id": "tex352",
    "type": "text",
-   "x": 1880.0,
-   "y": 2314.25,
-   "width": 296.4,
-   "height": 65.0,
+   "x": 2293.2,
+   "y": 2346.75,
+   "width": 335.4,
+   "height": 97.5,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "transparent",
@@ -14048,7 +14048,7 @@
    "roughness": 1,
    "opacity": 100,
    "groupIds": [
-    "svc_services/kv.ts"
+    "svc_services/invitations.ts"
    ],
    "frameId": null,
    "roundness": null,
@@ -14060,8 +14060,8 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "A project-wide key-value store that\napplications read and write over HTTP.\ntables: kv_entries\ntalks to: Postgres",
-   "originalText": "A project-wide key-value store that\napplications read and write over HTTP.\ntables: kv_entries\ntalks to: Postgres",
+   "text": "Invitations to a project or one environment\nof it, and the collaborators they create.\ntables: access_grants, environments,\ninvitations, memberships, projects, users\nuses: billing\ntalks to: Postgres, Resend",
+   "originalText": "Invitations to a project or one environment\nof it, and the collaborators they create.\ntables: access_grants, environments,\ninvitations, memberships, projects, users\nuses: billing\ntalks to: Postgres, Resend",
    "fontSize": 13,
    "fontFamily": 3,
    "textAlign": "left",
@@ -14073,7 +14073,7 @@
   {
    "id": "rec353",
    "type": "rectangle",
-   "x": 2273.2,
+   "x": 2686.4,
    "y": 2326.25,
    "width": 383.2,
    "height": 140.0,
@@ -14086,7 +14086,7 @@
    "roughness": 0,
    "opacity": 100,
    "groupIds": [
-    "svc_services/login.ts"
+    "svc_services/kv.ts"
    ],
    "frameId": null,
    "roundness": {
@@ -14104,9 +14104,9 @@
   {
    "id": "tex354",
    "type": "text",
-   "x": 2293.2,
+   "x": 2706.4,
    "y": 2344.25,
-   "width": 187.00000000000003,
+   "width": 154.0,
    "height": 25.0,
    "angle": 0,
    "strokeColor": "#1e1e1e",
@@ -14117,7 +14117,7 @@
    "roughness": 1,
    "opacity": 100,
    "groupIds": [
-    "svc_services/login.ts"
+    "svc_services/kv.ts"
    ],
    "frameId": null,
    "roundness": null,
@@ -14129,8 +14129,8 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "services/login.ts",
-   "originalText": "services/login.ts",
+   "text": "services/kv.ts",
+   "originalText": "services/kv.ts",
    "fontSize": 20,
    "fontFamily": 5,
    "textAlign": "left",
@@ -14142,9 +14142,9 @@
   {
    "id": "tex355",
    "type": "text",
-   "x": 2293.2,
+   "x": 2706.4,
    "y": 2379.25,
-   "width": 335.4,
+   "width": 296.4,
    "height": 65.0,
    "angle": 0,
    "strokeColor": "#1e1e1e",
@@ -14155,7 +14155,7 @@
    "roughness": 1,
    "opacity": 100,
    "groupIds": [
-    "svc_services/login.ts"
+    "svc_services/kv.ts"
    ],
    "frameId": null,
    "roundness": null,
@@ -14167,8 +14167,8 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Email login codes, sent and checked through\nRedis with a rate limit.\nuses: workspace\ntalks to: Redis, Resend",
-   "originalText": "Email login codes, sent and checked through\nRedis with a rate limit.\nuses: workspace\ntalks to: Redis, Resend",
+   "text": "A project-wide key-value store that\napplications read and write over HTTP.\ntables: kv_entries\ntalks to: Postgres",
+   "originalText": "A project-wide key-value store that\napplications read and write over HTTP.\ntables: kv_entries\ntalks to: Postgres",
    "fontSize": 13,
    "fontFamily": 3,
    "textAlign": "left",
@@ -14180,10 +14180,10 @@
   {
    "id": "rec356",
    "type": "rectangle",
-   "x": 2686.4,
-   "y": 2423.75,
+   "x": 1860.0,
+   "y": 2342.5,
    "width": 383.2,
-   "height": 156.25,
+   "height": 140.0,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "#fff4e6",
@@ -14193,7 +14193,7 @@
    "roughness": 0,
    "opacity": 100,
    "groupIds": [
-    "svc_services/projects.ts"
+    "svc_services/login.ts"
    ],
    "frameId": null,
    "roundness": {
@@ -14211,9 +14211,9 @@
   {
    "id": "tex357",
    "type": "text",
-   "x": 2706.4,
-   "y": 2441.75,
-   "width": 220.00000000000003,
+   "x": 1880.0,
+   "y": 2360.5,
+   "width": 187.00000000000003,
    "height": 25.0,
    "angle": 0,
    "strokeColor": "#1e1e1e",
@@ -14224,7 +14224,7 @@
    "roughness": 1,
    "opacity": 100,
    "groupIds": [
-    "svc_services/projects.ts"
+    "svc_services/login.ts"
    ],
    "frameId": null,
    "roundness": null,
@@ -14236,8 +14236,8 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "services/projects.ts",
-   "originalText": "services/projects.ts",
+   "text": "services/login.ts",
+   "originalText": "services/login.ts",
    "fontSize": 20,
    "fontFamily": 5,
    "textAlign": "left",
@@ -14249,10 +14249,10 @@
   {
    "id": "tex358",
    "type": "text",
-   "x": 2706.4,
-   "y": 2476.75,
-   "width": 343.2,
-   "height": 81.25,
+   "x": 1880.0,
+   "y": 2395.5,
+   "width": 335.4,
+   "height": 65.0,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "transparent",
@@ -14262,7 +14262,7 @@
    "roughness": 1,
    "opacity": 100,
    "groupIds": [
-    "svc_services/projects.ts"
+    "svc_services/login.ts"
    ],
    "frameId": null,
    "roundness": null,
@@ -14274,8 +14274,8 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Projects and their environments, and who may\nsee or change them.\ntables: access_grants, environments,\nmemberships, projects\ntalks to: Postgres",
-   "originalText": "Projects and their environments, and who may\nsee or change them.\ntables: access_grants, environments,\nmemberships, projects\ntalks to: Postgres",
+   "text": "Email login codes, sent and checked through\nRedis with a rate limit.\nuses: workspace\ntalks to: Redis, Resend",
+   "originalText": "Email login codes, sent and checked through\nRedis with a rate limit.\nuses: workspace\ntalks to: Redis, Resend",
    "fontSize": 13,
    "fontFamily": 3,
    "textAlign": "left",
@@ -14287,8 +14287,8 @@
   {
    "id": "rec359",
    "type": "rectangle",
-   "x": 1860.0,
-   "y": 2431.25,
+   "x": 2273.2,
+   "y": 2496.25,
    "width": 383.2,
    "height": 156.25,
    "angle": 0,
@@ -14300,7 +14300,7 @@
    "roughness": 0,
    "opacity": 100,
    "groupIds": [
-    "svc_services/secrets.ts"
+    "svc_services/projects.ts"
    ],
    "frameId": null,
    "roundness": {
@@ -14318,9 +14318,9 @@
   {
    "id": "tex360",
    "type": "text",
-   "x": 1880.0,
-   "y": 2449.25,
-   "width": 209.00000000000003,
+   "x": 2293.2,
+   "y": 2514.25,
+   "width": 220.00000000000003,
    "height": 25.0,
    "angle": 0,
    "strokeColor": "#1e1e1e",
@@ -14331,7 +14331,7 @@
    "roughness": 1,
    "opacity": 100,
    "groupIds": [
-    "svc_services/secrets.ts"
+    "svc_services/projects.ts"
    ],
    "frameId": null,
    "roundness": null,
@@ -14343,8 +14343,8 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "services/secrets.ts",
-   "originalText": "services/secrets.ts",
+   "text": "services/projects.ts",
+   "originalText": "services/projects.ts",
    "fontSize": 20,
    "fontFamily": 5,
    "textAlign": "left",
@@ -14356,9 +14356,9 @@
   {
    "id": "tex361",
    "type": "text",
-   "x": 1880.0,
-   "y": 2484.25,
-   "width": 273.0,
+   "x": 2293.2,
+   "y": 2549.25,
+   "width": 343.2,
    "height": 81.25,
    "angle": 0,
    "strokeColor": "#1e1e1e",
@@ -14369,7 +14369,7 @@
    "roughness": 1,
    "opacity": 100,
    "groupIds": [
-    "svc_services/secrets.ts"
+    "svc_services/projects.ts"
    ],
    "frameId": null,
    "roundness": null,
@@ -14381,8 +14381,8 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Every value is stored encrypted.\ntables: audit_events, environments,\nprojects, secret_versions, secrets\nuses: access\ntalks to: Postgres",
-   "originalText": "Every value is stored encrypted.\ntables: audit_events, environments,\nprojects, secret_versions, secrets\nuses: access\ntalks to: Postgres",
+   "text": "Projects and their environments, and who may\nsee or change them.\ntables: access_grants, environments,\nmemberships, projects\ntalks to: Postgres",
+   "originalText": "Projects and their environments, and who may\nsee or change them.\ntables: access_grants, environments,\nmemberships, projects\ntalks to: Postgres",
    "fontSize": 13,
    "fontFamily": 3,
    "textAlign": "left",
@@ -14394,7 +14394,7 @@
   {
    "id": "rec362",
    "type": "rectangle",
-   "x": 2273.2,
+   "x": 2686.4,
    "y": 2496.25,
    "width": 383.2,
    "height": 156.25,
@@ -14407,7 +14407,7 @@
    "roughness": 0,
    "opacity": 100,
    "groupIds": [
-    "svc_services/serviceTokens.ts"
+    "svc_services/secrets.ts"
    ],
    "frameId": null,
    "roundness": {
@@ -14425,9 +14425,9 @@
   {
    "id": "tex363",
    "type": "text",
-   "x": 2293.2,
+   "x": 2706.4,
    "y": 2514.25,
-   "width": 275.0,
+   "width": 209.00000000000003,
    "height": 25.0,
    "angle": 0,
    "strokeColor": "#1e1e1e",
@@ -14438,7 +14438,7 @@
    "roughness": 1,
    "opacity": 100,
    "groupIds": [
-    "svc_services/serviceTokens.ts"
+    "svc_services/secrets.ts"
    ],
    "frameId": null,
    "roundness": null,
@@ -14450,8 +14450,8 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "services/serviceTokens.ts",
-   "originalText": "services/serviceTokens.ts",
+   "text": "services/secrets.ts",
+   "originalText": "services/secrets.ts",
    "fontSize": 20,
    "fontFamily": 5,
    "textAlign": "left",
@@ -14463,9 +14463,9 @@
   {
    "id": "tex364",
    "type": "text",
-   "x": 2293.2,
+   "x": 2706.4,
    "y": 2549.25,
-   "width": 335.4,
+   "width": 273.0,
    "height": 81.25,
    "angle": 0,
    "strokeColor": "#1e1e1e",
@@ -14476,7 +14476,7 @@
    "roughness": 1,
    "opacity": 100,
    "groupIds": [
-    "svc_services/serviceTokens.ts"
+    "svc_services/secrets.ts"
    ],
    "frameId": null,
    "roundness": null,
@@ -14488,8 +14488,8 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Service tokens are credentials bound to one\nenvironment, for CI and servers.\ntables: api_tokens, environments,\nmemberships, projects, service_identities\ntalks to: Postgres",
-   "originalText": "Service tokens are credentials bound to one\nenvironment, for CI and servers.\ntables: api_tokens, environments,\nmemberships, projects, service_identities\ntalks to: Postgres",
+   "text": "Every value is stored encrypted.\ntables: audit_events, environments,\nprojects, secret_versions, secrets\nuses: access\ntalks to: Postgres",
+   "originalText": "Every value is stored encrypted.\ntables: audit_events, environments,\nprojects, secret_versions, secrets\nuses: access\ntalks to: Postgres",
    "fontSize": 13,
    "fontFamily": 3,
    "textAlign": "left",
@@ -14501,10 +14501,10 @@
   {
    "id": "rec365",
    "type": "rectangle",
-   "x": 2686.4,
-   "y": 2610.0,
+   "x": 1860.0,
+   "y": 2512.5,
    "width": 383.2,
-   "height": 123.75,
+   "height": 156.25,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "#fff4e6",
@@ -14514,7 +14514,7 @@
    "roughness": 0,
    "opacity": 100,
    "groupIds": [
-    "svc_services/sessions.ts"
+    "svc_services/serviceTokens.ts"
    ],
    "frameId": null,
    "roundness": {
@@ -14532,9 +14532,9 @@
   {
    "id": "tex366",
    "type": "text",
-   "x": 2706.4,
-   "y": 2628.0,
-   "width": 220.00000000000003,
+   "x": 1880.0,
+   "y": 2530.5,
+   "width": 275.0,
    "height": 25.0,
    "angle": 0,
    "strokeColor": "#1e1e1e",
@@ -14545,7 +14545,7 @@
    "roughness": 1,
    "opacity": 100,
    "groupIds": [
-    "svc_services/sessions.ts"
+    "svc_services/serviceTokens.ts"
    ],
    "frameId": null,
    "roundness": null,
@@ -14557,8 +14557,8 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "services/sessions.ts",
-   "originalText": "services/sessions.ts",
+   "text": "services/serviceTokens.ts",
+   "originalText": "services/serviceTokens.ts",
    "fontSize": 20,
    "fontFamily": 5,
    "textAlign": "left",
@@ -14570,10 +14570,10 @@
   {
    "id": "tex367",
    "type": "text",
-   "x": 2706.4,
-   "y": 2663.0,
-   "width": 202.79999999999998,
-   "height": 48.75,
+   "x": 1880.0,
+   "y": 2565.5,
+   "width": 335.4,
+   "height": 81.25,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "transparent",
@@ -14583,7 +14583,7 @@
    "roughness": 1,
    "opacity": 100,
    "groupIds": [
-    "svc_services/sessions.ts"
+    "svc_services/serviceTokens.ts"
    ],
    "frameId": null,
    "roundness": null,
@@ -14595,8 +14595,8 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Access and refresh tokens.\ntables: sessions\ntalks to: Postgres",
-   "originalText": "Access and refresh tokens.\ntables: sessions\ntalks to: Postgres",
+   "text": "Service tokens are credentials bound to one\nenvironment, for CI and servers.\ntables: api_tokens, environments,\nmemberships, projects, service_identities\ntalks to: Postgres",
+   "originalText": "Service tokens are credentials bound to one\nenvironment, for CI and servers.\ntables: api_tokens, environments,\nmemberships, projects, service_identities\ntalks to: Postgres",
    "fontSize": 13,
    "fontFamily": 3,
    "textAlign": "left",
@@ -14608,10 +14608,10 @@
   {
    "id": "rec368",
    "type": "rectangle",
-   "x": 1860.0,
-   "y": 2617.5,
+   "x": 2273.2,
+   "y": 2682.5,
    "width": 383.2,
-   "height": 140.0,
+   "height": 123.75,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "#fff4e6",
@@ -14621,7 +14621,7 @@
    "roughness": 0,
    "opacity": 100,
    "groupIds": [
-    "svc_services/workspace.ts"
+    "svc_services/sessions.ts"
    ],
    "frameId": null,
    "roundness": {
@@ -14639,8 +14639,115 @@
   {
    "id": "tex369",
    "type": "text",
-   "x": 1880.0,
-   "y": 2635.5,
+   "x": 2293.2,
+   "y": 2700.5,
+   "width": 220.00000000000003,
+   "height": 25.0,
+   "angle": 0,
+   "strokeColor": "#1e1e1e",
+   "backgroundColor": "transparent",
+   "fillStyle": "solid",
+   "strokeWidth": 1,
+   "strokeStyle": "solid",
+   "roughness": 1,
+   "opacity": 100,
+   "groupIds": [
+    "svc_services/sessions.ts"
+   ],
+   "frameId": null,
+   "roundness": null,
+   "seed": 1338808925,
+   "version": 1,
+   "versionNonce": 832937035,
+   "isDeleted": false,
+   "boundElements": null,
+   "updated": 1,
+   "link": null,
+   "locked": false,
+   "text": "services/sessions.ts",
+   "originalText": "services/sessions.ts",
+   "fontSize": 20,
+   "fontFamily": 5,
+   "textAlign": "left",
+   "verticalAlign": "top",
+   "containerId": null,
+   "autoResize": true,
+   "lineHeight": 1.25
+  },
+  {
+   "id": "tex370",
+   "type": "text",
+   "x": 2293.2,
+   "y": 2735.5,
+   "width": 202.79999999999998,
+   "height": 48.75,
+   "angle": 0,
+   "strokeColor": "#1e1e1e",
+   "backgroundColor": "transparent",
+   "fillStyle": "solid",
+   "strokeWidth": 1,
+   "strokeStyle": "solid",
+   "roughness": 1,
+   "opacity": 100,
+   "groupIds": [
+    "svc_services/sessions.ts"
+   ],
+   "frameId": null,
+   "roundness": null,
+   "seed": 991316292,
+   "version": 1,
+   "versionNonce": 1997649752,
+   "isDeleted": false,
+   "boundElements": null,
+   "updated": 1,
+   "link": null,
+   "locked": false,
+   "text": "Access and refresh tokens.\ntables: sessions\ntalks to: Postgres",
+   "originalText": "Access and refresh tokens.\ntables: sessions\ntalks to: Postgres",
+   "fontSize": 13,
+   "fontFamily": 3,
+   "textAlign": "left",
+   "verticalAlign": "top",
+   "containerId": null,
+   "autoResize": true,
+   "lineHeight": 1.25
+  },
+  {
+   "id": "rec371",
+   "type": "rectangle",
+   "x": 2686.4,
+   "y": 2682.5,
+   "width": 383.2,
+   "height": 140.0,
+   "angle": 0,
+   "strokeColor": "#1e1e1e",
+   "backgroundColor": "#fff4e6",
+   "fillStyle": "solid",
+   "strokeWidth": 2,
+   "strokeStyle": "solid",
+   "roughness": 0,
+   "opacity": 100,
+   "groupIds": [
+    "svc_services/workspace.ts"
+   ],
+   "frameId": null,
+   "roundness": {
+    "type": 3
+   },
+   "seed": 951089634,
+   "version": 1,
+   "versionNonce": 1138260632,
+   "isDeleted": false,
+   "boundElements": [],
+   "updated": 1,
+   "link": null,
+   "locked": false
+  },
+  {
+   "id": "tex372",
+   "type": "text",
+   "x": 2706.4,
+   "y": 2700.5,
    "width": 231.00000000000003,
    "height": 25.0,
    "angle": 0,
@@ -14656,9 +14763,9 @@
    ],
    "frameId": null,
    "roundness": null,
-   "seed": 1338808925,
+   "seed": 1266726953,
    "version": 1,
-   "versionNonce": 832937035,
+   "versionNonce": 468186064,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -14675,10 +14782,10 @@
    "lineHeight": 1.25
   },
   {
-   "id": "tex370",
+   "id": "tex373",
    "type": "text",
-   "x": 1880.0,
-   "y": 2670.5,
+   "x": 2706.4,
+   "y": 2735.5,
    "width": 319.8,
    "height": 65.0,
    "angle": 0,
@@ -14694,9 +14801,9 @@
    ],
    "frameId": null,
    "roundness": null,
-   "seed": 991316292,
+   "seed": 2129293282,
    "version": 1,
-   "versionNonce": 1997649752,
+   "versionNonce": 804504125,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -14713,7 +14820,7 @@
    "lineHeight": 1.25
   },
   {
-   "id": "tex372",
+   "id": "tex375",
    "type": "text",
    "x": -80,
    "y": -210,
@@ -14730,9 +14837,9 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1266726953,
+   "seed": 1791126241,
    "version": 1,
-   "versionNonce": 468186064,
+   "versionNonce": 242309499,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,

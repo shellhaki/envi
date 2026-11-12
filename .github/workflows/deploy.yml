@@ -77,6 +77,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       api: ${{ steps.filter.outputs.api }}
+      install: ${{ steps.filter.outputs.install }}
       ui: ${{ steps.filter.outputs.ui }}
       docs: ${{ steps.filter.outputs.docs }}
     steps:
@@ -109,6 +110,7 @@ jobs:
           # The CLI (cmd/, internal/) ships through release.yml, not here.
           {
             echo "api=$(match '^server/')"
+            echo "install=$(match '^(scripts/install\.(sh|ps1)$|server/src/install\.ts$|server/install\.wrangler\.toml$)')"
             echo "ui=$(match '^ui/')"
             echo "docs=$(match '^docs/')"
           } >> "$GITHUB_OUTPUT"
@@ -119,9 +121,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        if: needs.changes.outputs.api == 'true'
+        if: needs.changes.outputs.api == 'true' || needs.changes.outputs.install == 'true'
       - uses: oven-sh/setup-bun@v2
-        if: needs.changes.outputs.api == 'true'
+        if: needs.changes.outputs.api == 'true' || needs.changes.outputs.install == 'true'
         with:
           bun-version: latest
       - name: Deploy the API to Workers
@@ -133,6 +135,15 @@ jobs:
         run: |
           bun install --frozen-lockfile
           bunx wrangler deploy
+      - name: Deploy the install scripts to Workers
+        if: needs.changes.outputs.install == 'true'
+        working-directory: server
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          bun install --frozen-lockfile
+          bunx wrangler deploy -c install.wrangler.toml
       - name: Trigger Coolify
         env:
           COOLIFY_URL: ${{ secrets.COOLIFY_URL }}

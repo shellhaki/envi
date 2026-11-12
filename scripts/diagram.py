@@ -153,16 +153,17 @@ browser = box(0, 120, 240, 90, "Browser\ndevelopers, teammates", "#e7f5ff")
 ci = box(0, 330, 240, 90, "CI and servers\nenvi run + service token", "#e7f5ff")
 term = box(0, 560, 240, 100, "Terminal\nenvi CLI", "#e7f5ff")
 
-frame(340, 40, 560, 470, "Contabo VPS (France) · Coolify", "#f8f9fa", dashed=True)
-box(370, 110, 120, 370, None, "#e9ecef")
-text(384, 330, "Coolify\nproxy\n(Traefik)\n\nTLS,\nroutes by\ndomain", 16, GREY)
+frame(340, 40, 560, 360, "Contabo VPS (France) · Coolify", "#f8f9fa", dashed=True)
+box(370, 110, 120, 260, None, "#e9ecef")
+text(384, 150, "Coolify\nproxy\n(Traefik)\n\nTLS,\nroutes by\ndomain", 16, GREY)
 
 frame(540, 100, 330, 260, "Frontend · Next.js", "#d0ebff", size=20)
 docs = box(560, 150, 290, 70, "Docs\ndocs.envisecrets.com :3000")
 dash = box(560, 240, 290, 100, "Dashboard + landing\nenvisecrets.com :3000\n/api/envi proxy")
-inst = box(560, 390, 290, 90, "envi-install :8081\ninstall.envisecrets.com\nserves install.sh / .ps1")
 
-frame(340, 560, 560, 340, "Cloudflare Workers", "#fff4e6", size=20)
+
+frame(340, 440, 560, 560, "Cloudflare Workers", "#fff4e6", size=20)
+inst = box(370, 890, 500, 80, "envi-install · server/src/install.ts\ninstall.envisecrets.com · install.sh / .ps1")
 api = box(370, 620, 500, 150, f"envi-api · server/src/worker.ts\napi.envisecrets.com\n{TOTAL} endpoints, see below\ncron trigger: billing pass, hourly", YELLOW)
 text(370, 800, "the same app runs under Bun.serve\n(server/src/server.ts) for self-hosting", 16, GREY)
 
@@ -173,22 +174,22 @@ rd = box(985, 590, 270, 170, "Upstash Redis\nREST\nlogin codes,\nrate limits", s
 text(1360, 60, "OUTSIDE SERVICES", 20, GREY)
 bachs = box(1360, 120, 260, 100, "Bachs\npayments (USD / NGN)", "#e5dbff")
 resend = box(1360, 860, 260, 90, "Resend\nemail", "#e5dbff")
-gh = box(0, 1000, 520, 120, "GitHub\nActions: test, then deploy\nReleases: CLI binaries", "#e5dbff")
+gh = box(0, 1060, 520, 120, "GitHub\nActions: test, then deploy\nReleases: CLI binaries", "#e5dbff")
 
 arrow([(244, 150), (556, 185)], start=browser, end=docs)
 arrow([(244, 185), (556, 290)], "HTTPS", start=browser, end=dash)
 arrow([(860, 290), (920, 290), (920, 650), (874, 650)], "server-side,\nbearer token", start=dash, end=api)
 arrow([(244, 375), (366, 670)], "service token", start=ci, end=api)
 arrow([(244, 610), (366, 710)], "API calls", start=term, end=api)
-arrow([(244, 640), (300, 640), (300, 435), (556, 435)], "curl | sh", start=term, end=inst)
+arrow([(244, 640), (300, 640), (300, 930), (366, 930)], "curl | sh", start=term, end=inst)
 arrow([(874, 690), (981, 435)], "SQL over\nWebSocket", start=api, end=pg, both=True)
 arrow([(874, 730), (981, 675)], "HTTPS", start=api, end=rd, both=True)
 arrow([(874, 630), (940, 630), (940, 170), (1356, 170)], "checkout, charges\nwebhooks back",
       start=api, end=bachs, both=True, color=PURPLE)
 arrow([(874, 760), (940, 760), (940, 905), (1356, 905)], "login codes, invites,\nwelcome, announcements",
       start=api, end=resend, color=PURPLE)
-arrow([(120, 996), (120, 664)], "downloads\nbinary", start=gh, end=term, color=PURPLE)
-arrow([(524, 1040), (620, 1040), (620, 904)], "wrangler deploy\nafter tests pass", start=gh, color=PURPLE, dashed=True)
+arrow([(120, 1056), (120, 664)], "downloads\nbinary", start=gh, end=term, color=PURPLE)
+arrow([(524, 1110), (620, 1110), (620, 1004)], "wrangler deploy\nafter tests pass", start=gh, color=PURPLE, dashed=True)
 
 
 # --- part 2: endpoints ------------------------------------------------------
@@ -574,7 +575,7 @@ def ts_touches(f):
 
 # The TypeScript API server: its two entry files, then one card per service.
 SERVER = os.path.join(ROOT, "server", "src")
-for name in ["server.ts", "worker.ts"]:
+for name in ["server.ts", "worker.ts", "install.ts"]:
     f = os.path.join(SERVER, name)
     entries.append(("entry", f"server/src/{name}", ts_doc(f), *ts_touches(f)))
 for name in sorted(os.listdir(os.path.join(SERVER, "services"))):

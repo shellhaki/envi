@@ -1,0 +1,10 @@
+# The install-script Worker. Deploy with: bunx wrangler deploy -c install.wrangler.toml
+name = "envi-install"
+main = "src/install.ts"
+compatibility_date = "2026-11-01"
+routes = [{ pattern = "install.envisecrets.com", custom_domain = true }]
+
+[[rules]]
+type = "Text"
+globs = ["**/*.sh", "**/*.ps1"]
+fallthrough = true

@@ -2,6 +2,7 @@ name = "envi-api"
 main = "src/worker.ts"
 compatibility_date = "2026-11-01"
 compatibility_flags = ["nodejs_compat"]
+routes = [{ pattern = "api.envisecrets.com", custom_domain = true }]
 
 [triggers]
 crons = ["0 * * * *"]
