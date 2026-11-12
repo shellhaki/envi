@@ -43,8 +43,10 @@ export const docsNav: DocGroup[] = [
 const flatDocs: DocPage[] = docsNav.flatMap((g) => g.pages);
 
 export function findDoc(pathname: string) {
+  // Pages are built at /docs/cli but served at docs.envisecrets.com/cli, so accept both.
   // Trailing slashes would otherwise miss every lookup.
-  const slug = pathname !== "/" && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
+  const path = pathname.replace(/^\/docs(?=\/|$)/, "") || "/";
+  const slug = path !== "/" && path.endsWith("/") ? path.slice(0, -1) : path;
   const index = flatDocs.findIndex((p) => p.slug === slug);
   if (index === -1) return null;
   return {

@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import Greeting from "@/components/greeting";
 import Select from "@/components/select";
 import Toast from "@/components/toast";
-import { filterKeys, formatDotenv, parseDotenv, relativeTime } from "../utils";
+import { filterKeys, formatDotenv, parseDotenv, relativeTime } from "@/lib/utils";
 
 type Project = { ID: string; OrgID: string; Name: string };
 type Env = { ID: string; Name: string; Production: boolean };

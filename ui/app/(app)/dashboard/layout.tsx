@@ -8,7 +8,7 @@ import SidebarNav from "@/components/sidebar-nav";
 import SidebarToggle from "@/components/sidebar-toggle";
 import ThemeToggle from "@/components/theme-toggle";
 import { account, firstName } from "@/lib/server-api";
-import { initials } from "@/app/utils";
+import { initials } from "@/lib/utils";
 import Workspace from "./workspace";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {

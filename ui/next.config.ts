@@ -1,3 +1,4 @@
+import createMDX from "@next/mdx";
 import type { NextConfig } from "next";
 
 // Standalone output emits .next/standalone with a self-contained server.js, so
@@ -7,8 +8,10 @@ import type { NextConfig } from "next";
 // trace output lands, and Vercel's own onBuildComplete step then fails with
 // ENOENT on .next/next-server.js.nft.json. VERCEL is set in their build env,
 // so the platform that needs it gets it and the one it breaks does not.
-const nextConfig: NextConfig = process.env.VERCEL
-  ? {}
-  : { output: "standalone" };
+const nextConfig: NextConfig = {
+  // The docs pages (app/docs) are .mdx.
+  pageExtensions: ["ts", "tsx", "mdx"],
+  ...(process.env.VERCEL ? {} : { output: "standalone" as const }),
+};
 
-export default nextConfig;
+export default createMDX({})(nextConfig);

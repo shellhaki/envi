@@ -3,7 +3,7 @@ import Link from "next/link";
 import {
   Accordion, AccordionGroup, Card, CardGroup, Diagram, Note,
   ParamField, Step, Steps, Tab, Tabs, Tip, Warning,
-} from "@/components/docs-ui";
+} from "@/components/docs/docs-ui";
 
 export function useMDXComponents(components: MDXComponents): MDXComponents {
   return {

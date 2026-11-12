@@ -3,8 +3,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowLeft, ArrowRight, Menu, X } from "lucide-react";
-import Brand from "@/components/brand";
-import ThemeToggle from "@/components/theme-toggle";
+import Brand from "@/components/docs/brand";
+import ThemeToggle from "@/components/docs/theme-toggle";
 import { SITE_URL, docsNav, findDoc } from "@/lib/docs-nav";
 
 type Heading = { id: string; text: string };

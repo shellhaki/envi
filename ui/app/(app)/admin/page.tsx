@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Activity, Boxes, FolderGit2, GitBranch, KeyRound, Layers, ShieldCheck, Users, Wallet } from "lucide-react";
 import { upstream } from "@/lib/server-api";
 import { readSession, sessionCookie } from "@/lib/web-session";
-import { relativeTime } from "@/app/utils";
+import { relativeTime } from "@/lib/utils";
 import Growth from "./growth";
 import Expenses, { money } from "./expenses";
 import Live from "./live";

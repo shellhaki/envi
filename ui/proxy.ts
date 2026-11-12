@@ -11,6 +11,22 @@ import { accessExpired, readSession, sessionCookie } from "@/lib/web-session";
 // straight from the signed cookie, so only a genuinely due session redirects.
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
+  const host = request.headers.get("host") ?? "";
+
+  // The docs are app/docs, served at the root of their own host: docs.envisecrets.com/cli
+  // is app/docs/cli. Locally that host is docs.localhost:3000.
+  if (host.startsWith("docs.")) {
+    const url = request.nextUrl.clone();
+    url.pathname = pathname === "/" ? "/docs" : `/docs${pathname}`;
+    return NextResponse.rewrite(url);
+  }
+  if (pathname === "/docs" || pathname.startsWith("/docs/")) {
+    const url = new URL(`${request.nextUrl.protocol}//docs.${host}`);
+    url.pathname = pathname.slice("/docs".length) || "/";
+    url.search = search;
+    return NextResponse.redirect(url);
+  }
+
   // Route Handlers answer fetch() calls, which must not be answered with a
   // redirect; /api/envi refreshes inline instead.
   if (pathname.startsWith("/api/")) return NextResponse.next();

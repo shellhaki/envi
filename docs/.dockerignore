@@ -1,7 +1,0 @@
-node_modules
-.next
-.env
-.env.local
-README.md
-Dockerfile
-.dockerignore

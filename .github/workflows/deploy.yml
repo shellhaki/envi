@@ -1,8 +1,8 @@
 name: Deploy
 
 # Tests gate the deploy. The API (server/) goes to Cloudflare Workers with
-# wrangler; the dashboard and docs go to Coolify, whose own "auto deploy on push"
-# is turned off for them so that this workflow triggers them instead.
+# wrangler; the site (ui/: the dashboard and, on docs.*, the docs) goes to Coolify,
+# whose own "auto deploy on push" is turned off so this workflow triggers it instead.
 on:
   push:
     branches: [main]
@@ -60,12 +60,6 @@ jobs:
           bun install --frozen-lockfile
           bun run typecheck
           bun test
-      - name: Docs
-        working-directory: docs
-        run: |
-          bun install --frozen-lockfile
-          bun run lint
-          bun run build
 
   changes:
     runs-on: ubuntu-latest
@@ -73,7 +67,6 @@ jobs:
       api: ${{ steps.filter.outputs.api }}
       install: ${{ steps.filter.outputs.install }}
       ui: ${{ steps.filter.outputs.ui }}
-      docs: ${{ steps.filter.outputs.docs }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -106,7 +99,6 @@ jobs:
             echo "api=$(match '^server/')"
             echo "install=$(match '^(scripts/install\.(sh|ps1)$|install/)')"
             echo "ui=$(match '^ui/')"
-            echo "docs=$(match '^docs/')"
           } >> "$GITHUB_OUTPUT"
           cat "$GITHUB_OUTPUT"
 
@@ -143,9 +135,7 @@ jobs:
           COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
           COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
           UI_UUID: ${{ secrets.COOLIFY_UI_UUID }}
-          DOCS_UUID: ${{ secrets.COOLIFY_DOCS_UUID }}
           DEPLOY_UI: ${{ needs.changes.outputs.ui }}
-          DEPLOY_DOCS: ${{ needs.changes.outputs.docs }}
         run: |
           set -euo pipefail
           deploy() {
@@ -163,7 +153,6 @@ jobs:
             [ "$code" = "200" ] || { echo "$name: deploy request failed with HTTP $code"; exit 1; }
           }
           deploy ui "$UI_UUID" "$DEPLOY_UI"
-          deploy docs "$DOCS_UUID" "$DEPLOY_DOCS"
 
   smoke:
     needs: deploy

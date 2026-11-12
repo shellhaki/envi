@@ -84,8 +84,7 @@ The CLI and the dashboard are two clients of the same API — neither one is a s
 | `install/` | The Worker that serves the `curl \| sh` install scripts |
 | `cmd/envi`, `internal/cli` | The CLI in Go, released for macOS, Linux, Termux, and Windows |
 | `npm/` | Builds the npm packages that install the CLI binary |
-| `ui/` | The Next.js dashboard (deployable separately, e.g. to Vercel) |
-| `docs/` | The documentation site, its own Next.js app |
+| `ui/` | The Next.js site: landing page and dashboard on envisecrets.com, and the docs (`app/docs`) on docs.envisecrets.com |
 | `migrations/` | `schema.sql` for a fresh database, numbered files to catch one up |
 | `architecture/` | `ENDPOINTS.md` (every route) and `excalidraw.json` (system diagram, data model) — rebuilt with `make diagram` |
 
@@ -139,8 +138,7 @@ Postgres and Redis running locally, then:
 make db-init                  # apply the schema, or bring migrations up to date
 cd server && bun run dev      # API on :8080
 cd server && bun test         # API tests, on a throwaway local database
-cd ui && bun dev              # dashboard on :3000
-cd docs && bun dev            # docs site on :3001
+cd ui && bun dev              # dashboard on localhost:3000, docs on docs.localhost:3000
 make build-envi               # the CLI
 ```
 
