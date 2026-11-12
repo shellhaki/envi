@@ -30,22 +30,29 @@ Anyone partway through signing in at the moment of the switch requests a new cod
    - `ENVI_ENCRYPTION_KEY`. A different key cannot decrypt any existing secret.
    - `RESEND_API_KEY`, `RESEND_FROM`, `ENVI_ADMINS`
    - `BACHS_SECRET_KEY`, `BACHS_WEBHOOK_SECRET`, `BACHS_TEAM_PRODUCT_ID`
-5. Create the Worker with billing off for now. Run each command from `server/`;
-   each one prompts for the value, so nothing lands in shell history:
+5. Put the values in a file outside the repo, for example `~/envi-worker.env`.
+   Leave the Bachs values out until part 3. Without `BACHS_SECRET_KEY` the hourly
+   cron does nothing, so the rehearsal copy is never charged.
+
+   ```sh
+   DATABASE_URL=postgres://...      # Neon direct string, rehearsal branch (part 2)
+   UPSTASH_REDIS_REST_URL=https://...
+   UPSTASH_REDIS_REST_TOKEN=...
+   ENVI_ENCRYPTION_KEY=...
+   RESEND_API_KEY=...
+   RESEND_FROM=Envi <...>
+   ENVI_ADMINS=...
+   ```
+
+   Then, from `server/`, create the Worker and upload them all at once:
 
    ```sh
    bunx wrangler deploy
-   bunx wrangler secret put DATABASE_URL            # Neon direct string, rehearsal branch (part 2)
-   bunx wrangler secret put UPSTASH_REDIS_REST_URL
-   bunx wrangler secret put UPSTASH_REDIS_REST_TOKEN
-   bunx wrangler secret put ENVI_ENCRYPTION_KEY
-   bunx wrangler secret put RESEND_API_KEY
-   bunx wrangler secret put RESEND_FROM
-   bunx wrangler secret put ENVI_ADMINS
+   bunx wrangler secret bulk ~/envi-worker.env
    ```
 
-   Leave the Bachs secrets out until part 3. Without `BACHS_SECRET_KEY`, the hourly
-   cron does nothing, so the rehearsal copy is never charged.
+   `bunx wrangler secret list` shows the names, never the values. Delete the file once
+   the move is done; Cloudflare keeps the secrets.
 
    The Worker is now at `https://envi-api.<your-subdomain>.workers.dev`. Nothing
    points at it yet.
@@ -64,7 +71,8 @@ Anyone partway through signing in at the moment of the switch requests a new cod
    `envi.sql` holds encrypted secrets and user emails. Keep it off shared drives
    and delete it when the move is done.
 
-3. Point the Worker at the branch: `bunx wrangler secret put DATABASE_URL`.
+3. Point the Worker at the branch: set `DATABASE_URL` in the file to the branch's string,
+   and run `bunx wrangler secret bulk ~/envi-worker.env` again. It only adds or replaces.
 4. Check row counts match:
 
    ```sh
@@ -98,13 +106,17 @@ Pick a quiet hour. Do these in order.
    error and nothing writes to the VPS database.
 2. **Copy the final data** into Neon's `main` branch, the same way as part 2 step 2,
    then check the row counts.
-3. **Point the Worker at production data**:
+3. **Point the Worker at production data.** In the file, set `DATABASE_URL` to Neon's
+   `main` branch (direct string), add the Bachs values, then upload again:
 
    ```sh
-   bunx wrangler secret put DATABASE_URL            # Neon main branch, direct string
-   bunx wrangler secret put BACHS_SECRET_KEY
-   bunx wrangler secret put BACHS_WEBHOOK_SECRET
-   bunx wrangler secret put BACHS_TEAM_PRODUCT_ID
+   BACHS_SECRET_KEY=sk_live_...
+   BACHS_WEBHOOK_SECRET=...
+   BACHS_TEAM_PRODUCT_ID=...
+   ```
+
+   ```sh
+   bunx wrangler secret bulk ~/envi-worker.env
    ```
 
 4. **Move the domain.** In Cloudflare DNS, delete the `api` record that points at the VPS.
