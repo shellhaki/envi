@@ -9,10 +9,11 @@
 
   <p align="center">
     <img alt="License" src="https://img.shields.io/badge/license-MIT-0c111d">
-    <img alt="Go" src="https://img.shields.io/badge/go-1.25-00ADD8?logo=go&logoColor=white">
+    <img alt="TypeScript" src="https://img.shields.io/badge/typescript-bun-3178C6?logo=typescript&logoColor=white">
+    <img alt="Go" src="https://img.shields.io/badge/cli-go-00ADD8?logo=go&logoColor=white">
     <img alt="Next.js" src="https://img.shields.io/badge/next.js-16-000000?logo=next.js&logoColor=white">
-    <img alt="Postgres" src="https://img.shields.io/badge/postgres-16-4169E1?logo=postgresql&logoColor=white">
-    <img alt="Docker Compose" src="https://img.shields.io/badge/docker%20compose-ready-2496ED?logo=docker&logoColor=white">
+    <img alt="Postgres" src="https://img.shields.io/badge/postgres-18-4169E1?logo=postgresql&logoColor=white">
+    <img alt="Cloudflare Workers" src="https://img.shields.io/badge/cloudflare-workers-F38020?logo=cloudflare&logoColor=white">
   </p>
 
   ---
@@ -58,36 +59,18 @@ No install script runs: the binary arrives as an optional dependency chosen by `
 - **Copy a whole environment out** — platforms that build and run your code themselves, like Vercel or Netlify, have no process for `envi run` to wrap. **Copy all** on the dashboard puts every secret on your clipboard as `.env` text, which their environment-variable screens parse in one paste. `envi copy` does the same from the terminal, and `envi copy --single` picks out one value.
 - **CLI and dashboard, one API** — `envi pull`/`push`/`diff` your `.env` files from the terminal, or manage everything visually. Same backend, same permissions, your choice of interface.
 
-## Self-host it in one command
+## Self-hosting
 
-```bash
-git clone https://github.com/shellhaki/envi.git
-cd envi
-cp .env.example .env     # fill in the four required values
-docker compose up -d
-```
-
-That brings up Postgres, Redis, the API, the install-script server, and the dashboard together. The database schema is applied automatically on first start. The dashboard lands on [localhost:3000](http://localhost:3000).
-
-You need four values in `.env` before it will start:
-
-| Variable | What it is |
-|---|---|
-| `ENVI_ENCRYPTION_KEY` | Exactly 32 characters — `openssl rand -hex 16`. Decrypts every secret you store. |
-| `ENVI_SESSION_SECRET` | At least 32 characters — signs dashboard session cookies. |
-| `RESEND_API_KEY` | For one-time sign-in codes and invitations. |
-| `RESEND_FROM` | Sender address, on a domain verified with Resend. |
-
-Prefer running the binaries directly under a process manager instead? See the [deployment walkthrough](https://docs.envisecrets.com/self-hosting/deployment).
+A self-hosting guide for the current server is being written. Until then, Envi is the hosted product at [envisecrets.com](https://envisecrets.com).
 
 ## How it fits together
 
 ```mermaid
 flowchart LR
-    CLI["envi CLI"] -->|bearer token| API["Go API"]
+    CLI["envi CLI"] -->|bearer token| API["API\nCloudflare Worker"]
     Web["Next.js dashboard"] -->|session cookie| API
-    API --> PG[("Postgres\nencrypted secrets\n+ key-value store")]
-    API --> Redis[("Redis\nOTP codes")]
+    API --> PG[("Neon Postgres\nencrypted secrets\n+ key-value store")]
+    API --> Redis[("Upstash Redis\nOTP codes")]
     API --> Mail["Resend\nemail delivery"]
 ```
 
@@ -97,17 +80,14 @@ The CLI and the dashboard are two clients of the same API — neither one is a s
 
 | Path | What it is |
 |---|---|
-| `cmd/api` | The API server — the entire backend |
-| `cmd/envi` | The CLI, released for macOS, Linux, Termux, and Windows |
-| `cmd/install` | Tiny server for the `curl \| sh` install scripts |
-| `internal/` | Domain packages: secrets, auth, access, invitations, billing, audit, mail |
-| `internal/api` | HTTP routes — every endpoint is listed in `server.go` |
+| `server/` | The API server in TypeScript (Hono): Cloudflare Workers in production, Bun for local runs. Every route is in `src/app.ts` |
+| `server/src/install.ts` | The Worker that serves the `curl \| sh` install scripts |
+| `cmd/envi`, `internal/cli` | The CLI in Go, released for macOS, Linux, Termux, and Windows |
 | `npm/` | Builds the npm packages that install the CLI binary |
 | `ui/` | The Next.js dashboard (deployable separately, e.g. to Vercel) |
 | `docs/` | The documentation site, its own Next.js app |
 | `migrations/` | `schema.sql` for a fresh database, numbered files to catch one up |
 | `architecture/` | `ENDPOINTS.md` (every route) and `excalidraw.json` (system diagram, data model) — rebuilt with `make diagram` |
-| `traefik/` | Reverse-proxy config for a non-Docker deployment |
 
 ## Security, briefly
 
@@ -157,9 +137,11 @@ Postgres and Redis running locally, then:
 
 ```bash
 make db-init                  # apply the schema, or bring migrations up to date
-make build-api build-install  # binaries into bin/
+cd server && bun run dev      # API on :8080
+cd server && bun test         # API tests, on a throwaway local database
 cd ui && bun dev              # dashboard on :3000
 cd docs && bun dev            # docs site on :3001
+make build-envi               # the CLI
 ```
 
 `make help` lists every target.

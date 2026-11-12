@@ -22,11 +22,10 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
-    # Login, sessions and the end-to-end CLI test run against a real database
-    # rather than fakes, so the job gets its own throwaway Postgres and Redis.
+    # The API server's tests build a throwaway database on this Postgres.
     services:
       postgres:
-        image: postgres:16
+        image: postgres:18
         env:
           POSTGRES_USER: envi
           POSTGRES_PASSWORD: envi
@@ -35,15 +34,8 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U envi" --health-interval 2s
           --health-timeout 5s --health-retries 20
-      redis:
-        image: redis:7
-        ports: ["6379:6379"]
-        options: >-
-          --health-cmd "redis-cli ping" --health-interval 2s
-          --health-timeout 5s --health-retries 20
     env:
       DATABASE_URL: postgres://envi:envi@localhost:5432/envi?sslmode=disable
-      REDIS_URL: redis://localhost:6379/0
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -52,12 +44,8 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-      - name: Go and dashboard
+      - name: CLI and dashboard
         run: ./scripts/ci.sh
-      - name: Database tests
-        run: |
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q < migrations/schema.sql
-          ENVI_INTEGRATION=1 go test -count=1 ./internal/...
       - name: API server
         working-directory: server
         env:

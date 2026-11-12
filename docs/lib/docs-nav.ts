@@ -38,14 +38,6 @@ export const docsNav: DocGroup[] = [
       { slug: "/invitations", title: "Invitations", description: "Invite a collaborator, even if they don't have an account yet." },
     ],
   },
-  {
-    group: "Self-Hosting",
-    pages: [
-      { slug: "/self-hosting", title: "Overview", description: "What running your own instance actually involves." },
-      { slug: "/self-hosting/docker", title: "Docker Compose", description: "The whole stack in one command." },
-      { slug: "/self-hosting/deployment", title: "Deployment", description: "A first deploy to a plain VPS, no Docker required." },
-    ],
-  },
 ];
 
 const flatDocs: DocPage[] = docsNav.flatMap((g) => g.pages);

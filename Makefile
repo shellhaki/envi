@@ -13,7 +13,7 @@
 DATABASE_URL ?= $(shell grep -E '^DATABASE_URL=' .env 2>/dev/null | cut -d= -f2-)
 PSQL         := psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1
 
-.PHONY: help build-envi build-api build-install db-init db-schema db-migrate db-psql diagram
+.PHONY: help build-envi db-init db-schema db-migrate db-psql diagram run-api run-ui
 
 help: ## List available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | \
@@ -69,12 +69,6 @@ build-envi: ## Build the envi CLI into ~/.local/bin (settings from Envi's "cli" 
 	go build -ldflags "-X main.version=dev-local$$flags" -o ~/.local/bin/envitest ./cmd/envi; \
 	echo "built dev-local ($(CLI_ENV)) with:$${flags:- (no settings; compiled defaults stand)}"
 
-build-api: ## Build the API server into bin/envi-api (for pm2, see ecosystem.config.js)
-	go build -o bin/envi-api ./cmd/api
-
-build-install: ## Build the install-script server into bin/envi-install (for pm2, see ecosystem.config.js)
-	go build -o bin/envi-install ./cmd/install
-
 db-init: ## Apply schema.sql on a fresh DB (DATABASE_URL from .env), else bring migrations up to date
 	@if [ -z "$(DATABASE_URL)" ]; then echo "DATABASE_URL is not set (check .env)"; exit 1; fi
 	@if $(PSQL) -c '\dt' 2>/dev/null | grep -qw sessions; then \
@@ -102,11 +96,10 @@ db-psql: ## Open a psql shell on the database
 	@if [ -z "$(DATABASE_URL)" ]; then echo "DATABASE_URL is not set (check .env)"; exit 1; fi
 	psql "$(DATABASE_URL)"
 
-diagram: ## Rebuild architecture/excalidraw.json from architecture/ENDPOINTS.md, migrations/schema.sql, the Go packages, server/src and scripts/diagram.py
+diagram: ## Rebuild architecture/excalidraw.json from architecture/ENDPOINTS.md, migrations/schema.sql, the CLI, server/src and scripts/diagram.py
 	python3 scripts/diagram.py
 
-
-run-api:
-	envi run -- go run ./cmd/api
-run-ui:
+run-api: ## Run the API server (server/) with secrets from Envi
+	cd server && envi run -- bun run dev
+run-ui: ## Run the dashboard with secrets from Envi
 	cd ui && envi run -- bun run dev

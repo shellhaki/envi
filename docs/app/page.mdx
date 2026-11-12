@@ -20,9 +20,6 @@ The CLI and the web dashboard are two clients of one API — neither is a specia
   <Card title="Web dashboard" href="/web-dashboard">
     Manage secrets visually, and copy a whole environment out in one paste.
   </Card>
-  <Card title="Self-host it" href="/self-hosting">
-    Run the entire stack yourself. Nothing is held back for a separate build.
-  </Card>
 </CardGroup>
 
 ## What it does
@@ -67,15 +64,15 @@ The CLI and the web dashboard are two clients of one API — neither is a specia
 
 <Diagram
   nodes={[
-    { from: "envi CLI", label: "bearer token", to: "Go API" },
-    { from: "Web dashboard", label: "session cookie", to: "Go API" },
-    { from: "Go API", label: "encrypted", to: "Postgres" },
-    { from: "Go API", label: "OTP codes", to: "Redis" },
-    { from: "Go API", label: "delivery", to: "Resend" },
+    { from: "envi CLI", label: "bearer token", to: "Envi API" },
+    { from: "Web dashboard", label: "session cookie", to: "Envi API" },
+    { from: "Envi API", label: "encrypted", to: "Postgres" },
+    { from: "Envi API", label: "OTP codes", to: "Redis" },
+    { from: "Envi API", label: "delivery", to: "Resend" },
   ]}
   caption="Secrets are encrypted before they reach Postgres and decrypted only in memory, on demand, for a request that has already passed the access-grant check."
 />
 
 <Note>
-  Envi is offered as a hosted product, and this documentation covers the same stack behind it — self-hosting is a first-class option, not a separate "enterprise" build. See [Self-Hosting](/self-hosting) if you'd rather run it yourself.
+  Envi is offered as a hosted product. The whole stack is open source, and a guide to running it yourself is being written.
 </Note>

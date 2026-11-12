@@ -478,7 +478,7 @@ for i, p in enumerate(plans):
 
 ERD_BOTTOM = max(e["y"] + e["height"] for e in entity.values())
 
-# --- part 4: services, from the Go packages and server/src ---------------------------------
+# --- part 4: services, from the CLI packages and server/src ---------------------------------
 
 SECTIONS.append(len(els))
 
@@ -509,16 +509,7 @@ def touches_of(path):
     src = "".join(open(f).read() for f in go_files(path))
     tables = sorted({t for t in re.findall(r"\b(?:FROM|JOIN|INTO|UPDATE)\s+(\w+)", src) if t in TABLES})
     uses = sorted(set(re.findall(r'"shellhaki/envi/internal/(\w+)"', src)))
-    outside = []
-    if "pgx" in src:
-        outside.append("Postgres")
-    if "go-redis" in src:
-        outside.append("Redis")
-    if "api.resend.com" in src:
-        outside.append("Resend")
-    if "bachs.io" in src:
-        outside.append("Bachs")
-    return tables, uses, outside
+    return tables, uses, []  # the CLI talks only to the API
 
 
 def wrap(s, width=44):
@@ -527,7 +518,7 @@ def wrap(s, width=44):
 
 
 SERVICE_TOP = 0
-text(0, SERVICE_TOP, "Services · cmd/, internal/ (Go) and server/src (TypeScript)", 36)
+text(0, SERVICE_TOP, "Services · the CLI (Go) and server/src (TypeScript)", 36)
 text(0, SERVICE_TOP + 56, "What each program and package does, the tables it\n"
      "queries, the packages it calls and the outside systems it talks to.", 16, GREY, MONO)
 

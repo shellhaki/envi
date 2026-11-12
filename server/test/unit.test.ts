@@ -9,7 +9,7 @@ import { bachsClient, money, signWebhook, verifyWebhook } from "../src/services/
 import { ENCRYPTION_KEY } from "./helpers";
 
 describe("encryption matches the Go server", () => {
-  // Sealed and hashed by internal/crypto and internal/auth with the same key.
+  // Sealed and hashed by the old Go server with the same key, so data it wrote still reads.
   const sealedByGo = "0a0f1c2a64deb2bbac96ddd0cb8fe11b4a66b3a79bc11e3184b346b8d6e3bc24a4002df7a70ffd489c5505c84ad9c22aa6bec1c4a7f623";
   const goHashOfToken123 = "034192845dc489deca291f9f5ae0bb8e5472c991020bf64b3ebc6dec5a1d7e47";
 

@@ -180,7 +180,7 @@ export default async function Home() {
         <h2>Free for personal projects.<br /><span>Upgrade when the team grows.</span></h2>
         <div className="lp-hero-actions">
           <Link className="button accent large" href={start}>{user ? "Go to dashboard" : "Get started"}<ArrowRight /></Link>
-          <a className="button secondary large" href={`${DOCS}/self-hosting/deployment`}>Self-host Envi</a>
+          <a className="button secondary large" href={GITHUB}>View on GitHub</a>
         </div>
       </section>
     </main>
