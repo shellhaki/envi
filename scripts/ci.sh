@@ -2,9 +2,12 @@
 set -euo pipefail
 
 export GOCACHE="${GOCACHE:-/tmp/envi-go-cache}"
-test -z "$(gofmt -l cmd internal)"
-go vet ./cmd/... ./internal/...
-go test -race ./cmd/... ./internal/...
+(
+  cd cli
+  test -z "$(gofmt -l .)"
+  go vet ./...
+  go test -race ./...
+)
 (
   cd ui
   bun install --frozen-lockfile

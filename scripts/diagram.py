@@ -1,14 +1,14 @@
 """
-Builds architecture/excalidraw.json: one frame holding, side by
+Builds docs/excalidraw.json: one frame holding, side by
 side, how Envi fits together, every program and package, the data model as a
 crow's foot diagram, and every API endpoint.
 
     make diagram
 
-The endpoint cards are read from architecture/ENDPOINTS.md, so after adding, removing or
+The endpoint cards are read from docs/ENDPOINTS.md, so after adding, removing or
 changing an endpoint, update ENDPOINTS.md and run this again. The data model is
 read from migrations/schema.sql, so after a schema change, update schema.sql
-and run this again. The services are read from cmd/, internal/ and
+and run this again. The services are read from cli/cmd, cli/internal and
 server/src/services: each card takes the package or file comment's first
 sentence, and works out the tables, packages and outside systems from the code.
 The architecture half is laid out by hand below; edit it here when the
@@ -123,7 +123,7 @@ def arrow(points, label=None, start=None, end=None, both=False, color="#1e1e1e",
 # --- endpoints, from ENDPOINTS.md -------------------------------------------
 
 def read_endpoints():
-    src = open(os.path.join(ROOT, "architecture", "ENDPOINTS.md")).read()
+    src = open(os.path.join(ROOT, "docs", "ENDPOINTS.md")).read()
     groups = []
     for sec in re.split(r"\n## ", src)[1:]:
         title = sec.split("\n", 1)[0].strip()
@@ -523,11 +523,11 @@ text(0, SERVICE_TOP + 56, "What each program and package does, the tables it\n"
      "queries, the packages it calls and the outside systems it talks to.", 16, GREY, MONO)
 
 entries = []
-for name in sorted(os.listdir(os.path.join(ROOT, "cmd"))):
-    path = os.path.join(ROOT, "cmd", name)
+for name in sorted(os.listdir(os.path.join(ROOT, "cli", "cmd"))):
+    path = os.path.join(ROOT, "cli", "cmd", name)
     entries.append(("program", f"cmd/{name}", doc_of(path, "Command"), *touches_of(path)))
-for name in sorted(os.listdir(os.path.join(ROOT, "internal"))):
-    path = os.path.join(ROOT, "internal", name)
+for name in sorted(os.listdir(os.path.join(ROOT, "cli", "internal"))):
+    path = os.path.join(ROOT, "cli", "internal", name)
     if name == "e2e" or not os.path.isdir(path) or not go_files(path):
         continue
     entries.append(("package", name, doc_of(path, "Package"), *touches_of(path)))
@@ -668,7 +668,7 @@ els[:] = [frame_box] + outer + els[:els_before] + [title]
 
 out = {"type": "excalidraw", "version": 2, "source": "https://excalidraw.com",
        "elements": els, "appState": {"viewBackgroundColor": "#ffffff", "gridSize": None}, "files": {}}
-with open(os.path.join(ROOT, "architecture", "excalidraw.json"), "w") as f:
+with open(os.path.join(ROOT, "docs", "excalidraw.json"), "w") as f:
     json.dump(out, f, indent=1, ensure_ascii=False)
     f.write("\n")
 print(f"excalidraw.json: {TOTAL} endpoints, {len(TABLES)} tables, {len(FKS)} relationships, {SERVICE_COUNT} services, {len(els)} elements")

@@ -3,8 +3,8 @@ Your image carries no secrets and no `.env`. It gets one credential from whereve
 ```dockerfile
 FROM oven/bun:1-alpine
 
-RUN bun add -g @shellhaki/envi-cli
-ENV PATH="/root/.bun/bin:${PATH}"
+RUN apk add --no-cache curl \
+ && curl -fsSL https://install.envisecrets.com | ENVI_INSTALL_DIR=/usr/local/bin sh
 
 WORKDIR /app
 COPY . .
@@ -23,7 +23,7 @@ docker run -p 3000:3000 -e ENVI_TOKEN=st_live_xxxxx myapp
 `envi run` fetches the environment's secrets, puts them in the process environment, and execs your command. Your app reads `process.env.DATABASE_URL` and knows nothing about Envi.
 
 <Note>
-  `bun add -g` installs binaries to `/root/.bun/bin`, which is not on `PATH` in that image. Without the `ENV PATH` line you get `envi: not found`. With npm, `npm install -g @shellhaki/envi-cli` needs no `PATH` change.
+  `ENVI_INSTALL_DIR=/usr/local/bin` puts `envi` on the image's `PATH`. Without it the script installs to `~/.local/bin`, and `envi run` fails with `envi: not found`.
 </Note>
 
 ## Settings
@@ -49,7 +49,8 @@ Use a `read` token for deployments. It can fetch secrets and nothing else.
 
 ```dockerfile
 FROM node:22-alpine
-RUN npm install -g @shellhaki/envi-cli
+RUN apk add --no-cache curl \
+ && curl -fsSL https://install.envisecrets.com | ENVI_INSTALL_DIR=/usr/local/bin sh
 
 WORKDIR /app
 COPY . .

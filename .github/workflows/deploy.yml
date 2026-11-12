@@ -40,7 +40,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version-file: cli/go.mod
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
@@ -97,7 +97,7 @@ jobs:
           # The CLI (cmd/, internal/) ships through release.yml, not here.
           {
             echo "api=$(match '^server/')"
-            echo "install=$(match '^(scripts/install\.(sh|ps1)$|install/)')"
+            echo "install=$(match '^install/')"
             echo "ui=$(match '^ui/')"
           } >> "$GITHUB_OUTPUT"
           cat "$GITHUB_OUTPUT"

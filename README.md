@@ -36,14 +36,6 @@ irm https://install.envisecrets.com/install.ps1 | iex
 
 The script detects your OS and CPU architecture, verifies a SHA-256 checksum before installing, and works on macOS, Linux, Termux, and Windows.
 
-Or through a package manager, if Node is already in your stack:
-
-```bash
-npm install -g @shellhaki/envi-cli     # or: bun add -g / pnpm add -g / yarn global add
-```
-
-No install script runs: the binary arrives as an optional dependency chosen by `os` and `cpu`, so it works under `npm ci --ignore-scripts` and pnpm's defaults. `envi update` knows which way you installed and uses the matching route.
-
 ## What it does
 
 - **Encrypted at rest** — every secret is sealed with AES-256-GCM before it touches Postgres. Nothing is ever stored in plaintext, including in the version history kept for every change.
@@ -81,12 +73,11 @@ The CLI and the dashboard are two clients of the same API — neither one is a s
 | Path | What it is |
 |---|---|
 | `server/` | The API server in TypeScript (Hono): Cloudflare Workers in production, Bun for local runs. Every route is in `src/app.ts` |
-| `install/` | The Worker that serves the `curl \| sh` install scripts |
-| `cmd/envi`, `internal/cli` | The CLI in Go, released for macOS, Linux, Termux, and Windows |
-| `npm/` | Builds the npm packages that install the CLI binary |
+| `install/` | The install scripts and the Worker that serves them on install.envisecrets.com |
+| `cli/` | The CLI in Go (`cmd/envi`, `internal/cli`), released for macOS, Linux, Termux, and Windows |
 | `ui/` | The Next.js site: landing page and dashboard on envisecrets.com, and the docs (`app/docs`) on docs.envisecrets.com |
 | `migrations/` | `schema.sql` for a fresh database, numbered files to catch one up |
-| `architecture/` | `ENDPOINTS.md` (every route) and `excalidraw.json` (system diagram, data model) — rebuilt with `make diagram` |
+| `docs/` | `ENDPOINTS.md` (every route) and `excalidraw.json` (system diagram, data model), rebuilt with `make diagram` |
 
 ## Security, briefly
 
@@ -135,11 +126,11 @@ Full reference, including flags and exit codes: [docs.envisecrets.com/cli](https
 Postgres and Redis running locally, then:
 
 ```bash
-make db-init                  # apply the schema, or bring migrations up to date
-cd server && bun run dev      # API on :8080
-cd server && bun test         # API tests, on a throwaway local database
-cd ui && bun dev              # dashboard on localhost:3000, docs on docs.localhost:3000
-make build-envi               # the CLI
+make dev-api      # API on :8080
+make dev-ui       # site on localhost:3000, docs on docs.localhost:3000
+make test         # every test; the API's run on a throwaway local database
+make cli          # build the CLI
+make deploy       # both Workers
 ```
 
 `make help` lists every target.

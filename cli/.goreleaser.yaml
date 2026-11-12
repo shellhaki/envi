@@ -2,12 +2,14 @@ version: 2
 
 project_name: envi
 
+# Run from the repository root: goreleaser release --config cli/.goreleaser.yaml
 before:
   hooks:
-    - go mod tidy
+    - go -C cli mod tidy
 
 builds:
   - id: envi
+    dir: cli
     main: ./cmd/envi
     binary: envi
     env:

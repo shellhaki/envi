@@ -1,59 +1,76 @@
-# Envi development helpers.
-#
-# Postgres is expected to be running natively (no docker-compose right now)
-# with DATABASE_URL in .env pointing at it. There is no migration runner, so
-# the schema is applied from here: migrations/schema.sql is the full current
-# schema (use on a fresh database), and the numbered migrations/NNN_*.sql
-# files are the incremental catch-up scripts for an existing database
-# (idempotent).
-#
-# Quick start:  make db-init  # apply the schema, or bring migrations up to date
-# Run `make help` to list every target.
-
 DATABASE_URL ?= $(shell grep -E '^DATABASE_URL=' .env 2>/dev/null | cut -d= -f2-)
-PSQL         := psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1
-
-.PHONY: help build-envi db-init db-schema db-migrate db-psql diagram run-api run-ui
-
-help: ## List available targets
-	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | \
-		awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
-
-# Build-time settings for the CLI. Every KEY=VALUE becomes
-# -X internal/cli.KEY=VALUE, so adding a setting means declaring the Go var and
-# adding the key to the source.
-#
-# The source is the "cli" origin of this project in Envi, fetched with
-# `envi copy` so the settings never have to exist as a file on this machine.
-# CI has no Envi session: the release workflow writes .env.cli from a
-# repository secret, and GitHub Actions sets CI=true, which switches this to
-# read that file without the workflow having to say so.
-#
-#   make build-envi                 settings from Envi (needs envi 1.3.0+)
-#   make build-envi CLI_ENV=file    settings from .env.cli, e.g. offline
 CLI_PKG    = shellhaki/envi/internal/cli
 CLI_ENV    ?= $(if $(CI),file,envi)
 CLI_ORIGIN ?= cli
 
-.PHONY: cli-env cli-ldflags
-cli-env: ## Print the CLI's build settings as KEY=VALUE (Envi origin "cli"; .env.cli in CI)
+.PHONY: help dev-api dev-ui dev-worker test test-api test-install test-ui test-cli \
+	secrets deploy deploy-api deploy-install logs cli cli-env cli-ldflags db db-migrate diagram
+
+help: ## List every target
+	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
+
+dev-api: ## Run the API on Bun with secrets from Envi
+	cd server && envi run -- bun run dev
+
+dev-ui: ## Run the site: localhost:3000, docs on docs.localhost:3000
+	cd ui && envi run -- bun run dev
+
+dev-worker: ## Run the API Worker locally against stand-ins for Neon and Upstash
+	docker compose -f server/test/worker/compose.yml up -d
+	cd server && bun run worker:local
+
+test: test-api test-install test-ui test-cli ## Run every test
+
+test-api: ## API tests and typecheck
+	cd server && bun test && bun run typecheck
+
+test-install: ## Install Worker tests and typecheck
+	cd install && bun test && bun run typecheck
+
+test-ui: ## Site tests and lint
+	cd ui && bun test && bun run lint
+
+test-cli: ## CLI vet and tests
+	cd cli && go vet ./... && go test ./...
+
+# Names set under [vars] in server/wrangler.toml are left out: Cloudflare refuses a secret and a var with one name.
+secrets: ## Upload .env as the API Worker's secrets
+	@vars=$$(sed -n '/^\[vars\]/,/^\[/p' server/wrangler.toml | grep -oE '^[A-Z_]+' | paste -sd'|' -); \
+	file=$$(mktemp); \
+	grep -vE "^($$vars)=" .env > $$file; \
+	(cd server && bunx wrangler secret bulk $$file); status=$$?; \
+	rm -f $$file; exit $$status
+
+deploy: deploy-api deploy-install ## Deploy both Workers
+
+deploy-api: ## Deploy the API Worker (api.envisecrets.com)
+	cd server && bunx wrangler deploy
+
+deploy-install: ## Deploy the install Worker (install.envisecrets.com)
+	cd install && bunx wrangler deploy
+
+logs: ## Stream the API Worker's logs
+	cd server && bunx wrangler tail
+
+cli: ## Build the CLI into ~/.local/bin/envitest (settings from Envi's "cli" origin)
+	@flags="$$($(MAKE) -s cli-ldflags)" || exit 1; \
+	cd cli && go build -ldflags "-X main.version=dev-local$$flags" -o ~/.local/bin/envitest ./cmd/envi; \
+	echo "built dev-local ($(CLI_ENV)) with:$${flags:- (no settings; compiled defaults stand)}"
+
+cli-env: ## Print the CLI's build settings (cli/.env.cli in CI)
 	@if [ "$(CLI_ENV)" = "file" ]; then \
-	  [ -f .env.cli ] && cat .env.cli; true; \
+	  [ -f cli/.env.cli ] && cat cli/.env.cli; true; \
 	else \
 	  err=$$(mktemp); \
 	  if envi copy --origin $(CLI_ORIGIN) --stdout 2>"$$err"; then rm -f "$$err"; \
 	  else \
 	    cat "$$err" >&2; rm -f "$$err"; \
-	    echo "could not read the '$(CLI_ORIGIN)' origin from Envi." >&2; \
-	    echo "needs envi 1.3.0 or newer (envi update now) and a session (envi auth)," >&2; \
-	    echo "or build from the file instead: make build-envi CLI_ENV=file" >&2; \
+	    echo "could not read the '$(CLI_ORIGIN)' origin from Envi; try: make cli CLI_ENV=file" >&2; \
 	    exit 1; \
 	  fi; \
 	fi
 
-# Fetched once and parsed here rather than piped, so a failed fetch stops the
-# build instead of producing an empty flag list — which would silently compile
-# the production API URL into a binary meant for local development.
+# A failed fetch must stop the build, not compile the production API URL into a dev binary.
 cli-ldflags: ## Print the -X flags the CLI is built with
 	@settings="$$($(MAKE) -s cli-env)" || exit 1; \
 	printf '%s\n' "$$settings" | \
@@ -64,42 +81,11 @@ cli-ldflags: ## Print the -X flags the CLI is built with
 	  [ -n "$$k" ] && [ -n "$$v" ] && printf ' -X %s.%s=%s' "$(CLI_PKG)" "$$k" "$$v"; \
 	done; true
 
-build-envi: ## Build the envi CLI into ~/.local/bin (settings from Envi's "cli" origin)
-	@flags="$$($(MAKE) -s cli-ldflags)" || exit 1; \
-	go build -ldflags "-X main.version=dev-local$$flags" -o ~/.local/bin/envitest ./cmd/envi; \
-	echo "built dev-local ($(CLI_ENV)) with:$${flags:- (no settings; compiled defaults stand)}"
-
-db-init: ## Apply schema.sql on a fresh DB (DATABASE_URL from .env), else bring migrations up to date
-	@if [ -z "$(DATABASE_URL)" ]; then echo "DATABASE_URL is not set (check .env)"; exit 1; fi
-	@if $(PSQL) -c '\dt' 2>/dev/null | grep -qw sessions; then \
-		echo "existing database -> applying migrations"; \
-		$(MAKE) --no-print-directory db-migrate; \
-	else \
-		echo "fresh database -> applying schema.sql"; \
-		$(PSQL) < migrations/schema.sql && echo "schema applied"; \
-	fi
-
-db-schema: ## Apply schema.sql — the full current schema (fresh DB only)
-	@if [ -z "$(DATABASE_URL)" ]; then echo "DATABASE_URL is not set (check .env)"; exit 1; fi
-	$(PSQL) < migrations/schema.sql
-	@echo "schema applied"
-
-db-migrate: ## Apply migrations/*.sql against DATABASE_URL (idempotent)
-	@if [ -z "$(DATABASE_URL)" ]; then echo "DATABASE_URL is not set (check .env)"; exit 1; fi
-	@for f in migrations/[0-9]*.sql; do \
-		echo "applying $$f"; \
-		$(PSQL) < $$f || exit 1; \
-	done
-	@echo "migrations applied"
-
-db-psql: ## Open a psql shell on the database
-	@if [ -z "$(DATABASE_URL)" ]; then echo "DATABASE_URL is not set (check .env)"; exit 1; fi
+db: ## Open psql on DATABASE_URL from .env
 	psql "$(DATABASE_URL)"
 
-diagram: ## Rebuild architecture/excalidraw.json from architecture/ENDPOINTS.md, migrations/schema.sql, the CLI, server/src and scripts/diagram.py
-	python3 scripts/diagram.py
+db-migrate: ## Apply migrations/*.sql to DATABASE_URL from .env
+	@for f in migrations/[0-9]*.sql; do echo "applying $$f"; psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -q < $$f || exit 1; done
 
-run-api: ## Run the API server (server/) with secrets from Envi
-	cd server && envi run -- bun run dev
-run-ui: ## Run the dashboard with secrets from Envi
-	cd ui && envi run -- bun run dev
+diagram: ## Rebuild docs/excalidraw.json
+	python3 scripts/diagram.py

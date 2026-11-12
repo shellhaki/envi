@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { serveInstall } from "../index";
 
-const script = (name: string) => Bun.file(new URL(`../../scripts/${name}`, import.meta.url)).text();
+const script = (name: string) => Bun.file(new URL(`../${name}`, import.meta.url)).text();
 const get = (path: string, method = "GET") => serveInstall(new Request(`https://install.envisecrets.com${path}`, { method }));
 
 test("every path but /install.ps1 and /health serves install.sh", async () => {

@@ -3,9 +3,9 @@ import { readFileSync } from "node:fs";
 import { app } from "../src/app";
 import { canAnnounce, canManage, operator, signedIn } from "../src/middleware";
 
-// architecture/ENDPOINTS.md is the API contract. Each row: | METHOD | `path` | middleware | input | description |
+// docs/ENDPOINTS.md is the API contract. Each row: | METHOD | `path` | middleware | input | description |
 function documented() {
-  const text = readFileSync(new URL("../../architecture/ENDPOINTS.md", import.meta.url), "utf8");
+  const text = readFileSync(new URL("../../docs/ENDPOINTS.md", import.meta.url), "utf8");
   return text
     .split("\n")
     .filter((line) => /^\| (GET|POST|PUT|PATCH|DELETE) \|/.test(line))
