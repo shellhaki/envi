@@ -1,11 +1,15 @@
 import { Forbidden } from "../errors";
 import { fail, readBody, param, type Ctx } from "../http";
+import { roleOf } from "../services/members";
 import * as projects from "../services/projects";
 
 // POST /projects {org_id, name}
 export async function createProject(c: Ctx) {
   const body = await readBody(c, { org_id: "string", name: "string" });
   if (!body?.org_id || !body.name) return c.json({ error: "org_id and name required" }, 400);
+  if (c.env.deps.users && (await roleOf(c.env.deps, c.get("userId"))) !== "admin") {
+    return c.json({ error: "on this instance, only the admin creates projects" }, 403);
+  }
   try {
     return c.json(await projects.createProject(c.env.deps.db, c.get("userId"), body.org_id, body.name), 201);
   } catch (err) {

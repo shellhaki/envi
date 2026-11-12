@@ -154,7 +154,7 @@ export function canWrite(db: Db, userId: string, projectId: string) {
 }
 
 // canManage: an org owner or admin, or anyone with a manage grant on the project.
-function canManage(db: Db, userId: string, projectId: string) {
+export function canManage(db: Db, userId: string, projectId: string) {
   return exists(db,
     `SELECT EXISTS (
        SELECT 1 FROM projects p

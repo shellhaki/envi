@@ -1,6 +1,6 @@
 # Envi API endpoints
 
-Every route the API server registers, grouped by area. 55 in total.
+Every route the API server registers, grouped by area. 63 in total.
 
 All source paths are under `server/src/routes/`. Every route is registered in one place: `server/src/app.ts`.
 `server/test/routes.test.ts` fails when this file and the routes stop matching.
@@ -15,6 +15,7 @@ All source paths are under `server/src/routes/`. Every route is registered in on
 | Operator | Auth, plus the caller's email is in `ENVI_ADMINS` or the `operators` table (`operator`). Refusal is a 404, so the admin area looks like it does not exist. |
 | Manage | Operator with the `admin` role (`canManage`). 404 on refusal. |
 | Announce | Operator with the `admin` or `announcer` role (`canAnnounce`). 404 on refusal. |
+| Instance admin | Auth, plus the caller is the `admin` in a self-hosted instance's users file (`instanceAdmin`, `server/src/routes/instance.ts`). 404 when the server signs in by email, 403 for anyone else. |
 | Signature | No credential. Body must carry a valid `X-Bachs-Signature-V2` (HMAC-SHA256 over `t.body`, 5 minute tolerance). |
 
 ---
@@ -26,6 +27,7 @@ Source: `server/src/app.ts`
 | Method | Path | Middleware | Input | What it does |
 |---|---|---|---|---|
 | GET | `/health` | none | none | Liveness check. Returns `{"status":"ok"}`. |
+| GET | `/instance` | none | none | How this server signs people in: `{mode, sign_in: "email" or "password", billing}`. The dashboard and CLI read it. |
 
 ## Sign-in (email code)
 
@@ -33,10 +35,19 @@ Source: `auth.ts`
 
 | Method | Path | Middleware | Input | What it does |
 |---|---|---|---|---|
-| POST | `/auth/request-otp` | none | body `{email}` | Emails a 6 digit login code. Rate limited. |
-| POST | `/auth/verify-otp` | none | body `{email, code}` | Checks the code, creates the account on first sign-in (and sends the welcome email), returns access and refresh tokens. |
+| POST | `/auth/request-otp` | none | body `{email}` | Emails a 6 digit login code. Rate limited. 404 `password_sign_in` on a self-hosted instance with a users file. |
+| POST | `/auth/verify-otp` | none | body `{email, code}` | Checks the code, creates the account on first sign-in (and sends the welcome email), returns access and refresh tokens. 404 on a password instance. |
 | POST | `/auth/refresh` | none | body `{refresh_token}` | Swaps a refresh token for a new pair. Refresh tokens are single use. |
 | POST | `/auth/logout` | none | body `{refresh_token}` | Revokes the refresh token. |
+
+## Sign-in (password, self-hosted)
+
+Source: `instance.ts`. Only when `ENVI_USERS_FILE` is set; otherwise these answer 404.
+
+| Method | Path | Middleware | Input | What it does |
+|---|---|---|---|---|
+| POST | `/auth/password` | none | body `{email, password}` | Checks the password against the users file and returns access and refresh tokens. 401 `invalid_credentials` when wrong; 429 after 10 tries in 15 minutes. |
+| POST | `/me/password` | Auth | body `{current_password, new_password}` | Changes your own password, written to the users file as a hash. Needs the current one; at least 10 characters. |
 
 ## CLI sign-in (device flow)
 
@@ -66,7 +77,7 @@ Source: `account.ts`
 
 | Method | Path | Middleware | Input | What it does |
 |---|---|---|---|---|
-| GET | `/me` | Auth | none | The signed-in user and their personal org. Needs a user session; a service token has no user. |
+| GET | `/me` | Auth | none | The signed-in user, their personal org and `Role` (`admin` or `contributor` on a self-hosted instance, empty otherwise). Needs a user session; a service token has no user. |
 
 ## Projects and environments
 
@@ -74,7 +85,7 @@ Source: `projects.ts`
 
 | Method | Path | Middleware | Input | What it does |
 |---|---|---|---|---|
-| POST | `/projects` | Auth | body `{org_id, name}` | Creates a project with one default environment. |
+| POST | `/projects` | Auth | body `{org_id, name}` | Creates a project with one default environment. On a self-hosted instance with a users file, only the admin may. |
 | GET | `/projects` | Auth | none | Projects you own or were invited to. |
 | DELETE | `/projects/:id` | Auth | path `id` | Deletes a project and everything in it. Owner only. |
 | POST | `/projects/:id/environments` | Auth | path `id`, body `{name, is_production}` | Adds an environment. |
@@ -126,8 +137,20 @@ Source: `sharing.ts`
 | POST | `/projects/:id/invitations` | Auth | path `id`, body `{email, environment_id, permission, ttl_seconds}` | Invites someone by email to one environment. Returns 402 if billing refuses the extra member. |
 | POST | `/invitations/accept` | Auth | body `{token}` | Accepts an invitation and creates the access grant. Can also return 402. |
 | GET | `/projects/:id/collaborators` | Auth | path `id` | People with access to the project, and pending invitations. |
+| POST | `/projects/:id/collaborators` | Auth | path `id`, body `{user_id, permission, environment_id}` | Self-hosted only: gives a user of this instance the project (or one environment of it) at `read`, `write` or `manage`, replacing what they had there. Needs manage on the project. 404 on an email-sign-in server. |
 | DELETE | `/projects/:id/invitations/:invitationID` | Auth | path `id`, `invitationID` | Cancels a pending invitation. |
 | DELETE | `/projects/:id/collaborators/:grantID` | Auth | path `id`, `grantID` | Removes someone's access. |
+
+## Instance users (self-hosted)
+
+Source: `instance.ts`. The people in the users file. Nothing is emailed: a new or reset password is in the reply, once.
+
+| Method | Path | Middleware | Input | What it does |
+|---|---|---|---|---|
+| GET | `/instance/users` | Instance admin | none | Everyone who can sign in, with their role and the projects each one has been given. |
+| POST | `/instance/users` | Instance admin | body `{email}` | Adds a contributor and returns `{id, email, password}` with a generated password. |
+| POST | `/instance/users/:id/password` | Instance admin | path `id` | Gives the user a new generated password, returned once. |
+| DELETE | `/instance/users/:id` | Instance admin | path `id` | Removes a contributor: they can't sign in, their sessions and API keys stop working, and their project access is removed. The admin can't be removed. |
 
 ## Audit log
 

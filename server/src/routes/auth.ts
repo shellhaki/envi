@@ -5,8 +5,11 @@ import { approveDeviceLogin, denyDeviceLogin, DevicePending, DEVICE_CODE_SECONDS
 import { checkLoginCode, sendLoginCode } from "../services/login";
 import { endSession, refreshSession, startSession, tokensReply } from "../services/sessions";
 
+const usesPassword = (c: Ctx) => fail(c, 404, "password_sign_in", "this instance signs in with a password: POST /auth/password");
+
 // POST /auth/request-otp {email}
 export async function requestLoginCode(c: Ctx) {
+  if (c.env.deps.users) return usesPassword(c);
   const body = await readBody(c, { email: "string" });
   if (!body || !isEmail(body.email)) return c.json({ error: "valid email required" }, 400);
   try {
@@ -21,6 +24,7 @@ export async function requestLoginCode(c: Ctx) {
 
 // POST /auth/verify-otp {email, code}
 export async function verifyLoginCode(c: Ctx) {
+  if (c.env.deps.users) return usesPassword(c);
   const body = await readBody(c, { email: "string", code: "string" });
   if (!body || !isEmail(body.email) || !body.code) return c.json({ error: "email and code required" }, 400);
   let userId: string;

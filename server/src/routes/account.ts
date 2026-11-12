@@ -2,8 +2,9 @@ import { Forbidden, Invalid, NotFound } from "../errors";
 import { fail, forbidden, readBody, param, type Ctx } from "../http";
 import { createKey, DEFAULT_LIFETIME_SECONDS, listKeys, revokeKey } from "../services/apiKeys";
 import { listEvents } from "../services/audit";
+import { roleOf } from "../services/members";
 
-// GET /me returns the signed-in user and their personal organization.
+// GET /me returns the signed-in user, their personal organization, and their role on a self-hosted instance.
 export async function me(c: Ctx) {
   const row = await c.env.deps.db
     .one(
@@ -16,7 +17,7 @@ export async function me(c: Ctx) {
     )
     .catch(() => undefined);
   if (!row) return fail(c, 500, "internal", "account unavailable");
-  return c.json(row);
+  return c.json({ ...row, Role: await roleOf(c.env.deps, c.get("userId")) });
 }
 
 // POST /me/api-keys {name, permission, ttl_seconds}. The key's secret is only ever returned here.

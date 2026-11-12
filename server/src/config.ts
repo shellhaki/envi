@@ -14,6 +14,8 @@ export type Config = {
   environment: string;
   admins: string[];
   mode: Mode;
+  // usersFile turns on password sign-in with the users kept in this file (a self-hosted instance).
+  usersFile: string;
   currency: "NGN" | "USD";
   bachs: { secretKey: string; webhookSecret: string; teamProductId: string; returnUrl: string };
 };
@@ -48,6 +50,7 @@ export function loadConfig(env: Env): Config {
     environment: setting(env, "ENVIRONMENT"),
     admins: setting(env, "ENVI_ADMINS").split(",").map(normaliseEmail).filter(Boolean),
     mode,
+    usersFile: setting(env, "ENVI_USERS_FILE"),
     currency,
     bachs: {
       secretKey: setting(env, "BACHS_SECRET_KEY"),
@@ -65,7 +68,7 @@ export function readConfig(env: Env): Config {
   if (!c.redisUrl && !(c.upstashUrl && c.upstashToken)) {
     throw new Error("REDIS_URL (or UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN) is required");
   }
-  if (!c.resendApiKey || !c.resendFrom) throw new Error("RESEND_API_KEY and RESEND_FROM are required");
+  if (!c.usersFile && (!c.resendApiKey || !c.resendFrom)) throw new Error("RESEND_API_KEY and RESEND_FROM are required");
   if (new TextEncoder().encode(c.encryptionKey).length !== 32) {
     throw new Error("ENVI_ENCRYPTION_KEY must be exactly 32 bytes");
   }

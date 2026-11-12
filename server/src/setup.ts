@@ -2,21 +2,24 @@ import { isLocalUrl, type Config } from "./config";
 import { makeCipher } from "./crypto";
 import type { Db } from "./db";
 import type { Deps } from "./deps";
-import { resendMailer } from "./mail";
+import { noMailer, resendMailer } from "./mail";
 import type { Redis } from "./redis";
 import { bachsClient, type Bachs } from "./services/bachs";
+import type { Users } from "./services/instance";
 
 // makeDeps assembles everything a request needs from the config and the runtime's db and redis.
 export async function makeDeps(
-  config: Config, db: Db, redis: Redis, background: (work: Promise<unknown>) => void,
+  config: Config, db: Db, redis: Redis, background: (work: Promise<unknown>) => void, users: Users | null = null,
 ): Promise<Deps> {
   return {
     config,
     db,
     redis,
     cipher: await makeCipher(config.encryptionKey),
-    mailer: resendMailer(config.resendApiKey, config.resendFrom),
+    // A self-hosted instance with a users file needs no email provider.
+    mailer: config.resendApiKey ? resendMailer(config.resendApiKey, config.resendFrom) : noMailer,
     bachs: billingProvider(config),
+    users,
     background,
     now: () => new Date(),
   };

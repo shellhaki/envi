@@ -4,6 +4,7 @@ import { canAnnounce, canManage, operator, signedIn } from "./middleware";
 import * as account from "./routes/account";
 import * as admin from "./routes/admin";
 import * as auth from "./routes/auth";
+import * as instance from "./routes/instance";
 import * as billing from "./routes/billing";
 import * as projects from "./routes/projects";
 import * as secrets from "./routes/secrets";
@@ -13,6 +14,7 @@ import * as sharing from "./routes/sharing";
 export const app = new Hono<AppEnv>();
 
 app.get("/health", (c) => c.json({ status: "ok" }));
+app.get("/instance", instance.about);
 
 // Sign-in
 app.post("/auth/request-otp", auth.requestLoginCode);
@@ -20,6 +22,7 @@ app.post("/auth/verify-otp", auth.verifyLoginCode);
 app.post("/auth/refresh", auth.refresh);
 app.post("/auth/logout", auth.logout);
 app.post("/auth/api-key", auth.exchangeApiKey);
+app.post("/auth/password", instance.signIn);
 
 // CLI sign-in through the browser
 app.post("/auth/device/code", auth.startDevice);
@@ -32,6 +35,7 @@ app.get("/me", signedIn, account.me);
 app.post("/me/api-keys", signedIn, account.createApiKey);
 app.get("/me/api-keys", signedIn, account.listApiKeys);
 app.delete("/me/api-keys/:id", signedIn, account.revokeApiKey);
+app.post("/me/password", signedIn, instance.changePassword);
 
 // Projects and environments
 app.post("/projects", signedIn, projects.createProject);
@@ -64,8 +68,15 @@ app.get("/invitations/:token", sharing.previewInvitation);
 app.post("/projects/:id/invitations", signedIn, sharing.createInvitation);
 app.post("/invitations/accept", signedIn, sharing.acceptInvitation);
 app.get("/projects/:id/collaborators", signedIn, sharing.listCollaborators);
+app.post("/projects/:id/collaborators", signedIn, instance.grantAccess);
 app.delete("/projects/:id/invitations/:invitationID", signedIn, sharing.revokeInvitation);
 app.delete("/projects/:id/collaborators/:grantID", signedIn, sharing.removeCollaborator);
+
+// A self-hosted instance's users (the users file)
+app.get("/instance/users", signedIn, instance.instanceAdmin, instance.listUsers);
+app.post("/instance/users", signedIn, instance.instanceAdmin, instance.addUser);
+app.post("/instance/users/:id/password", signedIn, instance.instanceAdmin, instance.resetPassword);
+app.delete("/instance/users/:id", signedIn, instance.instanceAdmin, instance.removeUser);
 
 // Audit log
 app.get("/orgs/:id/audit-events", signedIn, account.listAuditEvents);

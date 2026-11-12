@@ -101,6 +101,7 @@ export async function testDeps(overrides: Partial<Config> = {}, bachs: Bachs | n
     cipher: await makeCipher(ENCRYPTION_KEY),
     mailer: new FakeMailer(),
     bachs,
+    users: null,
     background: (work) => void background.push(work),
     now: () => new Date(),
     settle: () => Promise.all(background),

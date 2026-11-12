@@ -201,7 +201,8 @@ text(0, TOP, f"API endpoints · {TOTAL} · api.envisecrets.com", 36)
 text(0, TOP + 56,
      "none = public    Auth = session or service token    Owner = Auth + owns personal org\n"
      "Operator = ENVI_ADMINS or operators table (404 on refusal)\n"
-     "Manage = operator role admin    Announce = admin or announcer    Signature = Bachs HMAC webhook",
+     "Manage = operator role admin    Announce = admin or announcer    Signature = Bachs HMAC webhook\n"
+     "Instance admin = admin in a self-hosted instance's users file",
      16, GREY, MONO)
 
 COLOURS = ["#a5d8ff", "#b2f2bb", "#ffec99", "#ffc9c9", "#d0bfff", "#99e9f2", "#ffd8a8",

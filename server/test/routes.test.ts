@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { app } from "../src/app";
 import { canAnnounce, canManage, operator, signedIn } from "../src/middleware";
+import { instanceAdmin } from "../src/routes/instance";
 
 // docs/ENDPOINTS.md is the API contract. Each row: | METHOD | `path` | middleware | input | description |
 function documented() {
@@ -37,11 +38,12 @@ test("the documented middleware is the middleware that runs", () => {
     Operator: [signedIn, operator],
     Manage: [signedIn, operator, canManage],
     Announce: [signedIn, operator, canAnnounce],
+    "Instance admin": [signedIn, instanceAdmin],
   };
   const routes = served();
   for (const { route, middleware } of documented()) {
     const chain = routes.get(route)!;
-    const guards = chain.filter((h) => [signedIn, operator, canManage, canAnnounce].includes(h as never));
+    const guards = chain.filter((h) => [signedIn, operator, canManage, canAnnounce, instanceAdmin].includes(h as never));
     expect({ route, guards }).toEqual({ route, guards: needs[middleware] });
   }
 });

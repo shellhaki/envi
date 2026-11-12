@@ -13,6 +13,14 @@ export interface Mailer {
   sendMany(messages: Message[]): Promise<number>;
 }
 
+// noMailer drops every message, for an instance with no email provider.
+export const noMailer: Mailer = {
+  async send() {},
+  async sendMany() {
+    return 0;
+  },
+};
+
 // resendMailer sends through the Resend API. A single send tries up to three times.
 export function resendMailer(apiKey: string, from: string): Mailer {
   const post = async (path: string, body: unknown) => {

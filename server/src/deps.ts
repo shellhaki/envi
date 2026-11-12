@@ -4,6 +4,7 @@ import type { Db } from "./db";
 import type { Mailer } from "./mail";
 import type { Redis } from "./redis";
 import type { Bachs } from "./services/bachs";
+import type { Users } from "./services/instance";
 
 // Deps is everything a request needs. Each entry file (server.ts, worker.ts) builds it.
 export type Deps = {
@@ -13,6 +14,7 @@ export type Deps = {
   cipher: Cipher;
   mailer: Mailer;
   bachs: Bachs | null; // null when billing is off
+  users: Users | null; // the users file of a self-hosted instance, or null for email sign-in
   // background keeps work running after the response is sent (waitUntil on Workers).
   background(work: Promise<unknown>): void;
   now(): Date;
