@@ -1,26 +1,27 @@
 # Envi API endpoints
 
-Every route the Go server registers, grouped by area. 55 in total.
+Every route the API server registers, grouped by area. 55 in total.
 
-All source paths are under `internal/api/`. Every route is registered in one place: `server.go` (`Build`).
+All source paths are under `server/src/routes/`. Every route is registered in one place: `server/src/app.ts`.
+`server/test/routes.test.ts` fails when this file and the routes stop matching.
 
 ## Middleware
 
 | Name | Meaning |
 |---|---|
 | none | Public. No credential needed. |
-| Auth | `RequireAuth` (`middleware.go`). Accepts a user session (`Authorization: Bearer <access token>`) or a service token. Sets `user_id`, or `service_env` and the token permission for a service token. |
+| Auth | `signedIn` (`server/src/middleware.ts`). Accepts a user session (`Authorization: Bearer <access token>`) or a service token. Sets `user_id`, or `service_env` and the token permission for a service token. |
 | Owner | Auth, plus the caller must own the personal org. Service tokens are refused. |
-| Operator | Auth, plus the caller's email is in `ENVI_ADMINS` or the `operators` table (`RequireOperator`). Refusal is a 404, so the admin area looks like it does not exist. |
-| Manage | Operator with the `admin` role (`RequireManage`). 404 on refusal. |
-| Announce | Operator with the `admin` or `announcer` role (`RequireAnnounce`). 404 on refusal. |
+| Operator | Auth, plus the caller's email is in `ENVI_ADMINS` or the `operators` table (`operator`). Refusal is a 404, so the admin area looks like it does not exist. |
+| Manage | Operator with the `admin` role (`canManage`). 404 on refusal. |
+| Announce | Operator with the `admin` or `announcer` role (`canAnnounce`). 404 on refusal. |
 | Signature | No credential. Body must carry a valid `X-Bachs-Signature-V2` (HMAC-SHA256 over `t.body`, 5 minute tolerance). |
 
 ---
 
 ## Health
 
-Source: `server.go`
+Source: `server/src/app.ts`
 
 | Method | Path | Middleware | Input | What it does |
 |---|---|---|---|---|
@@ -28,7 +29,7 @@ Source: `server.go`
 
 ## Sign-in (email code)
 
-Source: `auth.go`
+Source: `auth.ts`
 
 | Method | Path | Middleware | Input | What it does |
 |---|---|---|---|---|
@@ -39,7 +40,7 @@ Source: `auth.go`
 
 ## CLI sign-in (device flow)
 
-Source: `device.go`
+Source: `auth.ts`
 
 | Method | Path | Middleware | Input | What it does |
 |---|---|---|---|---|
@@ -50,7 +51,7 @@ Source: `device.go`
 
 ## API keys
 
-Source: `auth.go` (exchange) and `account.go`
+Source: `auth.ts` (exchange) and `account.ts`
 
 | Method | Path | Middleware | Input | What it does |
 |---|---|---|---|---|
@@ -61,7 +62,7 @@ Source: `auth.go` (exchange) and `account.go`
 
 ## Account
 
-Source: `account.go`
+Source: `account.ts`
 
 | Method | Path | Middleware | Input | What it does |
 |---|---|---|---|---|
@@ -69,7 +70,7 @@ Source: `account.go`
 
 ## Projects and environments
 
-Source: `projects.go`
+Source: `projects.ts`
 
 | Method | Path | Middleware | Input | What it does |
 |---|---|---|---|---|
@@ -83,21 +84,21 @@ Source: `projects.go`
 
 ## Secrets
 
-Source: `secrets.go`
+Source: `secrets.ts`
 
 | Method | Path | Middleware | Input | What it does |
 |---|---|---|---|---|
 | GET | `/environments/:id/secrets` | Auth | path `id` | Lists secret keys and values for the environment. |
 | GET | `/environments/:id/secrets/snapshot` | Auth | path `id` | All values as `{KEY: value}` plus the current `revision`. This is what `envi run` and `envi pull` read. |
 | PUT | `/environments/:id/secrets` | Auth | path `id`, body `{KEY: value, ...}` | Sets or updates the given keys. Others are left alone. |
-| PUT | `/environments/:id/secrets/snapshot` | Auth | path `id`, body `{values, expected_revision}` | Replaces the whole environment in one write. Returns 409 `stale_revision` if someone else wrote first. This is what `envi push` uses. |
+| PUT | `/environments/:id/secrets/snapshot` | Auth | path `id`, body `{values, expected_revision}` | Writes every given key in one write; keys left out are kept. Returns 409 `stale_revision` if someone else wrote first. This is what `envi push` uses. |
 | DELETE | `/environments/:id/secrets/:key` | Auth | path `id`, `key` | Deletes one secret. |
 
 A service token only reaches its own environment (`service_env`). A read-only service token or key cannot use the PUT and DELETE routes. Every read and write is recorded in the audit log.
 
 ## Lookup by name
 
-Source: `values.go` and `kv.go`
+Source: `secrets.ts`
 
 | Method | Path | Middleware | Input | What it does |
 |---|---|---|---|---|
@@ -108,7 +109,7 @@ Source: `values.go` and `kv.go`
 
 ## Service tokens
 
-Source: `tokens.go`
+Source: `sharing.ts`
 
 | Method | Path | Middleware | Input | What it does |
 |---|---|---|---|---|
@@ -117,7 +118,7 @@ Source: `tokens.go`
 
 ## Invitations and collaborators
 
-Source: `invitations.go`
+Source: `sharing.ts`
 
 | Method | Path | Middleware | Input | What it does |
 |---|---|---|---|---|
@@ -130,7 +131,7 @@ Source: `invitations.go`
 
 ## Audit log
 
-Source: `audit.go`
+Source: `account.ts`
 
 | Method | Path | Middleware | Input | What it does |
 |---|---|---|---|---|
@@ -138,7 +139,7 @@ Source: `audit.go`
 
 ## Billing
 
-Source: `billing.go`. All `/billing` routes act on the caller's personal org.
+Source: `billing.ts`. All `/billing` routes act on the caller's personal org.
 
 | Method | Path | Middleware | Input | What it does |
 |---|---|---|---|---|
@@ -152,7 +153,7 @@ Source: `billing.go`. All `/billing` routes act on the caller's personal org.
 
 ## Operator (admin area)
 
-Source: `admin.go`
+Source: `admin.ts`
 
 | Method | Path | Middleware | Input | What it does |
 |---|---|---|---|---|

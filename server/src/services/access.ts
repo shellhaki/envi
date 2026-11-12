@@ -1,3 +1,5 @@
+// Who may read, write or manage an environment's secrets.
+
 import type { Queryable } from "../db";
 import { Forbidden } from "../errors";
 

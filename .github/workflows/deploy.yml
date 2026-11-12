@@ -1,8 +1,8 @@
 name: Deploy
 
-# Tests gate the deploy: Coolify's own "auto deploy on push" builds whatever
-# lands on main regardless of whether it works, so that switch is turned off for
-# these three resources and this workflow triggers them instead.
+# Tests gate the deploy. The API (server/) goes to Cloudflare Workers with
+# wrangler; the dashboard and docs go to Coolify, whose own "auto deploy on push"
+# is turned off for them so that this workflow triggers them instead.
 on:
   push:
     branches: [main]
@@ -58,6 +58,14 @@ jobs:
         run: |
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q < migrations/schema.sql
           ENVI_INTEGRATION=1 go test -count=1 ./internal/...
+      - name: API server
+        working-directory: server
+        env:
+          TEST_ADMIN_DATABASE_URL: ${{ env.DATABASE_URL }}
+        run: |
+          bun install --frozen-lockfile
+          bun run typecheck
+          bun test
       - name: Docs
         working-directory: docs
         run: |
@@ -98,10 +106,9 @@ jobs:
             if [ "$all" = true ]; then echo true; return; fi
             if echo "$changed" | grep -qE "$1"; then echo true; else echo false; fi
           }
-          # The backend image is built from the Go tree plus its Dockerfiles, so
-          # anything outside ui/ and docs/ is treated as touching it.
+          # The CLI (cmd/, internal/) ships through release.yml, not here.
           {
-            echo "api=$(match '^(cmd/|internal/|migrations/|go\.(mod|sum)$|Dockerfile|scripts/docker-entrypoint\.sh)')"
+            echo "api=$(match '^server/')"
             echo "ui=$(match '^ui/')"
             echo "docs=$(match '^docs/')"
           } >> "$GITHUB_OUTPUT"
@@ -111,14 +118,27 @@ jobs:
     needs: [test, changes]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        if: needs.changes.outputs.api == 'true'
+      - uses: oven-sh/setup-bun@v2
+        if: needs.changes.outputs.api == 'true'
+        with:
+          bun-version: latest
+      - name: Deploy the API to Workers
+        if: needs.changes.outputs.api == 'true'
+        working-directory: server
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          bun install --frozen-lockfile
+          bunx wrangler deploy
       - name: Trigger Coolify
         env:
           COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
           COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
-          API_UUID: ${{ secrets.COOLIFY_API_UUID }}
           UI_UUID: ${{ secrets.COOLIFY_UI_UUID }}
           DOCS_UUID: ${{ secrets.COOLIFY_DOCS_UUID }}
-          DEPLOY_API: ${{ needs.changes.outputs.api }}
           DEPLOY_UI: ${{ needs.changes.outputs.ui }}
           DEPLOY_DOCS: ${{ needs.changes.outputs.docs }}
         run: |
@@ -137,7 +157,6 @@ jobs:
             # workflow green while production stayed on the old image.
             [ "$code" = "200" ] || { echo "$name: deploy request failed with HTTP $code"; exit 1; }
           }
-          deploy api "$API_UUID" "$DEPLOY_API"
           deploy ui "$UI_UUID" "$DEPLOY_UI"
           deploy docs "$DOCS_UUID" "$DEPLOY_DOCS"
 
@@ -145,8 +164,8 @@ jobs:
     needs: deploy
     runs-on: ubuntu-latest
     steps:
-      # Coolify's API returns as soon as the build is queued, so this waits for
-      # the new container to actually answer rather than assuming it did.
+      # Coolify returns as soon as a build is queued, so this checks the API
+      # actually answers rather than assuming it did.
       - name: Wait for the API to come back
         run: |
           for i in $(seq 1 30); do

@@ -1,3 +1,5 @@
+// Access and refresh tokens. Only their SHA-256 hashes are stored.
+
 import { hashToken, randomToken } from "../crypto";
 import type { Db } from "../db";
 

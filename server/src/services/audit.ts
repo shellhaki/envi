@@ -1,3 +1,5 @@
+// The audit log of who did what to which secret, per organization.
+
 import type { Db } from "../db";
 import { Forbidden } from "../errors";
 

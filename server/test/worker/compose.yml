@@ -1,0 +1,33 @@
+# Local stand-ins for Neon and Upstash, so the Worker can run under `wrangler dev` with no accounts.
+# Start with: docker compose -f test/worker/compose.yml up -d, then: bun run worker:local
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_PASSWORD: envi
+      POSTGRES_DB: envi
+    ports: ["5436:5432"]
+    volumes:
+      - ../../../migrations/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+
+  # Neon's WebSocket proxy, which the serverless driver talks to instead of the Postgres port.
+  neon-proxy:
+    image: ghcr.io/neondatabase/wsproxy:latest
+    environment:
+      APPEND_PORT: "postgres:5432"
+      ALLOW_ADDR_REGEX: ".*"
+    ports: ["5437:80"]
+    depends_on: [postgres]
+
+  redis:
+    image: redis:7-alpine
+
+  # Speaks Upstash's REST API in front of plain Redis.
+  upstash:
+    image: hiett/serverless-redis-http:latest
+    environment:
+      SRH_MODE: env
+      SRH_TOKEN: local-token
+      SRH_CONNECTION_STRING: redis://redis:6379
+    ports: ["5438:80"]
+    depends_on: [redis]

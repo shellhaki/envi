@@ -1,3 +1,5 @@
+// Email login codes, sent and checked through Redis with a rate limit.
+
 import { equalHex, randomBelow, sha256Hex } from "../crypto";
 import type { Deps } from "../deps";
 import type { Message } from "../mail";

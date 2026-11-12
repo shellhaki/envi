@@ -1,3 +1,5 @@
+// Sending an operator's announcement to every subscribed user.
+
 import type { Deps } from "../deps";
 import { announcementEmail } from "../emails/announcement";
 import * as admin from "./admin";

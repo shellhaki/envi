@@ -12,9 +12,10 @@ import { provision } from "../src/services/workspace";
 import { startSession } from "../src/services/sessions";
 
 // Tests run against a throwaway local database, created once per run from migrations/schema.sql.
+// TEST_ADMIN_DATABASE_URL is any database on the server that may create and drop envi_bun_test.
 const ADMIN_URL = process.env.TEST_ADMIN_DATABASE_URL ?? "postgres://localhost/postgres";
 const TEST_DB = "envi_bun_test";
-export const TEST_DATABASE_URL = `postgres://localhost/${TEST_DB}`;
+export const TEST_DATABASE_URL = Object.assign(new URL(ADMIN_URL), { pathname: `/${TEST_DB}` }).toString();
 export const ENCRYPTION_KEY = "0123456789abcdef0123456789abcdef";
 
 let ready: Promise<Db> | undefined;

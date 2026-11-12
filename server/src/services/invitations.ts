@@ -1,3 +1,5 @@
+// Invitations to a project or one environment of it, and the collaborators they create.
+
 import { hashToken, randomToken } from "../crypto";
 import type { Deps } from "../deps";
 import type { Queryable } from "../db";

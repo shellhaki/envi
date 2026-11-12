@@ -7,6 +7,7 @@
     "start": "bun src/server.ts",
     "test": "bun test",
     "typecheck": "tsc --noEmit",
+    "worker:local": "wrangler dev --local --env-file test/worker/dev.vars --test-scheduled",
     "worker:dev": "wrangler dev",
     "worker:deploy": "wrangler deploy"
   },

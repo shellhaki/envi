@@ -15,11 +15,22 @@ neonConfig.poolQueryViaFetch = false;
 type Env = Record<string, string>;
 
 async function depsFor(env: Env, ctx: ExecutionContext) {
+  if (env.NEON_LOCAL_PROXY) useLocalProxy(env.NEON_LOCAL_PROXY);
   const config = readConfig(env);
-  const db = makeDb(new Pool({ connectionString: config.databaseUrl }));
+  const pool = new Pool({ connectionString: config.databaseUrl });
+  pool.on("error", (err: Error) => console.error(`database: ${err.message}`)); // a dropped idle connection, not a failed query
+  const db = makeDb(pool);
   const redis = upstashRedis(config.upstashUrl, config.upstashToken);
   const deps = await makeDeps(config, db, redis, (work) => ctx.waitUntil(work.catch((err) => console.error(err))));
   return { deps, db };
+}
+
+// useLocalProxy points the driver at a plain WebSocket proxy (test/worker/compose.yml) instead of Neon.
+function useLocalProxy(address: string) {
+  neonConfig.wsProxy = () => `${address}/v1`;
+  neonConfig.useSecureWebSocket = false;
+  neonConfig.pipelineTLS = false;
+  neonConfig.pipelineConnect = false;
 }
 
 export default {
@@ -36,7 +47,7 @@ export default {
     try {
       await billingPass(deps);
     } finally {
-      ctx.waitUntil(db.end());
+      await db.end();
     }
   },
 };

@@ -1,3 +1,5 @@
+// Accounts, meaning the user and personal organization made on first sign-in.
+
 import type { Deps } from "../deps";
 import { welcomeEmail } from "../emails/welcome";
 

@@ -9,6 +9,8 @@ crons = ["0 * * * *"]
 # Secrets are set with `wrangler secret put NAME`, never written here:
 #   DATABASE_URL, UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN, ENVI_ENCRYPTION_KEY,
 #   RESEND_API_KEY, RESEND_FROM, BACHS_SECRET_KEY, BACHS_WEBHOOK_SECRET, ENVI_ADMINS
+# DATABASE_URL must be Neon's direct connection string (no "-pooler" in the host): the billing
+# job holds a session advisory lock, which a transaction-mode pooler would lose.
 [vars]
 ENVIRONMENT = "production"
 ENVI_MODE = "hosted"

@@ -10,7 +10,9 @@ import { makeDeps } from "./setup";
 
 const config = readConfig(process.env);
 useTypes(pg.types);
-const db = makeDb(new pg.Pool({ connectionString: config.databaseUrl }));
+const pool = new pg.Pool({ connectionString: config.databaseUrl });
+pool.on("error", (err) => console.error(`database: ${err.message}`)); // a dropped idle connection, not a failed query
+const db = makeDb(pool);
 await db.query("SELECT 1");
 const redis = config.upstashUrl ? upstashRedis(config.upstashUrl, config.upstashToken) : bunRedis(config.redisUrl);
 await redis.get("envi:ping");

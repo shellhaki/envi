@@ -1,3 +1,5 @@
+// Projects and their environments, and who may see or change them.
+
 import type { Db } from "../db";
 import { Forbidden, NotFound } from "../errors";
 

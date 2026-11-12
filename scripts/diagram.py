@@ -8,12 +8,12 @@ crow's foot diagram, and every API endpoint.
 The endpoint cards are read from architecture/ENDPOINTS.md, so after adding, removing or
 changing an endpoint, update ENDPOINTS.md and run this again. The data model is
 read from migrations/schema.sql, so after a schema change, update schema.sql
-and run this again. The services are read from cmd/ and internal/: each card
-takes the package comment's first sentence, and works out the tables, packages
-and outside systems from the code. The architecture
-half is laid out by hand below; edit it here when the deployment changes.
-internal/api/endpoints_test.go fails when excalidraw.json falls behind the
-router, the schema or the packages.
+and run this again. The services are read from cmd/, internal/ and
+server/src/services: each card takes the package or file comment's first
+sentence, and works out the tables, packages and outside systems from the code.
+The architecture half is laid out by hand below; edit it here when the
+deployment changes. server/test/diagram.test.ts fails when excalidraw.json
+falls behind the routes, the schema or the services.
 
 Open the result at excalidraw.com (Open, or drag the file onto the canvas).
 """
@@ -153,41 +153,42 @@ browser = box(0, 120, 240, 90, "Browser\ndevelopers, teammates", "#e7f5ff")
 ci = box(0, 330, 240, 90, "CI and servers\nenvi run + service token", "#e7f5ff")
 term = box(0, 560, 240, 100, "Terminal\nenvi CLI", "#e7f5ff")
 
-frame(340, 40, 960, 860, "Contabo VPS (France) · Coolify", "#f8f9fa", dashed=True)
-box(370, 110, 120, 760, None, "#e9ecef")
-text(384, 720, "Coolify\nproxy\n(Traefik)\n\nTLS,\nroutes by\ndomain", 16, GREY)
+frame(340, 40, 560, 470, "Contabo VPS (France) · Coolify", "#f8f9fa", dashed=True)
+box(370, 110, 120, 370, None, "#e9ecef")
+text(384, 330, "Coolify\nproxy\n(Traefik)\n\nTLS,\nroutes by\ndomain", 16, GREY)
 
-frame(540, 100, 330, 330, "Frontend · Next.js", "#d0ebff", size=20)
-docs = box(560, 150, 290, 90, "Docs\ndocs.envisecrets.com :3000")
-dash = box(560, 270, 290, 130, "Dashboard + landing\nenvisecrets.com :3000\n/api/envi proxy\nholds the session")
+frame(540, 100, 330, 260, "Frontend · Next.js", "#d0ebff", size=20)
+docs = box(560, 150, 290, 70, "Docs\ndocs.envisecrets.com :3000")
+dash = box(560, 240, 290, 100, "Dashboard + landing\nenvisecrets.com :3000\n/api/envi proxy")
+inst = box(560, 390, 290, 90, "envi-install :8081\ninstall.envisecrets.com\nserves install.sh / .ps1")
 
-frame(540, 470, 330, 380, "Backend · one container", "#fff9db", size=20)
-api = box(560, 520, 290, 140, f"envi-api :8080\napi.envisecrets.com\n{TOTAL} endpoints, see below\nhourly billing job", YELLOW)
-inst = box(560, 700, 290, 110, "envi-install :8081\ninstall.envisecrets.com\nserves install.sh / .ps1")
+frame(340, 560, 560, 340, "Cloudflare Workers", "#fff4e6", size=20)
+api = box(370, 620, 500, 150, f"envi-api · server/src/worker.ts\napi.envisecrets.com\n{TOTAL} endpoints, see below\ncron trigger: billing pass, hourly", YELLOW)
+text(370, 800, "the same app runs under Bun.serve\n(server/src/server.ts) for self-hosting", 16, GREY)
 
-frame(940, 300, 320, 460, "Data", "#d3f9d8", size=20)
-pg = box(965, 350, 270, 150, "Postgres :5432\nusers, projects,\nencrypted secrets", shape="ellipse")
-rd = box(965, 560, 270, 150, "Redis :6379\nlogin codes,\nrate limits", shape="ellipse")
+frame(960, 300, 320, 500, "Data", "#d3f9d8", size=20)
+pg = box(985, 350, 270, 170, "Neon Postgres\nserverless driver\nusers, projects,\nencrypted secrets", shape="ellipse")
+rd = box(985, 590, 270, 170, "Upstash Redis\nREST\nlogin codes,\nrate limits", shape="ellipse")
 
 text(1360, 60, "OUTSIDE SERVICES", 20, GREY)
 bachs = box(1360, 120, 260, 100, "Bachs\npayments (USD / NGN)", "#e5dbff")
 resend = box(1360, 860, 260, 90, "Resend\nemail", "#e5dbff")
 gh = box(0, 1000, 520, 120, "GitHub\nActions: test, then deploy\nReleases: CLI binaries", "#e5dbff")
 
-arrow([(244, 150), (556, 195)], start=browser, end=docs)
-arrow([(244, 185), (556, 335)], "HTTPS", start=browser, end=dash)
-arrow([(705, 404), (705, 516)], "server-side,\nbearer token", start=dash, end=api)
-arrow([(244, 375), (556, 550)], "service token", start=ci, end=api)
-arrow([(244, 595), (556, 605)], "API calls", start=term, end=api)
-arrow([(244, 635), (556, 750)], "curl | sh", start=term, end=inst)
-arrow([(854, 575), (961, 430)], "SQL", start=api, end=pg, both=True)
-arrow([(854, 625), (961, 630)], start=api, end=rd, both=True)
-arrow([(854, 535), (905, 535), (905, 170), (1356, 170)], "checkout, charges\nwebhooks back",
+arrow([(244, 150), (556, 185)], start=browser, end=docs)
+arrow([(244, 185), (556, 290)], "HTTPS", start=browser, end=dash)
+arrow([(860, 290), (920, 290), (920, 650), (874, 650)], "server-side,\nbearer token", start=dash, end=api)
+arrow([(244, 375), (366, 670)], "service token", start=ci, end=api)
+arrow([(244, 610), (366, 710)], "API calls", start=term, end=api)
+arrow([(244, 640), (300, 640), (300, 435), (556, 435)], "curl | sh", start=term, end=inst)
+arrow([(874, 690), (981, 435)], "SQL over\nWebSocket", start=api, end=pg, both=True)
+arrow([(874, 730), (981, 675)], "HTTPS", start=api, end=rd, both=True)
+arrow([(874, 630), (940, 630), (940, 170), (1356, 170)], "checkout, charges\nwebhooks back",
       start=api, end=bachs, both=True, color=PURPLE)
-arrow([(854, 645), (905, 645), (905, 905), (1356, 905)], "login codes, invites,\nwelcome, announcements",
+arrow([(874, 760), (940, 760), (940, 905), (1356, 905)], "login codes, invites,\nwelcome, announcements",
       start=api, end=resend, color=PURPLE)
 arrow([(120, 996), (120, 664)], "downloads\nbinary", start=gh, end=term, color=PURPLE)
-arrow([(524, 1040), (700, 1040), (700, 904)], "deploy after\ntests pass", start=gh, color=PURPLE, dashed=True)
+arrow([(524, 1040), (620, 1040), (620, 904)], "wrangler deploy\nafter tests pass", start=gh, color=PURPLE, dashed=True)
 
 
 # --- part 2: endpoints ------------------------------------------------------
@@ -476,7 +477,7 @@ for i, p in enumerate(plans):
 
 ERD_BOTTOM = max(e["y"] + e["height"] for e in entity.values())
 
-# --- part 4: services, from the Go packages ---------------------------------
+# --- part 4: services, from the Go packages and server/src ---------------------------------
 
 SECTIONS.append(len(els))
 
@@ -525,7 +526,7 @@ def wrap(s, width=44):
 
 
 SERVICE_TOP = 0
-text(0, SERVICE_TOP, "Services · cmd/ and internal/", 36)
+text(0, SERVICE_TOP, "Services · cmd/, internal/ (Go) and server/src (TypeScript)", 36)
 text(0, SERVICE_TOP + 56, "What each program and package does, the tables it\n"
      "queries, the packages it calls and the outside systems it talks to.", 16, GREY, MONO)
 
@@ -538,9 +539,50 @@ for name in sorted(os.listdir(os.path.join(ROOT, "internal"))):
     if name == "e2e" or not os.path.isdir(path) or not go_files(path):
         continue
     entries.append(("package", name, doc_of(path, "Package"), *touches_of(path)))
+
+
+def ts_doc(f):
+    """The first sentence of the comment at the top of a TypeScript file."""
+    para = []
+    for l in open(f).read().splitlines():
+        if not l.startswith("//"):
+            break
+        para.append(l[2:].strip())
+    if not para:
+        return "No file comment yet."
+    first = re.split(r"(?<=[.:])\s", " ".join(para), maxsplit=1)[0]
+    return first.rstrip(":") + ("" if first.endswith(".") else ".")
+
+
+def ts_touches(f):
+    src = open(f).read()
+    tables = sorted({t for t in re.findall(r"\b(?:FROM|JOIN|INTO|UPDATE)\s+(\w+)", src) if t in TABLES})
+    uses = sorted({os.path.basename(m) for m in re.findall(r'from "\./(?:services/)?([\w/]+)"', src)
+                   if os.path.exists(os.path.join(SERVER, "services", os.path.basename(m) + ".ts"))})
+    # Services reach these through deps (deps.db, deps.redis, deps.mailer), the entry files directly.
+    outside = []
+    if tables or re.search(r'"pg"|@neondatabase/serverless', src):
+        outside.append("Postgres")
+    if re.search(r'\bredis\.|"\./redis"', src):
+        outside.append("Redis")
+    if re.search(r'\bmailer\.|api\.resend\.com|"\./setup"', src):
+        outside.append("Resend")
+    if re.search(r'bachs\.io|\bbachs!?\.|"\./setup"', src):
+        outside.append("Bachs")
+    return tables, uses, outside
+
+
+# The TypeScript API server: its two entry files, then one card per service.
+SERVER = os.path.join(ROOT, "server", "src")
+for name in ["server.ts", "worker.ts"]:
+    f = os.path.join(SERVER, name)
+    entries.append(("entry", f"server/src/{name}", ts_doc(f), *ts_touches(f)))
+for name in sorted(os.listdir(os.path.join(SERVER, "services"))):
+    f = os.path.join(SERVER, "services", name)
+    entries.append(("service", f"services/{name}", ts_doc(f), *ts_touches(f)))
 SERVICE_COUNT = len(entries)
 
-KIND_COLOUR = {"program": YELLOW, "package": "#e7f5ff"}
+KIND_COLOUR = {"program": YELLOW, "package": "#e7f5ff", "entry": "#ffd8a8", "service": "#fff4e6"}
 cards = []
 for kind, name, doc, tables, uses, outside in entries:
     lines = [wrap(doc)]
