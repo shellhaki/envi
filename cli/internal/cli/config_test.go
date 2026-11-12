@@ -21,6 +21,7 @@ func TestLoadConfig(t *testing.T) {
 // Which server the CLI talks to, by precedence. The released-binary case is
 // the one that shipped broken once, pointing every install at localhost.
 func TestAPIURLResolution(t *testing.T) {
+	t.Setenv("ENVI_CONFIG_DIR", t.TempDir())
 	t.Run("released build with no env goes to production", func(t *testing.T) {
 		t.Setenv("ENVI_API_URL", "")
 		if got := APIURL("0.1.1"); got != DefaultAPIURL {

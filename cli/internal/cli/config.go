@@ -20,15 +20,11 @@ func IsDevBuild(version string) bool {
 	return v == "" || v == "dev" || strings.HasPrefix(v, "dev-")
 }
 
-// APIURL resolves which server this CLI talks to, most explicit first.
+// APIURL resolves which server this CLI talks to, most explicit first:
+// ENVI_API_URL, then the URL saved by envi set-url, then the built-in default.
 func APIURL(version string) string {
-	if v := strings.TrimSpace(os.Getenv("ENVI_API_URL")); v != "" {
-		return v
-	}
-	if IsDevBuild(version) {
-		return DevAPIURL
-	}
-	return DefaultAPIURL
+	v, _ := apiURLSource(version)
+	return v
 }
 
 func LoadConfig() Config {

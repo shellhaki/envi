@@ -43,6 +43,26 @@ Revokes the current device's session.
 envi logout
 ```
 
+### `envi set-url <api-url>`
+
+Points the CLI at a self-hosted Envi instead of the hosted one. Use your instance's API URL, not its dashboard URL:
+
+```bash
+envi set-url https://api.envi.example.com
+envi auth
+```
+
+Before saving, the CLI calls `<api-url>/health` and refuses a server that isn't an Envi API, so a typo can't leave you pointing at nothing. Add `--force` to save it anyway, for a server that isn't up yet.
+
+Changing server signs you out, because a session belongs to the server that issued it. Run `envi auth` afterwards.
+
+```bash
+envi set-url            # show the URL in use and where it comes from
+envi set-url --reset    # back to hosted Envi
+```
+
+The URL is saved in your Envi config folder. `ENVI_API_URL`, when set, takes precedence over it, which is how CI and containers choose a server without a config folder.
+
 ## Project setup
 
 ### `envi init`

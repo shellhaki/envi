@@ -35,7 +35,7 @@ Everything is an environment variable, so it works the same in `docker run`, Com
 | `ENVI_TOKEN` | The credential. A [service token](/ci-service-tokens), scoped to one environment |
 | `ENVI_PROJECT` | Which project, when the credential isn't a service token |
 | `ENVI_ENVIRONMENT` | Which environment, same |
-| `ENVI_API_URL` | Only if you self-host |
+| `ENVI_API_URL` | Only if you self-host: your instance's API URL (on your own machine, `envi set-url` does the same) |
 
 A service token already belongs to one environment, so `ENVI_TOKEN` on its own is enough — no `envi.toml`, no `envi init`, and no environment id baked into the image. The same image runs in staging or production depending on the token you give it.
 
