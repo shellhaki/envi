@@ -59,13 +59,16 @@ function actionLabel(a: string) {
 // the project -> environment -> secrets waterfall from scratch.
 const PAGES: Record<string, Page> = { "/dashboard": "overview", "/dashboard/secrets": "secrets", "/dashboard/projects": "projects", "/dashboard/sharing": "sharing", "/dashboard/activity": "activity" };
 
-export default function Workspace({ name }: { name: string }) {
+// instance is a self-hosted server with password sign-in, where only the admin creates projects
+// and people get access from the Users page rather than by email.
+export default function Workspace({ name, instance = false, admin = false }: { name: string; instance?: boolean; admin?: boolean }) {
+  const canCreate = !instance || admin;
   const path = usePathname().replace(/\/$/, "");
   const page = PAGES[path] ?? "overview";
   // Pages with their own route render themselves; this component must not
   // also draw the overview under them, which is what the fallback above would
   // otherwise do for any path it does not know.
-  const ownRoute = path === "/dashboard/billing";
+  const ownRoute = path === "/dashboard/billing" || path === "/dashboard/users";
   const [projects, setProjects] = useState<Project[]>([]);
   const [project, setProject] = useState<Project>();
   // A project has many environments — dev, prod, whatever you name them — each
@@ -156,7 +159,8 @@ export default function Workspace({ name }: { name: string }) {
   // Revealed keys are tracked by name, so they have to be forgotten when the
   // environment changes: revealing DATABASE_URL in dev must not silently
   // un-mask the production one the moment you switch to it.
-  useEffect(() => { setReveal(new Set()); }, [env?.ID]);
+  const [revealedIn, setRevealedIn] = useState(env?.ID);
+  if (revealedIn !== env?.ID) { setRevealedIn(env?.ID); setReveal(new Set()); }
 
   const loadEvents = useCallback(() => {
     if (!project) { setEvents([]); setLoadingEvents(false); return; }
@@ -306,8 +310,10 @@ export default function Workspace({ name }: { name: string }) {
   }
 
   const showContext = page !== "projects";
-  const titleAction = page === "projects" ? <button className="button primary" onClick={() => setModal("project")}><Plus />New project</button>
-    : page === "sharing" ? <button className="button primary" onClick={() => setModal("share")} disabled={!project}><UserPlus />Invite</button>
+  const titleAction = page === "projects" ? (canCreate ? <button className="button primary" onClick={() => setModal("project")}><Plus />New project</button> : null)
+    : page === "sharing" ? (instance
+      ? (admin ? <Link className="button primary" href="/dashboard/users"><UserPlus />Give access</Link> : null)
+      : <button className="button primary" onClick={() => setModal("share")} disabled={!project}><UserPlus />Invite</button>)
     : page === "activity" ? <button className="button secondary" onClick={() => loadEvents()}><RefreshCw />Refresh</button>
     : null;
 
@@ -381,8 +387,10 @@ export default function Workspace({ name }: { name: string }) {
             <div className="quick-list">
               <button onClick={() => setModal("secret")} disabled={!project}><Plus />Add a secret</button>
               <button onClick={() => setModal("import")} disabled={!project}><UploadCloud />Import a .env file</button>
-              <button onClick={() => setModal("share")} disabled={!project}><UserPlus />Invite a collaborator</button>
-              <button onClick={() => setModal("project")}><FolderPlus />New project</button>
+              {instance
+                ? admin && <Link href="/dashboard/users"><UserPlus />Give someone access</Link>
+                : <button onClick={() => setModal("share")} disabled={!project}><UserPlus />Invite a collaborator</button>}
+              {canCreate && <button onClick={() => setModal("project")}><FolderPlus />New project</button>}
             </div>
           </section>
         </div>
@@ -439,7 +447,7 @@ export default function Workspace({ name }: { name: string }) {
           {deletable && <button type="button" className="icon-btn danger proj-delete" title={`Delete ${p.Name}`} aria-label={`Delete ${p.Name}`} onClick={() => setDeleting(p)}><Trash2 /></button>}
         </div>;
       })}
-      <button className="project-card new" onClick={() => setModal("project")}><FolderPlus /><strong>New project</strong></button>
+      {canCreate && <button className="project-card new" onClick={() => setModal("project")}><FolderPlus /><strong>New project</strong></button>}
     </div>)}
 
     {page === "sharing" && <section className="plain-section">
@@ -458,7 +466,7 @@ export default function Workspace({ name }: { name: string }) {
           </div>
         </div>)}
       </div> : <Empty icon={<UserPlus />} title={project ? "No collaborators yet" : "No project selected"}
-        text={project ? "Invited people appear here until they accept." : "Choose a project above."} />}
+        text={!project ? "Choose a project above." : instance ? "People given this project on the Users page appear here." : "Invited people appear here until they accept."} />}
     </section>}
 
     {page === "activity" && <section className="panel">

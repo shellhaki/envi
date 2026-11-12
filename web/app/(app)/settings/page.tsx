@@ -4,11 +4,13 @@ import ApiKeys from "@/components/api-keys";
 import Brand from "@/components/brand";
 import LogoutButton from "@/components/logout-button";
 import ThemeToggle from "@/components/theme-toggle";
-import { account } from "@/lib/server-api";
+import ChangePassword from "@/components/change-password";
+import { account, instance } from "@/lib/server-api";
 
 export default async function SettingsPage() {
-  const user = await account();
+  const [user, server] = await Promise.all([account(), instance()]);
   if (!user) redirect("/auth");
+  const password = server.sign_in === "password";
   return (
     <div className="settings-page">
       <header>
@@ -29,7 +31,9 @@ export default async function SettingsPage() {
           <section id="account">
             <span className="kicker">Account</span>
             <h1>Profile</h1>
-            <p>Your account is created and verified through email OTP.</p>
+            <p>{password
+              ? `You sign in to this self-hosted instance with a password${user.Role === "admin" ? ", as its admin" : ""}.`
+              : "Your account is created and verified through email OTP."}</p>
             <label>Email address<input value={user.Email} readOnly /></label>
           </section>
           <section id="api-keys">
@@ -38,6 +42,10 @@ export default async function SettingsPage() {
           </section>
           <section id="security">
             <h2>Security</h2>
+            {password && <div className="setting-block">
+              <span><strong>Password</strong><small>At least 10 characters. Forgot it? Your admin can give you a new one.</small></span>
+              <ChangePassword />
+            </div>}
             <p>Dashboard sessions use rotating refresh tokens in secure, HTTP-only cookies. Secret values remain encrypted in Postgres.</p>
             <div className="setting-row">
               <span><strong>Sign out this device</strong><small>Revokes the current refresh token.</small></span>

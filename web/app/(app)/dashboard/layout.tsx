@@ -7,13 +7,14 @@ import OperatorLink from "@/components/operator-link";
 import SidebarNav from "@/components/sidebar-nav";
 import SidebarToggle from "@/components/sidebar-toggle";
 import ThemeToggle from "@/components/theme-toggle";
-import { account, firstName } from "@/lib/server-api";
+import { account, firstName, instance } from "@/lib/server-api";
 import { initials } from "@/lib/utils";
 import Workspace from "./workspace";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const user = await account();
+  const [user, server] = await Promise.all([account(), instance()]);
   if (!user) redirect("/auth");
+  const admin = user.Role === "admin";
   return (
     <div className="product-shell">
       <aside className="product-sidebar">
@@ -21,7 +22,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <Brand />
           <Image className="brand-mark" src="/envi-icon.png" alt="" width={30} height={30} />
         </div>
-        <SidebarNav>
+        <SidebarNav billing={server.billing} admin={admin}>
           <OperatorLink />
         </SidebarNav>
         <div className="sidebar-foot">
@@ -40,7 +41,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </header>
         {/* Pages render nothing; Workspace reads the path and persists across them. */}
         {children}
-        <Workspace name={firstName(user.Email)} />
+        <Workspace name={firstName(user.Email)} instance={server.sign_in === "password"} admin={admin} />
       </div>
     </div>
   );

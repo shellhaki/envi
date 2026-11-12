@@ -6,7 +6,8 @@ import ThemeToggle from "@/components/theme-toggle";
 import DemoVideo from "@/components/demo-video";
 import HeroHeadline from "@/components/hero-headline";
 import CookieConsent from "@/components/cookie-consent";
-import { account, firstName } from "@/lib/server-api";
+import { redirect } from "next/navigation";
+import { account, firstName, instance } from "@/lib/server-api";
 
 const DOCS = "https://docs.envisecrets.com";
 const GITHUB = "https://github.com/shellhaki/envi";
@@ -39,6 +40,8 @@ const EVENTS: { kind: "read" | "write" | "delete"; label: string; who: string; t
 const EVENT_ICON = { read: Eye, write: Pencil, delete: Trash2 };
 
 export default async function Home() {
+  // A self-hosted instance has no landing page: its home is the dashboard.
+  if ((await instance()).sign_in === "password") redirect("/dashboard");
   const user = await account();
   const start = user ? "/dashboard" : "/auth";
 

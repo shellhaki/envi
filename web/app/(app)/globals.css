@@ -510,8 +510,8 @@ html[data-theme=dark] .brand-logo-dark { display: block; }
 .env-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; border: 1.5px solid var(--line-strong); }
 .env-item.active .env-dot { border-color: transparent; background: var(--accent); box-shadow: 0 0 0 3px var(--accent-weak); }
 .quick-list { padding: 6px; display: grid; gap: 2px; }
-.quick-list button { min-height: 38px; padding: 0 10px; display: flex; align-items: center; gap: 10px; border: 0; border-radius: var(--r); background: transparent; color: var(--text-2); font-size: 13px; text-align: left; cursor: pointer; transition: background .12s ease, color .12s ease; }
-.quick-list button:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
+.quick-list button, .quick-list a { min-height: 38px; padding: 0 10px; display: flex; align-items: center; gap: 10px; border: 0; border-radius: var(--r); background: transparent; color: var(--text-2); font-size: 13px; text-align: left; cursor: pointer; transition: background .12s ease, color .12s ease; }
+.quick-list button:hover:not(:disabled), .quick-list a:hover { background: var(--surface-2); color: var(--text); }
 .quick-list button:disabled { opacity: .45; cursor: not-allowed; }
 .quick-list svg { width: 15px; color: var(--muted); }
 
@@ -1082,3 +1082,23 @@ html[data-theme=dark] .lp-hero-art .hero-art-dark { display: block; }
 }
 @keyframes hero-art-in { from { opacity: 0; transform: translateY(14px); } }
 @media (prefers-reduced-motion: reduce) { .lp-hero-art img { animation: none; } }
+
+/* ---- Instance users ------------------------------------------------------ */
+.users-table .trow { grid-template-columns: minmax(200px, 1fr) minmax(200px, 2fr) auto; padding-block: 10px; }
+.user-cell { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.grant-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.grant-list .muted { color: var(--muted); font-size: 12px; }
+.grant-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 4px 3px 9px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface-2); font-size: 12px; color: var(--text-2); }
+.grant-chip button { display: grid; place-items: center; width: 18px; height: 18px; border: 0; border-radius: 50%; background: transparent; color: var(--muted); cursor: pointer; }
+.grant-chip button:hover { background: var(--line); color: var(--text); }
+.grant-chip svg { width: 11px; }
+.password-reveal { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 1px solid var(--line-strong); border-radius: var(--r); background: var(--surface-2); }
+.password-reveal > svg { width: 16px; color: var(--muted); }
+.password-reveal code { flex: 1; font: 600 15px var(--font-mono), monospace; letter-spacing: .04em; user-select: all; }
+.setting-block { display: grid; gap: 14px; padding: 16px 0; }
+.setting-block > span { display: grid; gap: 4px; }
+.setting-block strong { font-weight: 550; }
+.setting-block small { color: var(--muted); }
+.password-form { display: grid; gap: 12px; max-width: 380px; }
+.password-form .button { justify-self: start; }
+.form-success { margin: 0; color: var(--success, #16a34a); font-size: 13px; }

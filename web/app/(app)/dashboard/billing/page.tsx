@@ -59,7 +59,8 @@ export default function BillingPage() {
   const [currency, setCurrency] = useState<"USD" | "NGN">("USD");
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
+  // A completed checkout lands on /billing/success; only an abandoned one comes back here.
+  const [notice, setNotice] = useState(() => params.get("checkout") === "cancelled" ? "Checkout cancelled. Nothing was changed." : "");
   const [cancelling, setCancelling] = useState(false);
 
   const load = useCallback(async () => {
@@ -73,13 +74,10 @@ export default function BillingPage() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
-
-  // A completed checkout lands on /billing/success; only an abandoned one comes
-  // back here.
   useEffect(() => {
-    if (params.get("checkout") === "cancelled") setNotice("Checkout cancelled. Nothing was changed.");
-  }, [params]);
+    const id = requestAnimationFrame(() => void load());
+    return () => cancelAnimationFrame(id);
+  }, [load]);
 
   async function act(name: string, path: string, body: object = {}) {
     setBusy(name);
