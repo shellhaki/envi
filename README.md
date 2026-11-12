@@ -1,7 +1,7 @@
   <p align="center">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="ui/public/envi-logo-with-text-dark-mode.png">
-      <img src="ui/public/envi-logo-with-text-light-mode.png" alt="Envi" width="280">
+      <source media="(prefers-color-scheme: dark)" srcset="web/public/envi-logo-with-text-dark-mode.png">
+      <img src="web/public/envi-logo-with-text-light-mode.png" alt="Envi" width="280">
     </picture>
   </p>
 
@@ -18,7 +18,7 @@
 
   ---
 
-  <img src="ui/public/envi-icon.png" width="20" align="left">
+  <img src="web/public/envi-icon.png" width="20" align="left">
 
   **Envi** is an environment-secret manager: encrypted `.env` values, scoped access, an audit trail, and a CLI that gets a secret from your database into a running process without anyone typing it into Slack. Envi is built and run as a product — this repository is also the entire self-hostable stack, for teams who'd rather keep everything on infrastructure they control.
 
@@ -75,7 +75,7 @@ The CLI and the dashboard are two clients of the same API — neither one is a s
 | `server/` | The API server in TypeScript (Hono): Cloudflare Workers in production, Bun for local runs. Every route is in `src/app.ts` |
 | `install/` | The install scripts and the Worker that serves them on install.envisecrets.com |
 | `cli/` | The CLI in Go (`cmd/envi`, `internal/cli`), released for macOS, Linux, Termux, and Windows |
-| `ui/` | The Next.js site: landing page and dashboard on envisecrets.com, and the docs (`app/docs`) on docs.envisecrets.com |
+| `web/` | The Next.js site: landing page and dashboard on envisecrets.com, and the docs (`app/docs`) on docs.envisecrets.com |
 | `migrations/` | `schema.sql` for a fresh database, numbered files to catch one up |
 | `docs/` | `ENDPOINTS.md` (every route) and `excalidraw.json` (system diagram, data model), rebuilt with `make diagram` |
 
@@ -127,7 +127,7 @@ Postgres and Redis running locally, then:
 
 ```bash
 make dev-api      # API on :8080
-make dev-ui       # site on localhost:3000, docs on docs.localhost:3000
+make dev-web      # site on localhost:3000, docs on docs.localhost:3000
 make test         # every test; the API's run on a throwaway local database
 make cli          # build the CLI
 make deploy       # both Workers

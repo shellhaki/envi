@@ -1,0 +1,46 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    # The API tests build a throwaway database on this Postgres.
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: envi
+          POSTGRES_PASSWORD: envi
+          POSTGRES_DB: envi
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U envi" --health-interval 2s
+          --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: cli/go.mod
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: CLI and web
+        run: ./scripts/ci.sh
+      - name: API
+        working-directory: server
+        env:
+          TEST_ADMIN_DATABASE_URL: postgres://envi:envi@localhost:5432/envi?sslmode=disable
+        run: |
+          bun install --frozen-lockfile
+          bun run typecheck
+          bun test
+      - name: Install Worker
+        working-directory: install
+        run: |
+          bun install --frozen-lockfile
+          bun run typecheck
+          bun test

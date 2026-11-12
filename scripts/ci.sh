@@ -9,7 +9,7 @@ export GOCACHE="${GOCACHE:-/tmp/envi-go-cache}"
   go test -race ./...
 )
 (
-  cd ui
+  cd web
   bun install --frozen-lockfile
   bun test
   bun run lint

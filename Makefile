@@ -3,7 +3,7 @@ CLI_PKG    = shellhaki/envi/internal/cli
 CLI_ENV    ?= $(if $(CI),file,envi)
 CLI_ORIGIN ?= cli
 
-.PHONY: help dev-api dev-ui dev-worker test test-api test-install test-ui test-cli \
+.PHONY: help dev-api dev-ui dev-worker test test-api test-install test-web test-cli \
 	secrets deploy deploy-api deploy-install logs cli cli-env cli-ldflags db db-migrate diagram
 
 help: ## List every target
@@ -12,14 +12,14 @@ help: ## List every target
 dev-api: ## Run the API on Bun with secrets from Envi
 	cd server && envi run -- bun run dev
 
-dev-ui: ## Run the site: localhost:3000, docs on docs.localhost:3000
-	cd ui && envi run -- bun run dev
+dev-web: ## Run the site: localhost:3000, docs on docs.localhost:3000
+	cd web && envi run -- bun run dev
 
 dev-worker: ## Run the API Worker locally against stand-ins for Neon and Upstash
 	docker compose -f server/test/worker/compose.yml up -d
 	cd server && bun run worker:local
 
-test: test-api test-install test-ui test-cli ## Run every test
+test: test-api test-install test-web test-cli ## Run every test
 
 test-api: ## API tests and typecheck
 	cd server && bun test && bun run typecheck
@@ -27,8 +27,8 @@ test-api: ## API tests and typecheck
 test-install: ## Install Worker tests and typecheck
 	cd install && bun test && bun run typecheck
 
-test-ui: ## Site tests and lint
-	cd ui && bun test && bun run lint
+test-web: ## Site tests and lint
+	cd web && bun test && bun run lint
 
 test-cli: ## CLI vet and tests
 	cd cli && go vet ./... && go test ./...
