@@ -48,7 +48,7 @@ func Load() Config {
 func Read() (Config, error) {
 	c := Load()
 	if c.DatabaseURL == "" {
-		return Config{}, errors.New("r")
+		return Config{}, errors.New("DATABASE_URL is required")
 	}
 	if c.RedisURL == "" {
 		return Config{}, errors.New("REDIS_URL is required")

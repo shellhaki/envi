@@ -1,0 +1,34 @@
+// The Bun entry: a long-running server, for local development and self-hosting.
+
+import pg from "pg";
+import { app } from "./app";
+import { readConfig } from "./config";
+import { makeDb, useTypes } from "./db";
+import { bunRedis, upstashRedis } from "./redis";
+import { billingPass } from "./services/billing";
+import { makeDeps } from "./setup";
+
+const config = readConfig(process.env);
+useTypes(pg.types);
+const db = makeDb(new pg.Pool({ connectionString: config.databaseUrl }));
+await db.query("SELECT 1");
+const redis = config.upstashUrl ? upstashRedis(config.upstashUrl, config.upstashToken) : bunRedis(config.redisUrl);
+await redis.get("envi:ping");
+
+const deps = await makeDeps(config, db, redis, (work) => void work.catch((err) => console.error(err)));
+console.log(`mode: ${config.mode} (billing ${deps.bachs ? "on" : "off"}), ENVI_ADMINS: ${config.admins.length} address(es)`);
+
+const server = Bun.serve({ port: config.port, fetch: (request) => app.fetch(request, { deps }) });
+console.log(`API listening on :${server.port}`);
+
+const hourly = setInterval(() => billingPass(deps).catch((err) => console.error(`billing pass: ${err.message}`)), 60 * 60 * 1000);
+void billingPass(deps).catch((err) => console.error(`billing pass: ${err.message}`));
+
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.on(signal, async () => {
+    clearInterval(hourly);
+    await server.stop();
+    await db.end();
+    process.exit(0);
+  });
+}

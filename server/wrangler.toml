@@ -1,0 +1,18 @@
+name = "envi-api"
+main = "src/worker.ts"
+compatibility_date = "2026-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+[triggers]
+crons = ["0 * * * *"]
+
+# Secrets are set with `wrangler secret put NAME`, never written here:
+#   DATABASE_URL, UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN, ENVI_ENCRYPTION_KEY,
+#   RESEND_API_KEY, RESEND_FROM, BACHS_SECRET_KEY, BACHS_WEBHOOK_SECRET, ENVI_ADMINS
+[vars]
+ENVIRONMENT = "production"
+ENVI_MODE = "hosted"
+ENVI_CURRENCY = "NGN"
+ENVI_WEB_URL = "https://envisecrets.com"
+ENVI_DOCS_URL = "https://docs.envisecrets.com"
+BACHS_RETURN_URL = "https://envisecrets.com"
