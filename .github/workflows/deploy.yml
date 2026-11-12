@@ -54,6 +54,12 @@ jobs:
           bun install --frozen-lockfile
           bun run typecheck
           bun test
+      - name: Install Worker
+        working-directory: install
+        run: |
+          bun install --frozen-lockfile
+          bun run typecheck
+          bun test
       - name: Docs
         working-directory: docs
         run: |
@@ -98,7 +104,7 @@ jobs:
           # The CLI (cmd/, internal/) ships through release.yml, not here.
           {
             echo "api=$(match '^server/')"
-            echo "install=$(match '^(scripts/install\.(sh|ps1)$|server/src/install\.ts$|server/install\.wrangler\.toml$)')"
+            echo "install=$(match '^(scripts/install\.(sh|ps1)$|install/)')"
             echo "ui=$(match '^ui/')"
             echo "docs=$(match '^docs/')"
           } >> "$GITHUB_OUTPUT"
@@ -125,13 +131,13 @@ jobs:
           bunx wrangler deploy
       - name: Deploy the install scripts to Workers
         if: needs.changes.outputs.install == 'true'
-        working-directory: server
+        working-directory: install
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           bun install --frozen-lockfile
-          bunx wrangler deploy -c install.wrangler.toml
+          bunx wrangler deploy
       - name: Trigger Coolify
         env:
           COOLIFY_URL: ${{ secrets.COOLIFY_URL }}

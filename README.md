@@ -81,7 +81,7 @@ The CLI and the dashboard are two clients of the same API — neither one is a s
 | Path | What it is |
 |---|---|
 | `server/` | The API server in TypeScript (Hono): Cloudflare Workers in production, Bun for local runs. Every route is in `src/app.ts` |
-| `server/src/install.ts` | The Worker that serves the `curl \| sh` install scripts |
+| `install/` | The Worker that serves the `curl \| sh` install scripts |
 | `cmd/envi`, `internal/cli` | The CLI in Go, released for macOS, Linux, Termux, and Windows |
 | `npm/` | Builds the npm packages that install the CLI binary |
 | `ui/` | The Next.js dashboard (deployable separately, e.g. to Vercel) |

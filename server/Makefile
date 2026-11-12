@@ -1,4 +1,4 @@
-.PHONY: secrets deploy deploy-install
+.PHONY: secrets deploy
 
 # Uploads .env as Worker secrets, leaving out the names wrangler.toml already sets under [vars]:
 # Cloudflare refuses a secret and a var with the same name.
@@ -11,6 +11,3 @@ secrets:
 
 deploy:
 	bunx wrangler deploy
-
-deploy-install:
-	bunx wrangler deploy -c install.wrangler.toml

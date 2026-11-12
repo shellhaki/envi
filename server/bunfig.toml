@@ -1,2 +1,2 @@
 [test]
-preload = ["./test/quiet.ts", "./test/text-imports.ts"]
+preload = ["./test/quiet.ts"]

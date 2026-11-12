@@ -22,6 +22,6 @@ test("every table is drawn", () => {
 
 test("every service is drawn", () => {
   const services = readdirSync(new URL("server/src/services", root)).map((f) => `services/${f}`);
-  const missing = [...services, "server/src/server.ts", "server/src/worker.ts", "server/src/install.ts"].filter((s) => !drawn.has(s));
+  const missing = [...services, "server/src/server.ts", "server/src/worker.ts", "install/index.ts"].filter((s) => !drawn.has(s));
   expect(missing).toEqual([]);
 });

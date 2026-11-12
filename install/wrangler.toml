@@ -1,9 +1,10 @@
-# The install-script Worker. Deploy with: bunx wrangler deploy -c install.wrangler.toml
+# The install-script Worker for install.envisecrets.com. No secrets or vars: deploy with `bun run deploy`.
 name = "envi-install"
-main = "src/install.ts"
+main = "index.ts"
 compatibility_date = "2026-11-01"
 routes = [{ pattern = "install.envisecrets.com", custom_domain = true }]
 
+# Bundles ../scripts/install.sh and install.ps1 into the Worker as text.
 [[rules]]
 type = "Text"
 globs = ["**/*.sh", "**/*.ps1"]

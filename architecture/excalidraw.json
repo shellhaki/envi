@@ -979,8 +979,8 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "envi-install · server/src/install.ts\ninstall.envisecrets.com · install.sh / .ps1",
-   "originalText": "envi-install · server/src/install.ts\ninstall.envisecrets.com · install.sh / .ps1",
+   "text": "envi-install · install/index.ts\ninstall.envisecrets.com · install.sh / .ps1",
+   "originalText": "envi-install · install/index.ts\ninstall.envisecrets.com · install.sh / .ps1",
    "fontSize": 18,
    "fontFamily": 5,
    "textAlign": "center",
@@ -10555,7 +10555,7 @@
    "roughness": 0,
    "opacity": 100,
    "groupIds": [
-    "svc_server/src/install.ts"
+    "svc_install/index.ts"
    ],
    "frameId": null,
    "roundness": {
@@ -10575,7 +10575,7 @@
    "type": "text",
    "x": 1880.0,
    "y": 295.5,
-   "width": 231.00000000000003,
+   "width": 176.0,
    "height": 25.0,
    "angle": 0,
    "strokeColor": "#1e1e1e",
@@ -10586,7 +10586,7 @@
    "roughness": 1,
    "opacity": 100,
    "groupIds": [
-    "svc_server/src/install.ts"
+    "svc_install/index.ts"
    ],
    "frameId": null,
    "roundness": null,
@@ -10598,8 +10598,8 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "server/src/install.ts",
-   "originalText": "server/src/install.ts",
+   "text": "install/index.ts",
+   "originalText": "install/index.ts",
    "fontSize": 20,
    "fontFamily": 5,
    "textAlign": "left",
@@ -10624,7 +10624,7 @@
    "roughness": 1,
    "opacity": 100,
    "groupIds": [
-    "svc_server/src/install.ts"
+    "svc_install/index.ts"
    ],
    "frameId": null,
    "roundness": null,

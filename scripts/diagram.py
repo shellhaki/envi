@@ -163,7 +163,7 @@ dash = box(560, 240, 290, 100, "Dashboard + landing\nenvisecrets.com :3000\n/api
 
 
 frame(340, 440, 560, 560, "Cloudflare Workers", "#fff4e6", size=20)
-inst = box(370, 890, 500, 80, "envi-install · server/src/install.ts\ninstall.envisecrets.com · install.sh / .ps1")
+inst = box(370, 890, 500, 80, "envi-install · install/index.ts\ninstall.envisecrets.com · install.sh / .ps1")
 api = box(370, 620, 500, 150, f"envi-api · server/src/worker.ts\napi.envisecrets.com\n{TOTAL} endpoints, see below\ncron trigger: billing pass, hourly", YELLOW)
 text(370, 800, "the same app runs under Bun.serve\n(server/src/server.ts) for self-hosting", 16, GREY)
 
@@ -566,9 +566,11 @@ def ts_touches(f):
 
 # The TypeScript API server: its two entry files, then one card per service.
 SERVER = os.path.join(ROOT, "server", "src")
-for name in ["server.ts", "worker.ts", "install.ts"]:
+for name in ["server.ts", "worker.ts"]:
     f = os.path.join(SERVER, name)
     entries.append(("entry", f"server/src/{name}", ts_doc(f), *ts_touches(f)))
+f = os.path.join(ROOT, "install", "index.ts")
+entries.append(("entry", "install/index.ts", ts_doc(f), *ts_touches(f)))
 for name in sorted(os.listdir(os.path.join(SERVER, "services"))):
     f = os.path.join(SERVER, "services", name)
     entries.append(("service", f"services/{name}", ts_doc(f), *ts_touches(f)))

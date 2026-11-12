@@ -1,4 +1,4 @@
-// The install scripts are imported as text (wrangler [[rules]] for Workers, a test preload for Bun).
+// The install scripts are imported as text (wrangler [[rules]] when deployed, test/text-imports.ts in tests).
 declare module "*.sh" {
   const text: string;
   export default text;

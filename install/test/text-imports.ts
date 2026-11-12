@@ -1,4 +1,4 @@
-// Imports .sh and .ps1 files as text, the way wrangler's [[rules]] do in install.wrangler.toml.
+// Imports .sh and .ps1 files as text, the way wrangler's [[rules]] do in wrangler.toml.
 Bun.plugin({
   name: "text-imports",
   setup(build) {
