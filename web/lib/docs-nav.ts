@@ -38,6 +38,15 @@ export const docsNav: DocGroup[] = [
       { slug: "/invitations", title: "Invitations", description: "Invite a collaborator, even if they don't have an account yet." },
     ],
   },
+  {
+    group: "Self-Hosting",
+    pages: [
+      { slug: "/self-hosting", title: "Install an instance", description: "Your own Envi server, free, in one command." },
+      { slug: "/self-hosting/users", title: "Users and passwords", description: "Add people, give them projects, reset a password." },
+      { slug: "/self-hosting/cli", title: "Connect the CLI", description: "Point envi and your CI at your instance." },
+      { slug: "/self-hosting/operations", title: "Run the instance", description: "Status, logs, backups, restores and updates." },
+    ],
+  },
 ];
 
 const flatDocs: DocPage[] = docsNav.flatMap((g) => g.pages);

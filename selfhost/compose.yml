@@ -1,0 +1,79 @@
+# A self-hosted Envi instance. The installer copies this to /opt/envi and writes .env next to it.
+# Postgres and Redis always run here; with ENVI_RUNTIME=docker the API and dashboard do too (profile "app"),
+# with pm2 they run on the host. Caddy (profile "https") serves your domain over HTTPS.
+name: envi
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: envi
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: envi
+    volumes:
+      - postgres:/var/lib/postgresql
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-55432}:5432"
+    healthcheck:
+      # Over TCP: on first start the image runs a socket-only server while it initialises, then restarts.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U envi"]
+      interval: 2s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis:/data
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-56379}:6379"
+
+  api:
+    profiles: ["app"]
+    build: ./src/server
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://envi:${POSTGRES_PASSWORD}@postgres:5432/envi
+      REDIS_URL: redis://redis:6379
+      ENVI_USERS_FILE: /data/users.toml
+      ENVI_API_PORT: "8080"
+    volumes:
+      - ./data:/data
+    ports:
+      - "${PUBLISH_HOST:-127.0.0.1}:${API_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  web:
+    profiles: ["app"]
+    build: ./src/web
+    restart: unless-stopped
+    environment:
+      ENVI_API_URL: http://api:8080
+      ENVI_SESSION_SECRET: ${ENVI_SESSION_SECRET}
+      ENVI_PLAIN_HTTP: ${ENVI_PLAIN_HTTP:-0}
+      PORT: "3000"
+    ports:
+      - "${PUBLISH_HOST:-127.0.0.1}:${WEB_PORT:-3000}:3000"
+    depends_on:
+      - api
+
+  caddy:
+    profiles: ["https"]
+    image: caddy:2-alpine
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy:/data
+
+volumes:
+  postgres:
+  redis:
+  caddy:

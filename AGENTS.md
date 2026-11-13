@@ -6,3 +6,4 @@
 * when a service is added under server/src/services, start the file with a one-line `//` comment; its first sentence is what the diagram shows. The same goes for a CLI package (`// Package x ...`). Run `make diagram`.
 * when the deployment changes (a new service, domain, port or outside provider), update the architecture section of scripts/diagram.py and run `make diagram`.
 * before committing server changes, run `bun test` and `bun run typecheck` in server/.
+* self-hosted instances are installed by install/instance.sh and run from selfhost/ (compose.yml, ecosystem.config.cjs, envi-instance). When either changes, keep web/app/docs/self-hosting in step, and shellcheck both scripts.

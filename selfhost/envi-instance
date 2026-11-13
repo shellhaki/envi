@@ -1,0 +1,121 @@
+#!/usr/bin/env bash
+# envi-instance: look after a self-hosted Envi installed by install.envisecrets.com.
+set -euo pipefail
+
+ROOT="${ENVI_HOME:-/opt/envi}"
+DOCS="https://docs.envisecrets.com/self-hosting"
+
+if [ -t 1 ]; then B=$'\e[1m'; D=$'\e[2m'; G=$'\e[32m'; R=$'\e[31m'; C=$'\e[36m'; N=$'\e[0m'; else B='' D='' G='' R='' C='' N=''; fi
+say() { printf '%s\n' "$*"; }
+fail() { printf '%s✗%s %s\n' "$R" "$N" "$*" >&2; exit 1; }
+
+[ -f "$ROOT/.env" ] || fail "no Envi instance at $ROOT (set ENVI_HOME if it lives elsewhere)"
+setting() { grep -E "^$1=" "$ROOT/.env" | tail -1 | cut -d= -f2-; }
+RUNTIME=$(setting ENVI_RUNTIME)
+compose() { docker compose --project-directory "$ROOT" -f "$ROOT/compose.yml" "$@"; }
+as_root() { [ "$(id -u)" -eq 0 ] || fail "run this as root: sudo envi-instance $*"; }
+
+urls() {
+  say ""
+  say "  ${B}Dashboard${N}  $(setting ENVI_WEB_URL)   ${D}sign in, manage projects and users${N}"
+  say "  ${B}API${N}        $(setting ENVI_PUBLIC_API_URL)   ${D}for the CLI: envi set-url $(setting ENVI_PUBLIC_API_URL)${N}"
+  say "  ${B}Docs${N}       $(setting ENVI_DOCS_URL)"
+  say ""
+  say "  ${D}Users file${N}  $ROOT/data/users.toml   ${D}reset a password here${N}"
+  say "  ${D}Settings${N}    $ROOT/.env   ${D}back this up: ENVI_ENCRYPTION_KEY decrypts every secret${N}"
+  say ""
+}
+
+status() {
+  compose ps
+  if [ "$RUNTIME" = "pm2" ]; then pm2 status envi-api envi-web; fi
+  local api web; api=$(setting API_PORT); web=$(setting WEB_PORT)
+  if curl -fsS --max-time 5 "http://127.0.0.1:$api/health" >/dev/null 2>&1; then say "${G}✓${N} API answers"; else say "${R}✗${N} API is not answering on 127.0.0.1:$api"; fi
+  if curl -fsS --max-time 5 -o /dev/null "http://127.0.0.1:$web/auth" 2>/dev/null; then say "${G}✓${N} Dashboard answers"; else say "${R}✗${N} Dashboard is not answering on 127.0.0.1:$web"; fi
+}
+
+logs() {
+  local which="${1:-}"
+  if [ "$RUNTIME" = "pm2" ] && { [ "$which" = api ] || [ "$which" = web ]; }; then exec pm2 logs "envi-$which"; fi
+  if [ "$RUNTIME" = "pm2" ] && [ -z "$which" ]; then exec pm2 logs envi-api envi-web; fi
+  case "$which" in db) which=postgres ;; "") which="" ;; esac
+  # shellcheck disable=SC2086
+  exec docker compose --project-directory "$ROOT" -f "$ROOT/compose.yml" logs -f --tail 100 $which
+}
+
+restart() {
+  as_root restart
+  compose up -d
+  if [ "$RUNTIME" = "pm2" ]; then pm2 restart "$ROOT/ecosystem.config.cjs" --update-env; fi
+  say "${G}✓${N} restarted"
+}
+
+stop() {
+  as_root stop
+  if [ "$RUNTIME" = "pm2" ]; then pm2 stop envi-api envi-web; fi
+  compose stop
+  say "${G}✓${N} stopped. Start again with: envi-instance restart"
+}
+
+backup() {
+  as_root backup
+  mkdir -p "$ROOT/backups"
+  local file
+  file="$ROOT/backups/envi-$(date +%Y%m%d-%H%M%S).sql.gz"
+  compose exec -T postgres pg_dump -U envi envi | gzip > "$file"
+  chmod 600 "$file"
+  say "${G}✓${N} database saved to $file"
+  say "${D}The dump holds secrets encrypted with ENVI_ENCRYPTION_KEY from $ROOT/.env; keep a copy of that file too, somewhere else.${N}"
+}
+
+update() {
+  as_root update
+  local ref="${1:-}"
+  if [ -z "$ref" ]; then
+    ref=$(curl -fsSL https://api.github.com/repos/shellhaki/envi/releases/latest | grep '"tag_name"' | head -1 | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')
+  fi
+  [ -n "$ref" ] || fail "couldn't find the latest release; pass one: envi-instance update v1.5.0"
+  say "${C}→${N} backing up first"
+  backup
+  say "${C}→${N} downloading $ref"
+  local work; work=$(mktemp -d)
+  curl -fsSL "https://github.com/shellhaki/envi/archive/$ref.tar.gz" | tar -xz -C "$work" --strip-components=1
+  rm -rf "$ROOT/src.previous"; [ -d "$ROOT/src" ] && mv "$ROOT/src" "$ROOT/src.previous"
+  mv "$work" "$ROOT/src"
+  sed -i "s/^ENVI_SOURCE_REF=.*/ENVI_SOURCE_REF=$ref/" "$ROOT/.env"
+  say "${C}→${N} applying database migrations"
+  for f in "$ROOT"/src/migrations/[0-9]*.sql; do compose exec -T postgres psql -q -U envi envi -v ON_ERROR_STOP=1 < "$f" >/dev/null; done
+  say "${C}→${N} rebuilding"
+  if [ "$RUNTIME" = "pm2" ]; then
+    (cd "$ROOT/src/server" && bun install --frozen-lockfile --production >/dev/null)
+    (cd "$ROOT/src/web" && bun install --frozen-lockfile >/dev/null && bunx --bun next build --webpack >/dev/null \
+      && cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public)
+    pm2 restart "$ROOT/ecosystem.config.cjs" --update-env >/dev/null
+  else
+    compose up -d --build
+  fi
+  say "${G}✓${N} updated to $ref. The previous version is in $ROOT/src.previous."
+}
+
+case "${1:-}" in
+  urls) urls ;;
+  status) status ;;
+  logs) shift; logs "${1:-}" ;;
+  restart) restart ;;
+  stop) stop ;;
+  backup) backup ;;
+  update) shift; update "${1:-}" ;;
+  *)
+    say "Usage: envi-instance <command>"
+    say ""
+    say "  urls       Where the dashboard, API and docs are"
+    say "  status     Whether everything is running"
+    say "  logs       Follow the logs (logs api | web | db)"
+    say "  restart    Restart everything, e.g. after editing .env"
+    say "  stop       Stop everything"
+    say "  backup     Save the database to $ROOT/backups"
+    say "  update     Back up, then move to the latest release (or: update v1.5.0)"
+    say ""
+    say "Docs: $DOCS"
+    ;;
+esac

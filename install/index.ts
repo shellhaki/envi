@@ -3,6 +3,7 @@
 
 import installSh from "./install.sh";
 import installPs1 from "./install.ps1";
+import instanceSh from "./instance.sh";
 
 const sh = { "Content-Type": "text/x-sh; charset=utf-8" };
 const ps1 = { "Content-Type": "text/plain; charset=utf-8" };
@@ -12,6 +13,7 @@ export function serveInstall(request: Request): Response {
   if (request.method !== "GET" && request.method !== "HEAD") return new Response("method not allowed", { status: 405 });
   if (pathname === "/health") return Response.json({ status: "ok" });
   if (pathname === "/install.ps1") return new Response(installPs1, { headers: ps1 });
+  if (pathname === "/instance.sh") return new Response(instanceSh, { headers: sh });
   // curl | sh ignores the path, so every other path serves the shell script.
   return new Response(installSh, { headers: sh });
 }

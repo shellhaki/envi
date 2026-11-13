@@ -16,6 +16,24 @@ need() {
 need curl
 need tar
 
+# This one URL installs either the CLI (the default) or a self-hosted Envi instance. Choose the instance with
+# `sh -s instance`, ENVI_INSTALL=instance, or by answering 2 below. CI, version numbers and no terminal mean the CLI.
+what="${ENVI_INSTALL:-}"
+case "${1:-}" in
+  instance) what=instance; shift ;;
+  cli) what=cli; shift ;;
+esac
+if [ -z "$what" ] && [ -z "${1:-}" ] && [ -z "${CI:-}" ] && [ -t 2 ] && [ -r /dev/tty ]; then
+  printf '\nWhat would you like to install?\n  1) The envi CLI, on this machine\n  2) An Envi instance: your own server that your team signs in to\nChoose [1]: ' >&2
+  read -r answer </dev/tty || answer=1
+  [ "$answer" = 2 ] && what=instance
+fi
+if [ "$what" = instance ]; then
+  script=$(mktemp)
+  curl -fsSL "${ENVI_INSTALL_URL:-https://install.envisecrets.com}/instance.sh" -o "$script" || fail "couldn't download the instance installer"
+  if [ -r /dev/tty ]; then exec bash "$script" </dev/tty; else exec bash "$script"; fi
+fi
+
 os_raw=$(uname -s)
 arch_raw=$(uname -m)
 

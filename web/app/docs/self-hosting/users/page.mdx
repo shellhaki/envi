@@ -1,0 +1,83 @@
+An instance has one **admin** and any number of **contributors**. Nobody gets an email: the admin adds people, gives each one a password, and decides which projects they can see.
+
+| | Admin | Contributor |
+|---|---|---|
+| Projects | Sees and changes every project | Only the projects the admin gives them |
+| Creates projects | Yes | No |
+| Manages people | Yes, on the **Users** page | No |
+| Changes their own password | Yes | Yes |
+
+## Add someone
+
+<Steps>
+  <Step title="Add them">
+    In the dashboard, open **Users** and choose **Add person**. Enter their email.
+  </Step>
+  <Step title="Pass on the password">
+    Envi generates a password like `k7qm-2xdp-9fwa-h3nr` and shows it once. Give it to them however you share passwords. If it's lost before they use it, choose **New password**.
+  </Step>
+  <Step title="Give them projects">
+    Choose **+** on their row, then a project, an environment and a permission. They see it the next time they load the dashboard.
+  </Step>
+</Steps>
+
+They sign in at your dashboard's `/auth` page with their email and that password, and can change it in **Settings**.
+
+## Giving projects
+
+Each grant is one project at one permission:
+
+| Permission | Can |
+|---|---|
+| `read` | See and pull the secrets |
+| `write` | Also push, change and delete them |
+| `manage` | Also give other people of the instance this project |
+
+A grant covers **all non-production environments** of the project, or **one environment**, production included. Production is never covered by a project-wide grant: someone who needs it is given it by name.
+
+Giving the same project and environment again replaces the earlier permission. The **×** on a project chip takes it away.
+
+## Forgot a password
+
+Passwords live in the **users file** on the server, `/opt/envi/data/users.toml`, as bcrypt hashes:
+
+```toml
+[[user]]
+email = "you@example.com"
+role = "admin"
+hash = "$2b$10$Gk9t..."
+```
+
+A contributor who forgets theirs asks the admin, who chooses **New password** on the Users page.
+
+If the admin forgets theirs, edit the file on the server. Replace the `hash` line with a `password` line in plain text:
+
+```toml
+[[user]]
+email = "you@example.com"
+role = "admin"
+password = "a new password"
+```
+
+Then sign in with it. Envi hashes it and rewrites the line the first time it reads the file, so the plain text doesn't stay on disk. No restart is needed.
+
+<Warning>
+  Anyone who can edit `users.toml` can sign in as anyone on the instance. It's readable only by root; keep it that way.
+</Warning>
+
+## Remove someone
+
+**Remove** on their row stops them signing in, ends every session they have, revokes their API keys, and takes away all their projects. Their past activity stays in the audit log. The admin can't be removed.
+
+Deleting their entry from `users.toml` by hand does the same once the API restarts: `sudo envi-instance restart`.
+
+## The users file
+
+| Field | Meaning |
+|---|---|
+| `email` | What they sign in with. Case doesn't matter. |
+| `role` | `admin` or `contributor`. There must be an admin; Envi won't start without one. |
+| `hash` | The bcrypt hash of their password. |
+| `password` | A new password in plain text, replaced with `hash` the next time the file is read. |
+
+The dashboard writes this file when you add people or reset passwords, so editing it by hand is only needed for the admin's own password.

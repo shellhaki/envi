@@ -9,6 +9,7 @@ export type Config = {
   resendApiKey: string;
   resendFrom: string;
   port: number;
+  host: string;
   webUrl: string;
   docsUrl: string;
   environment: string;
@@ -45,6 +46,7 @@ export function loadConfig(env: Env): Config {
     resendApiKey: setting(env, "RESEND_API_KEY"),
     resendFrom: setting(env, "RESEND_FROM"),
     port: Number(setting(env, "ENVI_API_PORT") || 8080),
+    host: setting(env, "ENVI_API_HOST") || "0.0.0.0",
     webUrl,
     docsUrl: setting(env, "ENVI_DOCS_URL") || defaultDocsUrl(webUrl),
     environment: setting(env, "ENVIRONMENT"),

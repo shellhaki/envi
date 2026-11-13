@@ -24,7 +24,7 @@ const deps = await makeDeps(config, db, redis, (work) => void work.catch((err) =
 if (users) console.log(`password sign-in: ${(await syncUsers(deps)).length} user(s) in ${config.usersFile}`);
 console.log(`mode: ${config.mode} (billing ${deps.bachs ? "on" : "off"}), ENVI_ADMINS: ${config.admins.length} address(es)`);
 
-const server = Bun.serve({ port: config.port, fetch: (request) => app.fetch(request, { deps }) });
+const server = Bun.serve({ port: config.port, hostname: config.host, fetch: (request) => app.fetch(request, { deps }) });
 console.log(`API listening on :${server.port}`);
 
 const hourly = setInterval(() => billingPass(deps).catch((err) => console.error(`billing pass: ${err.message}`)), 60 * 60 * 1000);

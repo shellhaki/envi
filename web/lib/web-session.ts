@@ -1,7 +1,8 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 export const sessionCookie = "envi_session";
-export const sessionOptions = { httpOnly: true, sameSite: "strict" as const, secure: process.env.NODE_ENV === "production", path: "/", priority: "high" as const, maxAge: 2592000 };
+// ENVI_PLAIN_HTTP=1 is for a self-hosted instance served without HTTPS, where a Secure cookie would never be sent back.
+export const sessionOptions = { httpOnly: true, sameSite: "strict" as const, secure: process.env.NODE_ENV === "production" && process.env.ENVI_PLAIN_HTTP !== "1", path: "/", priority: "high" as const, maxAge: 2592000 };
 // Refresh slightly ahead of expiry so a request in flight cannot land on a token
 // that expired in transit.
 const accessSkewSeconds = 30;

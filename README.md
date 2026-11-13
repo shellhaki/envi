@@ -51,9 +51,17 @@ The script detects your OS and CPU architecture, verifies a SHA-256 checksum bef
 - **Copy a whole environment out** — platforms that build and run your code themselves, like Vercel or Netlify, have no process for `envi run` to wrap. **Copy all** on the dashboard puts every secret on your clipboard as `.env` text, which their environment-variable screens parse in one paste. `envi copy` does the same from the terminal, and `envi copy --single` picks out one value.
 - **CLI and dashboard, one API** — `envi pull`/`push`/`diff` your `.env` files from the terminal, or manage everything visually. Same backend, same permissions, your choice of interface.
 
-## Self-hosting
+## Self-host it
 
-A self-hosting guide for the current server is being written. Until then, Envi is the hosted product at [envisecrets.com](https://envisecrets.com).
+On a Linux server, run this and choose **2) An Envi instance**:
+
+```bash
+curl -fsSL https://install.envisecrets.com | sh
+```
+
+It asks for an admin email and password, an optional domain (HTTPS through Caddy and Let's Encrypt), and whether to run on Docker or pm2. Then it starts Postgres, Redis, the API and the dashboard, and prints where each one is. Everything on an instance is free and needs no email provider: the admin adds people from the dashboard and gives them their passwords.
+
+Point the CLI at it with `envi set-url https://api.your-domain && envi auth`. The [self-hosting docs](https://docs.envisecrets.com/self-hosting) cover users and passwords, backups and updates.
 
 ## How it fits together
 
@@ -73,7 +81,8 @@ The CLI and the dashboard are two clients of the same API — neither one is a s
 | Path | What it is |
 |---|---|
 | `server/` | The API server in TypeScript (Hono): Cloudflare Workers in production, Bun for local runs. Every route is in `src/app.ts` |
-| `install/` | The install scripts and the Worker that serves them on install.envisecrets.com |
+| `install/` | The install scripts (CLI and instance) and the Worker that serves them on install.envisecrets.com |
+| `selfhost/` | What an instance runs from: the Compose file, the pm2 config and the `envi-instance` command |
 | `cli/` | The CLI in Go (`cmd/envi`, `internal/cli`), released for macOS, Linux, Termux, and Windows |
 | `web/` | The Next.js site: landing page and dashboard on envisecrets.com, and the docs (`app/docs`) on docs.envisecrets.com |
 | `migrations/` | `schema.sql` for a fresh database, numbered files to catch one up |

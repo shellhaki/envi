@@ -1,0 +1,130 @@
+Run Envi on your own server. An instance is the whole product (the dashboard, the API, Postgres and Redis) with everything free: there is no billing, no email provider to set up, and no limit on people or projects.
+
+You sign in with an email and a password. The admin you create during the install sees every project and adds everyone else, so nobody needs an invitation email.
+
+## What you need
+
+- A Linux server with 2 GB of memory or more. Ubuntu, Debian, Fedora and most others work.
+- Root access, or a user who can `sudo`.
+- Optional: a domain. With one, Envi gets HTTPS certificates from Let's Encrypt. Without one, it runs on the server's IP address over plain HTTP, which only belongs on a private network.
+
+Docker is installed for you if it's missing.
+
+## Install
+
+Run this on the server and choose **2) An Envi instance**:
+
+```bash
+curl -fsSL https://install.envisecrets.com | sh
+```
+
+The same command installs the CLI on a laptop; on a server you pick the instance. To skip the question:
+
+```bash
+curl -fsSL https://install.envisecrets.com | sh -s instance
+```
+
+<Steps>
+  <Step title="It checks the server">
+    Linux, root, Docker and the Docker Compose plugin. It also checks that ports 3000 and 8080 are free.
+  </Step>
+  <Step title="It asks four things">
+    **Admin email and password.** This person sees every project and manages everyone else. Press Enter at the password to have one generated; it's shown once at the end.
+
+    **A domain**, or none. See [Domains and HTTPS](#domains-and-https).
+
+    **Docker or pm2.** See [Docker or pm2](#docker-or-pm2).
+
+    Then it shows what it's about to do and asks before changing anything.
+  </Step>
+  <Step title="It installs and starts Envi">
+    It downloads the latest release to `/opt/envi`, writes fresh keys, starts Postgres and Redis, creates the tables, and builds and starts the API and the dashboard. The first build takes a few minutes.
+  </Step>
+  <Step title="It tells you where everything is">
+    The last screen lists the dashboard, the API and the docs, with what each is for, and where the files you may need later are kept.
+  </Step>
+</Steps>
+
+```text
+  Envi is running.
+
+  Dashboard   https://envi.example.com
+              sign in, create projects, add people on the Users page
+  API         https://api.envi.example.com
+              connect the CLI: envi set-url https://api.envi.example.com && envi auth
+  Docs        https://docs.envi.example.com
+
+  Admin       you@example.com
+  Password    the one you chose
+
+  Users file  /opt/envi/data/users.toml  who can sign in; reset a forgotten password here
+  Settings    /opt/envi/.env  back it up: its ENVI_ENCRYPTION_KEY decrypts every secret
+  Manage      envi-instance status | logs | restart | backup | update | urls
+```
+
+Open the dashboard, sign in as the admin, and create your first project.
+
+## Domains and HTTPS
+
+Give the installer a domain such as `envi.example.com` and it serves three names, each with its own HTTPS certificate:
+
+| Name | What it is |
+|---|---|
+| `envi.example.com` | The dashboard. People sign in here. |
+| `api.envi.example.com` | The API. The CLI and CI talk to it. |
+| `docs.envi.example.com` | These docs, served by your instance. |
+
+Point all three at the server with **A records** before or right after installing. The installer checks them and says which don't resolve yet. Certificates are issued as soon as they do; there's nothing to rerun.
+
+With no domain, the dashboard is on `http://<server-ip>:3000` and the API on `http://<server-ip>:8080`. Sign-ins and secrets then cross the network unencrypted, so only do this on a private network or a VPN.
+
+## Docker or pm2
+
+Postgres and Redis always run in Docker. The question is where the API and the dashboard run.
+
+| | Docker | pm2 |
+|---|---|---|
+| Runs as | Containers | Processes on the server, managed by [pm2](https://pm2.keymetrics.io) |
+| Needs | Nothing more | Node.js 20 or newer (Bun and pm2 are installed for you) |
+| Choose it when | You have no preference. This is the default. | You already run your apps under pm2 and want Envi beside them. |
+
+Both are looked after with the same [`envi-instance`](/self-hosting/operations) command.
+
+## Unattended installs
+
+Every question can be answered ahead with an environment variable, for provisioning scripts:
+
+```bash
+curl -fsSL https://install.envisecrets.com -o install.sh
+sudo ENVI_INSTALL=instance \
+  ENVI_ADMIN_EMAIL=you@example.com \
+  ENVI_ADMIN_PASSWORD='a long password' \
+  ENVI_DOMAIN=envi.example.com \
+  ENVI_RUNTIME=docker \
+  ENVI_YES=1 \
+  sh install.sh
+```
+
+| Variable | Meaning |
+|---|---|
+| `ENVI_ADMIN_EMAIL`, `ENVI_ADMIN_PASSWORD` | The admin. The password needs at least 10 characters. |
+| `ENVI_DOMAIN` | Your domain, or `none` for the server's IP over HTTP. |
+| `ENVI_RUNTIME` | `docker` or `pm2`. |
+| `ENVI_YES` | `1` skips the final confirmation. |
+| `ENVI_WEB_PORT`, `ENVI_API_PORT` | Local ports for the dashboard and the API, when 3000 or 8080 is taken. |
+| `ENVI_HOME` | Where to install, instead of `/opt/envi`. |
+| `ENVI_REF` | A release to install, such as `v1.5.0`, instead of the latest. |
+
+## Next
+
+<CardGroup>
+  <Card title="Users and passwords" href="/self-hosting/users">
+    Add people, give them projects, and reset a forgotten password.
+  </Card>
+  <Card title="Connect the CLI" href="/self-hosting/cli">
+    Point `envi` and your CI at your instance.
+  </Card>
+  <Card title="Run the instance" href="/self-hosting/operations">
+    Status, logs, backups, restores and updates.
+  </Card>
+</CardGroup>

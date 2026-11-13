@@ -12,6 +12,12 @@ test("every path but /install.ps1 and /health serves install.sh", async () => {
   }
 });
 
+test("/instance.sh serves the instance installer", async () => {
+  const reply = get("/instance.sh");
+  expect(reply.headers.get("Content-Type")).toBe("text/x-sh; charset=utf-8");
+  expect(await reply.text()).toBe(await script("instance.sh"));
+});
+
 test("/install.ps1 serves the PowerShell script", async () => {
   const reply = get("/install.ps1");
   expect(reply.headers.get("Content-Type")).toBe("text/plain; charset=utf-8");

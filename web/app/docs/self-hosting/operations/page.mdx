@@ -1,0 +1,115 @@
+The installer adds one command for looking after the instance. Run it on the server.
+
+```bash
+envi-instance urls       # where the dashboard, API and docs are
+envi-instance status     # whether everything is running
+envi-instance logs       # follow the logs; or: logs api | logs web | logs db
+sudo envi-instance restart
+sudo envi-instance stop
+sudo envi-instance backup
+sudo envi-instance update
+```
+
+## Where things are
+
+Everything lives in `/opt/envi`:
+
+| Path | What it is |
+|---|---|
+| `.env` | Settings and keys. `ENVI_ENCRYPTION_KEY` here decrypts every secret. |
+| `data/users.toml` | Who can sign in. See [Users and passwords](/self-hosting/users). |
+| `compose.yml` | The Docker services: Postgres, Redis, and with Docker also the API and dashboard. |
+| `ecosystem.config.cjs` | The pm2 processes, with pm2 only. |
+| `Caddyfile` | HTTPS for your domain, when there is one. |
+| `src/` | The Envi release that is running. |
+| `backups/` | Database backups from `envi-instance backup`. |
+
+## Back up
+
+```bash
+sudo envi-instance backup
+```
+
+This writes a compressed dump of the database to `/opt/envi/backups`. Secrets in it stay encrypted.
+
+<Warning>
+  A backup is useless without the encryption key. Copy `/opt/envi/.env` somewhere off the server once, and keep it as safe as the backups: anyone with both can read every secret, and without the key nobody can, you included.
+</Warning>
+
+Copy the backups off the server too, for example from a nightly cron job:
+
+```bash
+0 3 * * * envi-instance backup && rsync -a /opt/envi/backups/ backup-host:envi/
+```
+
+## Restore
+
+On a fresh install, or the same one, with the same `.env`:
+
+```bash
+sudo envi-instance stop
+cd /opt/envi
+docker compose up -d postgres
+docker compose exec -T postgres psql -U envi -c 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;' envi
+gunzip -c backups/envi-20261112-030000.sql.gz | docker compose exec -T postgres psql -q -U envi envi
+sudo envi-instance restart
+```
+
+## Update
+
+```bash
+sudo envi-instance update          # the latest release
+sudo envi-instance update v1.6.0   # a particular one
+```
+
+It backs up first, downloads the release, applies database migrations, then rebuilds and restarts. The version it replaced stays in `/opt/envi/src.previous`.
+
+## Change a setting
+
+Edit `/opt/envi/.env`, then `sudo envi-instance restart`.
+
+| Setting | Meaning |
+|---|---|
+| `ENVI_WEB_URL` | The dashboard's public address. The CLI's sign-in links are built from it. |
+| `ENVI_PUBLIC_API_URL` | The API's public address, as shown by `envi-instance urls`. |
+| `WEB_PORT`, `API_PORT` | Local ports for the dashboard and the API. |
+| `ENVI_PLAIN_HTTP` | `1` when there is no HTTPS, so sign-in cookies work over plain HTTP. |
+
+Never change `ENVI_ENCRYPTION_KEY`: secrets stored under the old key can't be read with a new one.
+
+## Add a domain later
+
+<Steps>
+  <Step title="Point the names at the server">
+    A records for `envi.example.com`, `api.envi.example.com` and `docs.envi.example.com`.
+  </Step>
+  <Step title="Write the Caddyfile">
+    In `/opt/envi/Caddyfile`:
+
+    ```text
+    envi.example.com, docs.envi.example.com {
+    	reverse_proxy 127.0.0.1:3000
+    }
+
+    api.envi.example.com {
+    	reverse_proxy 127.0.0.1:8080
+    }
+    ```
+  </Step>
+  <Step title="Update the settings">
+    In `/opt/envi/.env`: `ENVI_WEB_URL=https://envi.example.com`, `ENVI_PUBLIC_API_URL=https://api.envi.example.com`, `ENVI_DOCS_URL=https://docs.envi.example.com`, `ENVI_PLAIN_HTTP=0`, `PUBLISH_HOST=127.0.0.1`, and add `https` to `COMPOSE_PROFILES` (`app,https` with Docker, `https` with pm2).
+  </Step>
+  <Step title="Restart">
+    `sudo envi-instance restart`, then `envi set-url https://api.envi.example.com` on each machine with the CLI.
+  </Step>
+</Steps>
+
+## Something's wrong
+
+| What you see | Try |
+|---|---|
+| The dashboard doesn't load | `envi-instance status`, then `envi-instance logs web` |
+| Sign-in fails with the right password | `envi-instance logs api`. Check `users.toml` has the person and exactly one admin. |
+| HTTPS doesn't work | The three A records must point at the server, and ports 80 and 443 must be open. `docker compose logs caddy` in `/opt/envi` says why. |
+| The CLI says no Envi API answered | Use the API address, not the dashboard's: `envi-instance urls` shows both. |
+| The installer stopped | It prints the last lines of `/tmp/envi-install.log`; the whole file has the rest. It's safe to run again until it has written `/opt/envi/.env`. |

@@ -1,0 +1,44 @@
+The CLI talks to hosted Envi until you point it at your instance. Use the **API** address, not the dashboard's.
+
+## On your machine
+
+```bash
+envi set-url https://api.envi.example.com
+envi auth
+```
+
+`envi set-url` checks that an Envi API answers at that address before saving it, and signs you out of the server you were using. `envi auth` then opens your instance's dashboard to approve the sign-in, where you sign in with your email and password.
+
+Everything else works the same: `envi init`, `envi push`, `envi run`, the shell hook.
+
+```bash
+envi set-url            # which server, and where that setting comes from
+envi set-url --reset    # back to hosted Envi
+```
+
+## On a server without a browser
+
+Create a personal API key in the dashboard's **Settings**, then:
+
+```bash
+envi set-url https://api.envi.example.com
+envi auth --key envi_...
+```
+
+## In CI and containers
+
+Set the API address with `ENVI_API_URL` next to a [service token](/ci-service-tokens). No `envi set-url` is needed, since the environment variable takes precedence over it:
+
+```yaml
+- name: Pull secrets
+  env:
+    ENVI_TOKEN: ${{ secrets.ENVI_TOKEN }}
+    ENVI_API_URL: https://api.envi.example.com
+  run: envi run -- npm test
+```
+
+The same two variables work in [Docker](/docker).
+
+## An instance with no domain
+
+Use the address the installer printed, such as `http://10.0.0.5:8080`. `envi set-url` accepts it and warns that it's plain HTTP: anyone on the network between you and the server could read your sign-in and secrets.
