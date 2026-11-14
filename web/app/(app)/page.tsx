@@ -49,7 +49,7 @@ export default async function Home() {
     <header className="site-header">
       <div className="site-header-inner">
         <Brand />
-        <nav><a href="#secrets">Product</a><a href="#access">Access</a><a href="#audit">Audit</a><a href="#pricing">Pricing</a><a href={DOCS}>Docs</a></nav>
+        <nav><a href="#secrets">Product</a><a href="#access">Access</a><a href="#audit">Audit</a><a href="#pricing">Pricing</a><a href={DOCS}>Docs</a><Link href="/changelog">Changelog</Link></nav>
         <div className="header-actions">
           <ThemeToggle />
           {user
@@ -190,7 +190,7 @@ export default async function Home() {
 
     <footer className="lp-footer">
       <div><Brand /><span>Secrets workflow for modern teams.</span></div>
-      <nav><a href={DOCS}>Docs</a><a href={GITHUB}>GitHub</a><Link href="/auth">Sign in</Link></nav>
+      <nav><a href={DOCS}>Docs</a><Link href="/changelog">Changelog</Link><a href={GITHUB}>GitHub</a><Link href="/auth">Sign in</Link></nav>
     </footer>
     <CookieConsent />
   </div>;
