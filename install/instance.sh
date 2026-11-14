@@ -170,7 +170,10 @@ questions() {
 
   printf '\n  %sAbout to install:%s\n' "$B" "$N"
   printf '    Admin       %s\n    Dashboard   %s\n    API         %s\n    Runs on     %s\n    Folder      %s\n' "$ADMIN_EMAIL" "$WEB_URL" "$API_URL" "$RUNTIME" "$ROOT"
-  [ "${ENVI_YES:-}" = 1 ] || { [ "$(ask "Go ahead? [Y/n] " y)" = n ] && { printf '  Nothing was changed.\n\n'; exit 0; }; }
+  if [ "${ENVI_YES:-}" != 1 ] && [ "$(ask "Go ahead? [Y/n] " y)" = n ]; then
+    printf '  Nothing was changed.\n\n'
+    exit 0
+  fi
 }
 
 # ports_free stops the install before anything changes if a port this setup needs is taken.
