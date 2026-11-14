@@ -1,0 +1,13 @@
+# With pm2: the API runs on the host, so it reaches Postgres and Redis on 127.0.0.1 ports,
+# and Caddy shares the host's network to reach the API and dashboard there.
+services:
+  postgres:
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-55432}:5432"
+  redis:
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-56379}:6379"
+  caddy:
+    network_mode: host
+    networks: !reset []
+    ports: !reset []

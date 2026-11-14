@@ -18,9 +18,11 @@ Everything lives in `/opt/envi`:
 |---|---|
 | `.env` | Settings and keys. `ENVI_ENCRYPTION_KEY` here decrypts every secret. |
 | `data/users.toml` | Who can sign in. See [Users and passwords](/self-hosting/users). |
-| `compose.yml` | The Docker services: Postgres, Redis, and with Docker also the API and dashboard. |
+| `compose.yml` | The Docker services: Postgres, Redis, and with Docker also the API, the dashboard and Caddy. |
+| `compose.published.yml`, `compose.pm2.yml` | Host ports for the setups that need them. `COMPOSE_FILE` in `.env` says which are used. |
 | `ecosystem.config.cjs` | The pm2 processes, with pm2 only. |
-| `Caddyfile` | HTTPS for your domain, when there is one. |
+| `Caddyfile` | HTTPS for your domain, with Envi's Caddy. |
+| `proxy.example` | Configs to copy into your own reverse proxy, when you chose one. |
 | `src/` | The Envi release that is running. |
 | `backups/` | Database backups from `envi-instance backup`. |
 
@@ -72,32 +74,42 @@ Edit `/opt/envi/.env`, then `sudo envi-instance restart`.
 |---|---|
 | `ENVI_WEB_URL` | The dashboard's public address. The CLI's sign-in links are built from it. |
 | `ENVI_PUBLIC_API_URL` | The API's public address, as shown by `envi-instance urls`. |
-| `WEB_PORT`, `API_PORT` | Local ports for the dashboard and the API. |
+| `WEB_PORT`, `API_PORT` | Local ports for the dashboard and the API, when they have one. |
+| `ENVI_PROXY` | `caddy`, `own` or `none`: how people reach the instance. |
 | `ENVI_PLAIN_HTTP` | `1` when there is no HTTPS, so sign-in cookies work over plain HTTP. |
 
 Never change `ENVI_ENCRYPTION_KEY`: secrets stored under the old key can't be read with a new one.
 
 ## Add a domain later
 
+For an instance installed with no domain:
+
 <Steps>
   <Step title="Point the names at the server">
     A records for `envi.example.com`, `api.envi.example.com` and `docs.envi.example.com`.
   </Step>
   <Step title="Write the Caddyfile">
-    In `/opt/envi/Caddyfile`:
+    In `/opt/envi/Caddyfile`. With Docker the upstreams are `web:3000` and `api:8080`; with pm2 they are `127.0.0.1:3000` and `127.0.0.1:8080`.
 
     ```text
     envi.example.com, docs.envi.example.com {
-    	reverse_proxy 127.0.0.1:3000
+    	reverse_proxy web:3000
     }
 
     api.envi.example.com {
-    	reverse_proxy 127.0.0.1:8080
+    	reverse_proxy api:8080
     }
     ```
+
+    Using your own reverse proxy instead? Skip this file and point your proxy at `127.0.0.1:3000` and `127.0.0.1:8080`, as in [Behind your own proxy](/self-hosting#behind-your-own-proxy).
   </Step>
   <Step title="Update the settings">
-    In `/opt/envi/.env`: `ENVI_WEB_URL=https://envi.example.com`, `ENVI_PUBLIC_API_URL=https://api.envi.example.com`, `ENVI_DOCS_URL=https://docs.envi.example.com`, `ENVI_PLAIN_HTTP=0`, `PUBLISH_HOST=127.0.0.1`, and add `https` to `COMPOSE_PROFILES` (`app,https` with Docker, `https` with pm2).
+    In `/opt/envi/.env`:
+
+    - `ENVI_WEB_URL=https://envi.example.com`, `ENVI_PUBLIC_API_URL=https://api.envi.example.com`, `ENVI_DOCS_URL=https://docs.envi.example.com`
+    - `ENVI_PLAIN_HTTP=0` and `PUBLISH_HOST=127.0.0.1`
+    - With Envi's Caddy: `ENVI_PROXY=caddy`, and add `https` to `COMPOSE_PROFILES` (`app,https` with Docker, `https` with pm2). With Docker, also remove `:/opt/envi/compose.published.yml` from `COMPOSE_FILE`, so the dashboard and API stop publishing ports.
+    - With your own proxy: `ENVI_PROXY=own`.
   </Step>
   <Step title="Restart">
     `sudo envi-instance restart`, then `envi set-url https://api.envi.example.com` on each machine with the CLI.
@@ -110,6 +122,7 @@ Never change `ENVI_ENCRYPTION_KEY`: secrets stored under the old key can't be re
 |---|---|
 | The dashboard doesn't load | `envi-instance status`, then `envi-instance logs web` |
 | Sign-in fails with the right password | `envi-instance logs api`. Check `users.toml` has the person and exactly one admin. |
-| HTTPS doesn't work | The three A records must point at the server, and ports 80 and 443 must be open. `docker compose logs caddy` in `/opt/envi` says why. |
+| HTTPS doesn't work | The three A records must point at the server, and ports 80 and 443 must be open. `docker compose logs caddy` in `/opt/envi` says why. Behind your own proxy, check that proxy's logs. |
+| The installer says port 80 or 443 is in use | Another web server runs here. Choose "A domain, my own proxy", or `ENVI_PROXY=own`. |
 | The CLI says no Envi API answered | Use the API address, not the dashboard's: `envi-instance urls` shows both. |
 | The installer stopped | It prints the last lines of `/tmp/envi-install.log`; the whole file has the rest. It's safe to run again until it has written `/opt/envi/.env`. |

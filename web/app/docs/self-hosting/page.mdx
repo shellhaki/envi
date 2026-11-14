@@ -6,7 +6,7 @@ You sign in with an email and a password. The admin you create during the instal
 
 - A Linux server with 2 GB of memory or more. Ubuntu, Debian, Fedora and most others work.
 - Root access, or a user who can `sudo`.
-- Optional: a domain. With one, Envi gets HTTPS certificates from Let's Encrypt. Without one, it runs on the server's IP address over plain HTTP, which only belongs on a private network.
+- Optional: a domain. With one, Envi gets HTTPS certificates from Let's Encrypt, or sits behind the reverse proxy you already run. Without one, it runs on the server's IP address over plain HTTP, which only belongs on a private network.
 
 Docker is installed for you if it's missing.
 
@@ -26,12 +26,12 @@ curl -fsSL https://install.envisecrets.com | sh -s instance
 
 <Steps>
   <Step title="It checks the server">
-    Linux, root, Docker and the Docker Compose plugin. It also checks that ports 3000 and 8080 are free.
+    Linux, root, Docker and the Docker Compose plugin. Once you've answered the questions, it checks that the ports your setup needs are free, before it changes anything.
   </Step>
   <Step title="It asks four things">
     **Admin email and password.** This person sees every project and manages everyone else. Press Enter at the password to have one generated; it's shown once at the end.
 
-    **A domain**, or none. See [Domains and HTTPS](#domains-and-https).
+    **How people reach it**: a domain with HTTPS from Envi, a domain behind your own reverse proxy, or no domain. See [Domains and HTTPS](#domains-and-https).
 
     **Docker or pm2.** See [Docker or pm2](#docker-or-pm2).
 
@@ -66,7 +66,15 @@ Open the dashboard, sign in as the admin, and create your first project.
 
 ## Domains and HTTPS
 
-Give the installer a domain such as `envi.example.com` and it serves three names, each with its own HTTPS certificate:
+The installer asks how people reach Envi:
+
+| Choice | What happens | Choose it when |
+|---|---|---|
+| **1) A domain, HTTPS by Envi** | Envi runs [Caddy](https://caddyserver.com), which gets certificates from Let's Encrypt. It takes ports 80 and 443. | Nothing else on the server serves websites. |
+| **2) A domain, my own proxy** | Envi listens on `127.0.0.1` only, and you point your nginx, Traefik or Caddy at it. | The server already runs other sites behind a reverse proxy. If ports 80 or 443 are taken, the installer suggests this one. |
+| **3) No domain** | The dashboard is on `http://<server-ip>:3000` and the API on `http://<server-ip>:8080`. | A private network or a VPN only: sign-ins and secrets cross the network unencrypted. |
+
+With a domain such as `envi.example.com`, Envi serves three names:
 
 | Name | What it is |
 |---|---|
@@ -74,9 +82,47 @@ Give the installer a domain such as `envi.example.com` and it serves three names
 | `api.envi.example.com` | The API. The CLI and CI talk to it. |
 | `docs.envi.example.com` | These docs, served by your instance. |
 
-Point all three at the server with **A records** before or right after installing. The installer checks them and says which don't resolve yet. Certificates are issued as soon as they do; there's nothing to rerun.
+Point all three at the server with **A records** before or right after installing. The installer checks them and says which don't resolve yet. With Envi's Caddy, certificates are issued as soon as they do; there's nothing to rerun.
 
-With no domain, the dashboard is on `http://<server-ip>:3000` and the API on `http://<server-ip>:8080`. Sign-ins and secrets then cross the network unencrypted, so only do this on a private network or a VPN.
+### Behind your own proxy
+
+The installer writes `/opt/envi/proxy.example` with ready configs for Caddy, nginx and a proxy that runs in Docker. Envi listens on:
+
+| Name | Send it to |
+|---|---|
+| `envi.example.com`, `docs.envi.example.com` | `127.0.0.1:3000` |
+| `api.envi.example.com` | `127.0.0.1:8080` |
+
+For Caddy, that's:
+
+```text
+envi.example.com, docs.envi.example.com {
+	reverse_proxy 127.0.0.1:3000
+}
+
+api.envi.example.com {
+	reverse_proxy 127.0.0.1:8080
+}
+```
+
+Serve all three names over HTTPS: sign-in cookies are only sent over HTTPS.
+
+If your proxy runs in a Docker container (Traefik, nginx-proxy, or Caddy in Docker), `127.0.0.1` is the container itself. Connect it to Envi's network instead, and proxy to `web:3000` and `api:8080`:
+
+```bash
+docker network connect envi <your-proxy-container>
+```
+
+## Isolation
+
+Envi keeps to itself on a server that runs other things. With Docker:
+
+- Every part runs in its own container under the Compose project `envi`, with its files in `/opt/envi`.
+- The containers talk over two private networks. `envi` holds the dashboard and the API; `envi-data` holds the API, Postgres and Redis. A proxy you connect to `envi` can't reach the database.
+- Postgres and Redis publish no port. Nothing else on the server can reach them.
+- The only ports on the server are 80 and 443 with Envi's Caddy, or `127.0.0.1:3000` and `127.0.0.1:8080` behind your own proxy, or those two on every address with no domain.
+
+To remove it completely: `cd /opt/envi && docker compose down -v`, then delete `/opt/envi` and `/usr/local/bin/envi-instance`.
 
 ## Docker or pm2
 
@@ -84,9 +130,12 @@ Postgres and Redis always run in Docker. The question is where the API and the d
 
 | | Docker | pm2 |
 |---|---|---|
-| Runs as | Containers | Processes on the server, managed by [pm2](https://pm2.keymetrics.io) |
+| Runs as | Containers on Envi's own private networks | Processes on the server, managed by [pm2](https://pm2.keymetrics.io) |
 | Needs | Nothing more | Node.js 20 or newer (Bun and pm2 are installed for you) |
-| Choose it when | You have no preference. This is the default. | You already run your apps under pm2 and want Envi beside them. |
+| Listens on | Only what [your choice of domain](#domains-and-https) needs | The same, plus Postgres on `127.0.0.1:55432` and Redis on `127.0.0.1:56379` for the API to reach |
+| Choose it when | You have no preference. This is the default, and the most isolated. | You already run your apps under pm2 and want Envi beside them. |
+
+With pm2, everything still listens on `127.0.0.1` only, unless you chose no domain. Other programs on the same server can reach those ports, though; Docker is the choice when that matters.
 
 Both are looked after with the same [`envi-instance`](/self-hosting/operations) command.
 
@@ -100,6 +149,7 @@ sudo ENVI_INSTALL=instance \
   ENVI_ADMIN_EMAIL=you@example.com \
   ENVI_ADMIN_PASSWORD='a long password' \
   ENVI_DOMAIN=envi.example.com \
+  ENVI_PROXY=caddy \
   ENVI_RUNTIME=docker \
   ENVI_YES=1 \
   sh install.sh
@@ -109,6 +159,7 @@ sudo ENVI_INSTALL=instance \
 |---|---|
 | `ENVI_ADMIN_EMAIL`, `ENVI_ADMIN_PASSWORD` | The admin. The password needs at least 10 characters. |
 | `ENVI_DOMAIN` | Your domain, or `none` for the server's IP over HTTP. |
+| `ENVI_PROXY` | With a domain: `caddy` for HTTPS by Envi (the default), or `own` for your own reverse proxy. |
 | `ENVI_RUNTIME` | `docker` or `pm2`. |
 | `ENVI_YES` | `1` skips the final confirmation. |
 | `ENVI_WEB_PORT`, `ENVI_API_PORT` | Local ports for the dashboard and the API, when 3000 or 8080 is taken. |

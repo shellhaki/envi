@@ -12,7 +12,16 @@ fail() { printf '%s✗%s %s\n' "$R" "$N" "$*" >&2; exit 1; }
 [ -f "$ROOT/.env" ] || fail "no Envi instance at $ROOT (set ENVI_HOME if it lives elsewhere)"
 setting() { grep -E "^$1=" "$ROOT/.env" | tail -1 | cut -d= -f2-; }
 RUNTIME=$(setting ENVI_RUNTIME)
-compose() { docker compose --project-directory "$ROOT" -f "$ROOT/compose.yml" "$@"; }
+PROXY=$(setting ENVI_PROXY)
+compose() { (cd "$ROOT" && docker compose "$@"); }
+
+# probe asks a service for a page: on its host port when it has one, otherwise from inside its container.
+probe() {
+  local service="$1" inside="$2" outside="$3" path="$4"
+  if [ "$RUNTIME" = docker ] && [ "$PROXY" = caddy ]; then compose exec -T "$service" wget -q -O /dev/null "http://127.0.0.1:$inside$path"
+  else curl -fsS --max-time 5 -o /dev/null "http://127.0.0.1:$outside$path"
+  fi
+}
 as_root() { [ "$(id -u)" -eq 0 ] || fail "run this as root: sudo envi-instance $*"; }
 
 urls() {
@@ -20,6 +29,11 @@ urls() {
   say "  ${B}Dashboard${N}  $(setting ENVI_WEB_URL)   ${D}sign in, manage projects and users${N}"
   say "  ${B}API${N}        $(setting ENVI_PUBLIC_API_URL)   ${D}for the CLI: envi set-url $(setting ENVI_PUBLIC_API_URL)${N}"
   say "  ${B}Docs${N}       $(setting ENVI_DOCS_URL)"
+  if [ "$PROXY" = own ]; then
+    say ""
+    say "  ${D}Your reverse proxy sends the dashboard to 127.0.0.1:$(setting WEB_PORT) and the API to 127.0.0.1:$(setting API_PORT).${N}"
+    say "  ${D}Example config: $ROOT/proxy.example${N}"
+  fi
   say ""
   say "  ${D}Users file${N}  $ROOT/data/users.toml   ${D}reset a password here${N}"
   say "  ${D}Settings${N}    $ROOT/.env   ${D}back this up: ENVI_ENCRYPTION_KEY decrypts every secret${N}"
@@ -30,8 +44,8 @@ status() {
   compose ps
   if [ "$RUNTIME" = "pm2" ]; then pm2 status envi-api envi-web; fi
   local api web; api=$(setting API_PORT); web=$(setting WEB_PORT)
-  if curl -fsS --max-time 5 "http://127.0.0.1:$api/health" >/dev/null 2>&1; then say "${G}✓${N} API answers"; else say "${R}✗${N} API is not answering on 127.0.0.1:$api"; fi
-  if curl -fsS --max-time 5 -o /dev/null "http://127.0.0.1:$web/auth" 2>/dev/null; then say "${G}✓${N} Dashboard answers"; else say "${R}✗${N} Dashboard is not answering on 127.0.0.1:$web"; fi
+  if probe api 8080 "$api" /health >/dev/null 2>&1; then say "${G}✓${N} API answers"; else say "${R}✗${N} API is not answering"; fi
+  if probe web 3000 "$web" /auth >/dev/null 2>&1; then say "${G}✓${N} Dashboard answers"; else say "${R}✗${N} Dashboard is not answering"; fi
 }
 
 logs() {
@@ -39,8 +53,9 @@ logs() {
   if [ "$RUNTIME" = "pm2" ] && { [ "$which" = api ] || [ "$which" = web ]; }; then exec pm2 logs "envi-$which"; fi
   if [ "$RUNTIME" = "pm2" ] && [ -z "$which" ]; then exec pm2 logs envi-api envi-web; fi
   case "$which" in db) which=postgres ;; "") which="" ;; esac
+  cd "$ROOT"
   # shellcheck disable=SC2086
-  exec docker compose --project-directory "$ROOT" -f "$ROOT/compose.yml" logs -f --tail 100 $which
+  exec docker compose logs -f --tail 100 $which
 }
 
 restart() {
@@ -83,6 +98,8 @@ update() {
   rm -rf "$ROOT/src.previous"; [ -d "$ROOT/src" ] && mv "$ROOT/src" "$ROOT/src.previous"
   mv "$work" "$ROOT/src"
   sed -i "s/^ENVI_SOURCE_REF=.*/ENVI_SOURCE_REF=$ref/" "$ROOT/.env"
+  cp "$ROOT"/src/selfhost/compose*.yml "$ROOT/"
+  if [ "$RUNTIME" = pm2 ]; then cp "$ROOT/src/selfhost/ecosystem.config.cjs" "$ROOT/"; fi
   say "${C}→${N} applying database migrations"
   for f in "$ROOT"/src/migrations/[0-9]*.sql; do compose exec -T postgres psql -q -U envi envi -v ON_ERROR_STOP=1 < "$f" >/dev/null; done
   say "${C}→${N} rebuilding"

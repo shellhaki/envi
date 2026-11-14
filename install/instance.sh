@@ -3,7 +3,8 @@
 # with Caddy for HTTPS when there is a domain. Run it through install.envisecrets.com and choose "instance".
 #
 # Every question can be answered ahead, for an unattended install:
-#   ENVI_ADMIN_EMAIL, ENVI_ADMIN_PASSWORD, ENVI_DOMAIN (or "none"), ENVI_RUNTIME (docker or pm2), ENVI_YES=1
+#   ENVI_ADMIN_EMAIL, ENVI_ADMIN_PASSWORD, ENVI_DOMAIN (or "none"), ENVI_PROXY (caddy or own),
+#   ENVI_RUNTIME (docker or pm2), ENVI_YES=1
 # and the local ports, if 3000 or 8080 is taken: ENVI_WEB_PORT, ENVI_API_PORT.
 set -euo pipefail
 
@@ -29,6 +30,19 @@ fail() {
 ask() { local prompt="$1" default="${2:-}" answer; printf '  %s' "$prompt" >/dev/tty; read -r answer </dev/tty || true; printf '%s' "${answer:-$default}"; }
 secret() { local prompt="$1" answer; printf '  %s' "$prompt" >/dev/tty; read -rs answer </dev/tty || true; printf '\n' >/dev/tty; printf '%s' "$answer"; }
 random_hex() { head -c "$1" /dev/urandom | od -An -tx1 | tr -d ' \n'; }
+port_busy() { (: </dev/tcp/127.0.0.1/"$1") 2>/dev/null; }
+compose() { (cd "$ROOT" && docker compose "$@"); }
+
+# probe asks a service for a page: on its host port when it has one, otherwise from inside its container.
+probe() {
+  local service="$1" inside="$2" outside="$3" path="$4"
+  if [ "$PUBLISHED" = 1 ]; then curl -fsS -o /dev/null "http://127.0.0.1:$outside$path"
+  else compose exec -T "$service" wget -q -O /dev/null "http://127.0.0.1:$inside$path"
+  fi
+}
+wait_for() { for _ in $(seq 90); do probe "$@" >/dev/null 2>&1 && return 0; sleep 2; done; return 1; }
+wait_for_postgres() { for _ in $(seq 90); do compose exec -T postgres pg_isready -h 127.0.0.1 -U envi >/dev/null 2>&1 && return 0; sleep 1; done; return 1; }
+create_tables() { compose exec -T postgres psql -q -U envi envi -v ON_ERROR_STOP=1 <"$ROOT/src/migrations/schema.sql"; }
 
 # run shows a spinner while a long command writes to the log, and stops the install if it fails.
 run() {
@@ -59,7 +73,7 @@ preflight() {
   if [ "$(id -u)" -ne 0 ]; then
     command -v sudo >/dev/null || fail "run this as root"
     note "needs root for Docker, $ROOT and ports 80/443; asking sudo"
-    exec sudo --preserve-env=ENVI_HOME,ENVI_SOURCE,ENVI_REF,ENVI_WEB_PORT,ENVI_API_PORT,ENVI_ADMIN_EMAIL,ENVI_ADMIN_PASSWORD,ENVI_DOMAIN,ENVI_RUNTIME,ENVI_YES bash "$0" "$@"
+    exec sudo --preserve-env=ENVI_HOME,ENVI_SOURCE,ENVI_REF,ENVI_WEB_PORT,ENVI_API_PORT,ENVI_ADMIN_EMAIL,ENVI_ADMIN_PASSWORD,ENVI_DOMAIN,ENVI_PROXY,ENVI_RUNTIME,ENVI_YES bash "$0" "$@"
   fi
   : >"$LOG"
   for tool in curl tar od; do command -v "$tool" >/dev/null || fail "'$tool' is needed; install it and run this again"; done
@@ -75,11 +89,6 @@ preflight() {
     run "Installing Docker" sh -c 'curl -fsSL https://get.docker.com | sh'
   fi
   docker compose version >/dev/null 2>&1 || fail "the Docker Compose plugin is missing (docker compose version fails)"
-  for port in "$WEB_PORT" "$API_PORT"; do
-    if (: </dev/tcp/127.0.0.1/"$port") 2>/dev/null; then
-      fail "port $port is already in use; free it, or choose others: ENVI_WEB_PORT=3100 ENVI_API_PORT=8180"
-    fi
-  done
   ok "Linux, root, Docker $(docker version --format '{{.Server.Version}}' 2>/dev/null || echo ready)"
 }
 
@@ -106,45 +115,77 @@ questions() {
   [ "${#ADMIN_PASSWORD}" -ge 10 ] || fail "the admin password needs at least 10 characters"
 
   printf '\n'
-  note "With a domain, Envi gets HTTPS from Let's Encrypt. Without one, it runs on this server's IP over plain HTTP."
-  DOMAIN="${ENVI_DOMAIN:-}"
-  [ -n "$DOMAIN" ] || DOMAIN=$(ask "Domain (e.g. envi.example.com, or Enter for none): ")
-  if [ "$DOMAIN" = none ]; then DOMAIN=""; fi
-  DOMAIN=$(printf '%s' "$DOMAIN" | tr '[:upper:]' '[:lower:]')
-  DOMAIN="${DOMAIN#http://}"; DOMAIN="${DOMAIN#https://}"; DOMAIN="${DOMAIN%%/*}"
   IP=$(curl -fsS --max-time 5 https://checkip.amazonaws.com 2>/dev/null | tr -d '[:space:]' || true)
   [ -n "$IP" ] || IP=$(hostname -I 2>/dev/null | awk '{print $1}')
-  if [ -n "$DOMAIN" ]; then
+  DOMAIN="${ENVI_DOMAIN:-}"; PROXY="${ENVI_PROXY:-}"
+  if [ "$DOMAIN" = none ]; then DOMAIN=""; PROXY=none; fi
+  if [ -z "$PROXY" ] && [ -n "$DOMAIN" ]; then PROXY=caddy; fi
+  if [ -z "$PROXY" ]; then
+    local choice=1
+    note "How do people reach Envi?"
+    printf '  %s1)%s A domain, HTTPS by Envi   Caddy gets certificates from Let'"'"'s Encrypt (takes ports 80 and 443)\n' "$B" "$N"
+    printf '  %s2)%s A domain, my own proxy    nginx, Traefik or Caddy already runs here; Envi listens on 127.0.0.1 only\n' "$B" "$N"
+    printf '  %s3)%s No domain                 this server'"'"'s IP over plain HTTP\n' "$B" "$N"
+    if port_busy 80 || port_busy 443; then warn "something already listens on port 80 or 443 here, so 2) is likely the one"; choice=2; fi
+    case "$(ask "Choose [$choice]: " "$choice")" in 2) PROXY=own ;; 3) PROXY=none ;; *) PROXY=caddy ;; esac
+  fi
+  case "$PROXY" in caddy | own | none) ;; *) fail "ENVI_PROXY must be caddy or own" ;; esac
+
+  if [ "$PROXY" != none ]; then
+    while [ -z "$DOMAIN" ]; do DOMAIN=$(ask "Domain (e.g. envi.example.com): "); done
+    DOMAIN=$(printf '%s' "$DOMAIN" | tr '[:upper:]' '[:lower:]')
+    DOMAIN="${DOMAIN#http://}"; DOMAIN="${DOMAIN#https://}"; DOMAIN="${DOMAIN%%/*}"
     note "These three names must point at this server ($IP) with A records:"
     for name in "$DOMAIN" "api.$DOMAIN" "docs.$DOMAIN"; do
-      resolved=$(getent ahostsv4 "$name" 2>/dev/null | awk 'NR==1{print $1}')
+      resolved=$(getent ahostsv4 "$name" 2>/dev/null | awk 'NR==1{print $1}' || true)
       if [ "$resolved" = "$IP" ]; then ok "$name → $IP"
       elif [ -z "$resolved" ]; then warn "$name doesn't resolve yet"
       else warn "$name points at $resolved, not $IP"
       fi
     done
-    note "Certificates are issued once they do; until then HTTPS fails. You can fix DNS after installing."
+    if [ "$PROXY" = caddy ]; then note "Certificates are issued once they do; until then HTTPS fails. You can fix DNS after installing."
+    else note "Your proxy serves these names. The installer leaves an example config for it in $ROOT/proxy.example."
+    fi
   else
     warn "no domain: sign-ins and secrets cross the network unencrypted. Use this on a private network or add a domain later."
   fi
 
   printf '\n'
   note "How should the API and dashboard run? Postgres and Redis are in Docker either way."
-  printf '  %s1)%s Docker   everything in containers, nothing else to install %s(recommended)%s\n' "$B" "$N" "$D" "$N"
-  printf '  %s2)%s pm2      the API and dashboard as processes on this server (needs Node.js 20+; Bun and pm2 are installed)\n' "$B" "$N"
+  printf '  %s1)%s Docker   in containers on their own private network, nothing else to install %s(recommended)%s\n' "$B" "$N" "$D" "$N"
+  printf '  %s2)%s pm2      as processes on this server, for servers without Docker apps (needs Node.js 20+; Bun and pm2 are installed)\n' "$B" "$N"
   RUNTIME="${ENVI_RUNTIME:-}"
   [ -n "$RUNTIME" ] || case "$(ask "Choose [1]: " 1)" in 2) RUNTIME=pm2 ;; *) RUNTIME=docker ;; esac
   [ "$RUNTIME" = docker ] || [ "$RUNTIME" = pm2 ] || fail "ENVI_RUNTIME must be docker or pm2"
 
-  if [ -n "$DOMAIN" ]; then
-    WEB_URL="https://$DOMAIN"; API_URL="https://api.$DOMAIN"; DOCS_URL="https://docs.$DOMAIN"; PUBLISH_HOST=127.0.0.1; PLAIN=0
-  else
+  if [ "$PROXY" = none ]; then
     WEB_URL="http://$IP:$WEB_PORT"; API_URL="http://$IP:$API_PORT"; DOCS_URL="https://docs.envisecrets.com"; PUBLISH_HOST=0.0.0.0; PLAIN=1
+  else
+    WEB_URL="https://$DOMAIN"; API_URL="https://api.$DOMAIN"; DOCS_URL="https://docs.$DOMAIN"; PUBLISH_HOST=127.0.0.1; PLAIN=0
   fi
+  # With Docker behind Envi's Caddy, the dashboard and API publish no host port at all.
+  PUBLISHED=1
+  if [ "$RUNTIME" = docker ] && [ "$PROXY" = caddy ]; then PUBLISHED=0; fi
+  ports_free
 
   printf '\n  %sAbout to install:%s\n' "$B" "$N"
   printf '    Admin       %s\n    Dashboard   %s\n    API         %s\n    Runs on     %s\n    Folder      %s\n' "$ADMIN_EMAIL" "$WEB_URL" "$API_URL" "$RUNTIME" "$ROOT"
   [ "${ENVI_YES:-}" = 1 ] || { [ "$(ask "Go ahead? [Y/n] " y)" = n ] && { printf '  Nothing was changed.\n\n'; exit 0; }; }
+}
+
+# ports_free stops the install before anything changes if a port this setup needs is taken.
+ports_free() {
+  local ports=()
+  if [ "$PROXY" = caddy ]; then ports+=(80 443); fi
+  if [ "$PUBLISHED" = 1 ]; then ports+=("$WEB_PORT" "$API_PORT"); fi
+  if [ "$RUNTIME" = pm2 ]; then ports+=(55432 56379); fi
+  for port in "${ports[@]}"; do
+    port_busy "$port" || continue
+    case "$port" in
+      80 | 443) fail "port $port is already in use, probably by a web server. Choose \"my own proxy\" (ENVI_PROXY=own) to put Envi behind it." ;;
+      *) fail "port $port is already in use; free it, or choose others: ENVI_WEB_PORT=3100 ENVI_API_PORT=8180" ;;
+    esac
+  done
 }
 
 # --- 3. source ----------------------------------------------------------------
@@ -170,6 +211,11 @@ fetch_source() {
 
 configure() {
   step "Writing the configuration"
+  local compose_files="$ROOT/compose.yml" profiles=""
+  if [ "$RUNTIME" = pm2 ]; then compose_files="$compose_files:$ROOT/compose.pm2.yml"; fi
+  if [ "$RUNTIME" = docker ] && [ "$PUBLISHED" = 1 ]; then compose_files="$compose_files:$ROOT/compose.published.yml"; fi
+  if [ "$RUNTIME" = docker ]; then profiles=app; fi
+  if [ "$PROXY" = caddy ]; then profiles="${profiles:+$profiles,}https"; fi
   umask 077
   cat >"$ROOT/.env" <<EOF
 # Envi instance settings. Back this file up somewhere safe:
@@ -184,10 +230,12 @@ ENVI_WEB_URL=$WEB_URL
 ENVI_PUBLIC_API_URL=$API_URL
 ENVI_DOCS_URL=$DOCS_URL
 ENVI_PLAIN_HTTP=$PLAIN
+ENVI_PROXY=$PROXY
 PUBLISH_HOST=$PUBLISH_HOST
 WEB_PORT=$WEB_PORT
 API_PORT=$API_PORT
-COMPOSE_PROFILES=$( [ "$RUNTIME" = docker ] && printf app )$( [ -n "$DOMAIN" ] && { [ "$RUNTIME" = docker ] && printf ,; printf https; } )
+COMPOSE_FILE=$compose_files
+COMPOSE_PROFILES=$profiles
 EOF
   ok "$ROOT/.env with fresh keys"
 
@@ -206,26 +254,84 @@ password = "$escaped"
 EOF
   ok "$ROOT/data/users.toml with the admin (the password is hashed on first start)"
 
-  cp "$ROOT/src/selfhost/compose.yml" "$ROOT/compose.yml"
+  cp "$ROOT"/src/selfhost/compose*.yml "$ROOT/"
   if [ "$RUNTIME" = pm2 ]; then cp "$ROOT/src/selfhost/ecosystem.config.cjs" "$ROOT/ecosystem.config.cjs"; fi
-  if [ -n "$DOMAIN" ]; then
-    printf '%s, docs.%s {\n\treverse_proxy 127.0.0.1:%s\n}\n\napi.%s {\n\treverse_proxy 127.0.0.1:%s\n}\n' "$DOMAIN" "$DOMAIN" "$WEB_PORT" "$DOMAIN" "$API_PORT" >"$ROOT/Caddyfile"
+  if [ "$PROXY" = caddy ]; then
+    local web=web:3000 api=api:8080
+    if [ "$RUNTIME" = pm2 ]; then web="127.0.0.1:$WEB_PORT"; api="127.0.0.1:$API_PORT"; fi
+    printf '%s, docs.%s {\n\treverse_proxy %s\n}\n\napi.%s {\n\treverse_proxy %s\n}\n' "$DOMAIN" "$DOMAIN" "$web" "$DOMAIN" "$api" >"$ROOT/Caddyfile"
     ok "$ROOT/Caddyfile for $DOMAIN, api.$DOMAIN and docs.$DOMAIN"
+  fi
+  if [ "$PROXY" = own ]; then
+    proxy_example >"$ROOT/proxy.example"
+    ok "$ROOT/proxy.example to copy into your reverse proxy"
   fi
   install -m 755 "$ROOT/src/selfhost/envi-instance" /usr/local/bin/envi-instance
   ok "envi-instance command"
   umask 022
 }
 
+# proxy_example is the config for someone else's reverse proxy: Caddy, nginx, or a proxy in Docker.
+proxy_example() {
+  cat <<EOF
+# Point your reverse proxy at Envi. It listens on this server only:
+#   dashboard and docs  127.0.0.1:$WEB_PORT   ($DOMAIN, docs.$DOMAIN)
+#   API                 127.0.0.1:$API_PORT   (api.$DOMAIN)
+# Serve all three names over HTTPS; sign-in cookies need it.
+
+# --- Caddy ---------------------------------------------------------------
+
+$DOMAIN, docs.$DOMAIN {
+	reverse_proxy 127.0.0.1:$WEB_PORT
+}
+
+api.$DOMAIN {
+	reverse_proxy 127.0.0.1:$API_PORT
+}
+
+# --- nginx (add your certificates, e.g. with certbot --nginx) --------------
+
+server {
+    server_name $DOMAIN docs.$DOMAIN;
+    location / {
+        proxy_pass http://127.0.0.1:$WEB_PORT;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+}
+
+server {
+    server_name api.$DOMAIN;
+    client_max_body_size 10m;
+    location / {
+        proxy_pass http://127.0.0.1:$API_PORT;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+}
+EOF
+  if [ "$RUNTIME" = docker ]; then
+    cat <<EOF
+
+# --- A proxy in a Docker container (Traefik, Caddy, nginx-proxy) ---------------
+# 127.0.0.1 inside a container is the container itself. Instead, join Envi's network:
+#   docker network connect envi <your-proxy-container>
+# and proxy to web:3000 (dashboard and docs) and api:8080 (API).
+# The "envi" network holds only the dashboard and the API; the database is on a separate one.
+EOF
+  fi
+}
+
 # --- 5. database ----------------------------------------------------------------
 
 database() {
   step "Starting Postgres and Redis"
-  compose() { docker compose --project-directory "$ROOT" -f "$ROOT/compose.yml" "$@"; }
   run "Starting the database containers" compose up -d postgres redis
   # Over TCP: on first start the image runs a socket-only server while it initialises, then restarts.
-  run "Waiting for Postgres" sh -c "for i in \$(seq 90); do docker compose --project-directory '$ROOT' -f '$ROOT/compose.yml' exec -T postgres pg_isready -h 127.0.0.1 -U envi >/dev/null 2>&1 && exit 0; sleep 1; done; exit 1"
-  run "Creating the tables" sh -c "docker compose --project-directory '$ROOT' -f '$ROOT/compose.yml' exec -T postgres psql -q -U envi envi -v ON_ERROR_STOP=1 < '$ROOT/src/migrations/schema.sql'"
+  run "Waiting for Postgres" wait_for_postgres
+  run "Creating the tables" create_tables
 }
 
 # --- 6. the app -------------------------------------------------------------------
@@ -234,7 +340,7 @@ app() {
   step "Starting Envi on $RUNTIME"
   if [ "$RUNTIME" = docker ]; then
     note "Building the images takes a few minutes the first time."
-    run "Building and starting the API and dashboard" docker compose --project-directory "$ROOT" -f "$ROOT/compose.yml" up -d --build
+    run "Building and starting the API and dashboard" compose up -d --build
   else
     command -v node >/dev/null && [ "$(node -p 'process.versions.node.split(".")[0]')" -ge 20 ] || fail "pm2 needs Node.js 20 or newer; install it, or choose Docker"
     if ! command -v bun >/dev/null; then
@@ -250,7 +356,7 @@ app() {
     if { pm2 save && pm2 startup systemd -u root --hp /root; } >>"$LOG" 2>&1; then ok "Starting them again after a reboot"
     else warn "pm2 couldn't set itself up to start on boot (no systemd?). After a reboot, run: pm2 resurrect"
     fi
-    if [ -n "$DOMAIN" ]; then run "Starting Caddy" docker compose --project-directory "$ROOT" -f "$ROOT/compose.yml" up -d caddy; fi
+    if [ "$PROXY" = caddy ]; then run "Starting Caddy" compose up -d caddy; fi
   fi
 }
 
@@ -258,9 +364,9 @@ app() {
 
 verify() {
   step "Checking it works"
-  run "API answering" sh -c "for i in \$(seq 90); do curl -fsS http://127.0.0.1:$API_PORT/health >/dev/null 2>&1 && exit 0; sleep 2; done; exit 1"
-  run "Dashboard answering" sh -c "for i in \$(seq 90); do curl -fsS -o /dev/null http://127.0.0.1:$WEB_PORT/auth 2>/dev/null && exit 0; sleep 2; done; exit 1"
-  if [ -n "$DOMAIN" ]; then
+  run "API answering" wait_for api 8080 "$API_PORT" /health
+  run "Dashboard answering" wait_for web 3000 "$WEB_PORT" /auth
+  if [ "$PROXY" = caddy ]; then
     if curl -fsS --max-time 60 -o /dev/null "$API_URL/health" 2>/dev/null; then ok "HTTPS on $DOMAIN"
     else warn "HTTPS isn't answering yet. It starts once DNS points here; check with: envi-instance status"
     fi
@@ -272,6 +378,12 @@ summary() {
   printf '  %-11s %s\n  %-11s %s\n' "Dashboard" "$WEB_URL" "" "${D}sign in, create projects, add people on the Users page${N}"
   printf '  %-11s %s\n  %-11s %s\n' "API" "$API_URL" "" "${D}connect the CLI: envi set-url $API_URL && envi auth${N}"
   printf '  %-11s %s\n\n' "Docs" "$DOCS_URL"
+  if [ "$PROXY" = own ]; then
+    printf '  %s%sOne step left:%s point your reverse proxy at Envi.\n' "$Y" "$B" "$N"
+    printf '  %-11s 127.0.0.1:%s   %s\n' "Dashboard" "$WEB_PORT" "${D}for $DOMAIN and docs.$DOMAIN${N}"
+    printf '  %-11s 127.0.0.1:%s   %s\n' "API" "$API_PORT" "${D}for api.$DOMAIN${N}"
+    printf '  %-11s %s   %s\n\n' "Example" "$ROOT/proxy.example" "${D}Caddy, nginx, and a proxy in Docker${N}"
+  fi
   printf '  %-11s %s\n' "Admin" "$ADMIN_EMAIL"
   if [ "${GENERATED:-0}" = 1 ]; then
     printf '  %-11s %s%s%s  %s(shown once; change it in Settings)%s\n' "Password" "$B" "$ADMIN_PASSWORD" "$N" "$D" "$N"

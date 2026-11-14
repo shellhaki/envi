@@ -1,6 +1,11 @@
 # A self-hosted Envi instance. The installer copies this to /opt/envi and writes .env next to it.
 # Postgres and Redis always run here; with ENVI_RUNTIME=docker the API and dashboard do too (profile "app"),
 # with pm2 they run on the host. Caddy (profile "https") serves your domain over HTTPS.
+#
+# Nothing here publishes a port except Caddy on 80 and 443. The services reach each other on two private
+# networks: "envi" for the dashboard, the API and a reverse proxy, and "envi-data" for the API and its
+# database, so a proxy container you connect to "envi" never sees Postgres or Redis.
+# compose.published.yml and compose.pm2.yml add host ports for the setups that need them; .env picks the files.
 name: envi
 
 services:
@@ -13,8 +18,7 @@ services:
       POSTGRES_DB: envi
     volumes:
       - postgres:/var/lib/postgresql
-    ports:
-      - "127.0.0.1:${POSTGRES_PORT:-55432}:5432"
+    networks: [data]
     healthcheck:
       # Over TCP: on first start the image runs a socket-only server while it initialises, then restarts.
       test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U envi"]
@@ -27,8 +31,7 @@ services:
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redis:/data
-    ports:
-      - "127.0.0.1:${REDIS_PORT:-56379}:6379"
+    networks: [data]
 
   api:
     profiles: ["app"]
@@ -42,8 +45,7 @@ services:
       ENVI_API_PORT: "8080"
     volumes:
       - ./data:/data
-    ports:
-      - "${PUBLISH_HOST:-127.0.0.1}:${API_PORT:-8080}:8080"
+    networks: [envi, data]
     depends_on:
       postgres:
         condition: service_healthy
@@ -59,8 +61,7 @@ services:
       ENVI_SESSION_SECRET: ${ENVI_SESSION_SECRET}
       ENVI_PLAIN_HTTP: ${ENVI_PLAIN_HTTP:-0}
       PORT: "3000"
-    ports:
-      - "${PUBLISH_HOST:-127.0.0.1}:${WEB_PORT:-3000}:3000"
+    networks: [envi]
     depends_on:
       - api
 
@@ -68,10 +69,20 @@ services:
     profiles: ["https"]
     image: caddy:2-alpine
     restart: unless-stopped
-    network_mode: host
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy:/data
+    networks: [envi]
+
+networks:
+  envi:
+    name: envi
+  data:
+    name: envi-data
 
 volumes:
   postgres:

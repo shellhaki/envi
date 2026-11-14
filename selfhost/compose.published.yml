@@ -1,0 +1,9 @@
+# With Docker and no Caddy: the dashboard and API on host ports, for your own reverse proxy (on 127.0.0.1)
+# or for reaching the server by IP (on 0.0.0.0).
+services:
+  api:
+    ports:
+      - "${PUBLISH_HOST:-127.0.0.1}:${API_PORT:-8080}:8080"
+  web:
+    ports:
+      - "${PUBLISH_HOST:-127.0.0.1}:${WEB_PORT:-3000}:3000"
