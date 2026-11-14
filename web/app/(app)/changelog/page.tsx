@@ -39,9 +39,9 @@ export default function Changelog() {
         <p>Every change you&rsquo;d notice, newest first. Update the CLI with <code>envi update now</code>.</p>
       </div>
 
-      {CHANGELOG.map((entry) => <article className="changelog-entry" id={entry.date} key={entry.date + entry.title}>
+      {CHANGELOG.map((entry) => <article className="changelog-entry" id={entry.version ?? entry.date} key={entry.date + entry.title}>
         <aside>
-          <a href={`#${entry.date}`}><time dateTime={entry.date}>{longDate(entry.date)}</time></a>
+          <a href={`#${entry.version ?? entry.date}`}><time dateTime={entry.date}>{longDate(entry.date)}</time></a>
           {entry.version && <span className="badge">{entry.version}</span>}
         </aside>
         <div>

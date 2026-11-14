@@ -24,9 +24,6 @@ func Uninstall(ui UI, in io.Reader, keepConfig, assumeYes bool) error {
 
 	ui.Print("%s", ui.Bold("This will remove:"))
 	ui.Print("  %s", self)
-	if HookInstalled() {
-		ui.Print("  %s", ui.Dim("the envi hook in your shell startup file"))
-	}
 	if !keepConfig && cfgErr == nil {
 		if _, statErr := os.Stat(configDir); statErr == nil {
 			ui.Print("  %s %s", configDir, ui.Dim("(saved session)"))
@@ -42,12 +39,8 @@ func Uninstall(ui UI, in io.Reader, keepConfig, assumeYes bool) error {
 		return nil
 	}
 
-	// Remove the shell hook too.
-	if HookInstalled() {
-		if err := UninstallHook(ui.Out); err != nil {
-			ui.Warn("Couldn't remove the shell hook: %v", err)
-		}
-	}
+	// Remove the old shell hook too, if this machine still has it.
+	removeOldHookFor(ui.Out)
 
 	if !keepConfig && cfgErr == nil && configDir != "" && filepath.Base(configDir) == "envi" {
 		// Only delete a folder named envi: ENVI_CONFIG_DIR is user-supplied.

@@ -43,7 +43,7 @@ The script detects your OS and CPU architecture, verifies a SHA-256 checksum bef
 - **Passwordless auth** — sign in with a one-time email code or approve a device from your browser. No passwords exist anywhere in the system to leak.
 - **Service tokens** — long-lived, scoped credentials for CI/CD pipelines and deploy scripts, independent of any human's session.
 - **Multiple environments** — dev, staging, prod as separate sets of secrets in one project. `envi origin switch prod` repoints your working directory; `envi push .env origin prod` writes to one you aren't on.
-- **No `.env` on disk** — `envi run -- npm start` injects secrets into the process that needs them and exits with that process's own status. `envi mod` edits them in a terminal editor, and `envi push --clean` removes the file once it is up. Nothing plaintext has to stay on your filesystem. Prefer not to type `envi run`? `envi hook install` loads a project's secrets when you `cd` into it, after a one-time `envi allow`.
+- **No `.env` on disk** — `envi run -- npm start` injects secrets into the process that needs them and exits with that process's own status. `envi mod` edits them in a terminal editor, and `envi push --clean` removes the file once it is up. Nothing plaintext has to stay on your filesystem.
 - **Runs in a container** — `ENTRYPOINT ["envi", "run", "--"]` and one `ENVI_TOKEN` variable. No `.env` in the image, no environment id baked into a layer, same image in every environment.
 - **Key-value store** — a project-wide store your application reads and writes at runtime over HTTP, encrypted like everything else. Separate from your secrets: if your code writes it, it goes here; if you deploy it, it's a secret.
 - **Full audit trail** — every write and delete is logged against the org, the actor, and the exact secret touched. Reads are logged once per environment with the number of secrets they covered, so a command you run all day stays readable in the feed.
@@ -107,8 +107,6 @@ The CLI and the dashboard are two clients of the same API — neither one is a s
 | `envi push --clean` | Push, then delete the file |
 | `envi diff` | Show what's changed between local and remote before you push |
 | `envi run -- <command>` | Run a command with the secrets injected, without writing a `.env` |
-| `envi hook install` | Load a project's secrets automatically when you `cd` into it (zsh, bash, fish, PowerShell) |
-| `envi allow` / `envi deny` | Let this folder load its secrets automatically, or stop it |
 | `envi mod` | Edit this origin's secrets in a terminal editor, nothing written to disk |
 | `envi clean` | Delete the local `.env` once the server already has it |
 | `envi copy` | Copy the whole origin to the clipboard as `.env` text |

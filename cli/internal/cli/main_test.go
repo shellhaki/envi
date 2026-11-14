@@ -8,7 +8,7 @@ import (
 
 // TestMain gives every test in this package a throwaway home directory, so
 // nothing here can read or edit the real ~/.zshrc, ~/.bashrc, fish config or
-// PowerShell profile, which the shell hook and uninstall both touch.
+// PowerShell profile, which uninstall touches when it removes the old shell hook.
 func TestMain(m *testing.M) {
 	home, err := os.MkdirTemp("", "envi-cli-home-")
 	if err != nil {

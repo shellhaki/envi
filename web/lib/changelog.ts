@@ -12,6 +12,17 @@ export type ChangelogEntry = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-11-14",
+    version: "v1.5.1",
+    title: "The shell hook is gone",
+    summary: "Loading secrets when you cd into a folder is removed. `envi run -- <command>` does the same job for one command, with nothing left in your shell afterwards.",
+    changes: [
+      "`envi hook`, `envi allow`, `envi deny` and `envi reload` are removed.",
+      "If you installed the hook, update the CLI with `envi update now`. The next shell you open takes the hook out of its startup file, with one line saying so.",
+      "The install script no longer asks about the hook.",
+    ],
+  },
+  {
+    date: "2026-11-14",
     version: "v1.5.0",
     title: "Self-host Envi on your own server",
     summary: "Envi now runs on a server you own, with everything free: no billing, no email provider, no limit on people or projects. One command installs it.",
@@ -34,17 +45,6 @@ export const CHANGELOG: ChangelogEntry[] = [
       "The docs now live at docs.envisecrets.com, served by the same site as the dashboard.",
       "install.envisecrets.com is served by Cloudflare too.",
       "The npm package is no longer maintained. Install and update the CLI with the install script, which also works in Docker images and CI.",
-    ],
-  },
-  {
-    date: "2026-10-17",
-    version: "v1.4.0",
-    title: "Secrets load when you cd into a project",
-    summary: "The shell hook loads a project's secrets into your shell as you enter its folder, and unloads them as you leave. Nothing is written to disk.",
-    changes: [
-      "`envi hook install` sets it up for zsh, bash, fish or PowerShell.",
-      "`envi allow` lets a folder load its secrets; production needs `envi allow --production`. `envi deny` stops it.",
-      "`envi reload` fetches the secrets again at your next prompt.",
     ],
   },
   {
