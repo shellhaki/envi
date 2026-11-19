@@ -38,6 +38,8 @@ export function proxy(request: NextRequest) {
   if (SITE_HOSTS.includes(bareHost) && CLOUD_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
     return NextResponse.redirect(new URL(pathname + search, CLOUD_URL), 308);
   }
+  // The main site has no sign-in, so an old session cookie there is never refreshed.
+  if (SITE_HOSTS.includes(bareHost)) return NextResponse.next();
   if (bareHost === new URL(CLOUD_URL).hostname && pathname === "/") {
     return NextResponse.redirect(new URL("/dashboard", CLOUD_URL));
   }
