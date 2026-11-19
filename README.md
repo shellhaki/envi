@@ -84,7 +84,7 @@ The CLI and the dashboard are two clients of the same API — neither one is a s
 | `install/` | The install scripts (CLI and instance) and the Worker that serves them on install.envisecrets.com |
 | `selfhost/` | What an instance runs from: the Compose file, the pm2 config and the `envi-instance` command |
 | `cli/` | The CLI in Go (`cmd/envi`, `internal/cli`), released for macOS, Linux, Termux, and Windows |
-| `web/` | The Next.js site: landing page and dashboard on envisecrets.com, and the docs (`app/docs`) on docs.envisecrets.com |
+| `web/` | The Next.js app on Cloudflare Workers: the self-hosting site on envisecrets.com, the Envi Cloud dashboard on cloud.envisecrets.com, and the docs (`app/docs`) on docs.envisecrets.com |
 | `migrations/` | `schema.sql` for a fresh database, numbered files to catch one up |
 | `docs/` | `ENDPOINTS.md` (every route) and `excalidraw.json` (system diagram, data model), rebuilt with `make diagram` |
 

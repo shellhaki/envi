@@ -4,7 +4,7 @@ CLI_ENV    ?= $(if $(CI),file,envi)
 CLI_ORIGIN ?= cli
 
 .PHONY: help dev-api dev-ui dev-worker test test-api test-install test-web test-cli \
-	secrets deploy deploy-api deploy-install logs cli cli-env cli-ldflags db db-migrate diagram
+	secrets deploy deploy-api deploy-install deploy-web logs cli cli-env cli-ldflags db db-migrate diagram
 
 help: ## List every target
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -41,13 +41,16 @@ secrets: ## Upload .env as the API Worker's secrets
 	(cd server && bunx wrangler secret bulk $$file); status=$$?; \
 	rm -f $$file; exit $$status
 
-deploy: deploy-api deploy-install ## Deploy both Workers
+deploy: deploy-api deploy-install deploy-web ## Deploy every Worker
 
 deploy-api: ## Deploy the API Worker (api.envisecrets.com)
 	cd server && bunx wrangler deploy
 
 deploy-install: ## Deploy the install Worker (install.envisecrets.com)
 	cd install && bunx wrangler deploy
+
+deploy-web: ## Build and deploy the website, docs and Envi Cloud dashboard Worker
+	cd web && bun run deploy
 
 logs: ## Stream the API Worker's logs
 	cd server && bunx wrangler tail

@@ -146,7 +146,7 @@ TOTAL = sum(len(rows) for _, _, rows in ENDPOINTS)
 # --- part 1: architecture ---------------------------------------------------
 
 text(0, -120, "Envi: how it fits together", 36)
-text(0, -66, "DNS on Cloudflare: envisecrets.com · docs. · api. · install.", 18, GREY)
+text(0, -66, "DNS on Cloudflare: envisecrets.com · cloud. · docs. · api. · install.", 18, GREY)
 
 text(0, 60, "WHO USES IT", 20, GREY)
 browser = box(0, 120, 240, 90, "Browser\ndevelopers, teammates", "#e7f5ff")
@@ -157,9 +157,9 @@ frame(340, 40, 560, 360, "Contabo VPS (France) · Coolify", "#f8f9fa", dashed=Tr
 box(370, 110, 120, 260, None, "#e9ecef")
 text(384, 150, "Coolify\nproxy\n(Traefik)\n\nTLS,\nroutes by\ndomain", 16, GREY)
 
-frame(540, 100, 330, 260, "Frontend · Next.js", "#d0ebff", size=20)
-docs = box(560, 150, 290, 70, "Docs\ndocs.envisecrets.com :3000")
-dash = box(560, 240, 290, 100, "Dashboard + landing\nenvisecrets.com :3000\n/api/envi proxy")
+frame(540, 100, 330, 260, "envi-web · Next.js on Workers (OpenNext)", "#d0ebff", size=20)
+docs = box(560, 150, 290, 70, "Docs\ndocs.envisecrets.com")
+dash = box(560, 240, 290, 100, "Landing: envisecrets.com\nEnvi Cloud: cloud.envisecrets.com\n/api/envi proxy")
 
 
 frame(340, 440, 560, 560, "Cloudflare Workers", "#fff4e6", size=20)

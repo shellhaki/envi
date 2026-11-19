@@ -1,0 +1,22 @@
+# The website, docs and Envi Cloud dashboard: one Next.js app on Cloudflare Workers, built by OpenNext.
+# Deploy with `make deploy-web`. The one secret, ENVI_SESSION_SECRET, is set with `wrangler secret put`.
+name = "envi-web"
+main = ".open-next/worker.js"
+compatibility_date = "2026-11-01"
+compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
+routes = [
+  { pattern = "envisecrets.com", custom_domain = true },
+  { pattern = "www.envisecrets.com", custom_domain = true },
+  { pattern = "cloud.envisecrets.com", custom_domain = true },
+  { pattern = "docs.envisecrets.com", custom_domain = true },
+]
+
+[assets]
+directory = ".open-next/assets"
+binding = "ASSETS"
+
+[observability]
+enabled = true
+
+[vars]
+ENVI_API_URL = "https://api.envisecrets.com"
