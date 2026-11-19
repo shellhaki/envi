@@ -253,6 +253,32 @@ html[data-theme=dark] .brand-logo-dark { display: block; }
 .lp-search { width: 240px; height: 34px; padding: 0 11px; display: flex; align-items: center; gap: 8px; border: 1px solid var(--line-strong); border-radius: var(--r); color: var(--faint); font-size: 13px; }
 .lp-search svg { width: 15px; }
 
+/* ---- Install and pricing ---------------------------------------------- */
+.lp-install, .lp-pricing { max-width: 1200px; margin: auto; padding: 128px 24px 0; scroll-margin-top: 64px; }
+.lp-install-head { max-width: 640px; margin-bottom: 40px; }
+.lp-install-head h2 { margin: 12px 0 16px; font-size: clamp(28px, 3.4vw, 40px); font-weight: 650; line-height: 1.1; letter-spacing: var(--tracking-tighter); }
+.lp-install-head h2 span { color: var(--muted); }
+.lp-install-head p { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.65; }
+.lp-install-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.lp-install-card, .lp-plan { padding: 28px; display: flex; flex-direction: column; align-items: flex-start; gap: 14px; border: 1px solid var(--line); border-radius: var(--r-xl); background: var(--surface); }
+.lp-install-card h3, .lp-plan h3 { margin: 4px 0 0; font-size: 18px; font-weight: 600; letter-spacing: -.01em; }
+.lp-install-card p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.6; }
+.lp-install-card p code { font-family: var(--font-mono), monospace; font-size: .9em; }
+.lp-install-icon { width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-2); }
+.lp-install-icon svg { width: 18px; height: 18px; }
+.lp-install-card .text-link, .lp-plan .text-link { margin-top: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+.lp-install-card .text-link svg { width: 14px; height: 14px; }
+.copy-command { width: 100%; min-height: 44px; padding: 0 6px 0 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-2); }
+.copy-command code { min-width: 0; padding: 10px 0; font-family: var(--font-mono), monospace; font-size: 12.5px; line-height: 1.5; overflow-wrap: anywhere; }
+.copy-command code span { color: var(--muted); user-select: none; }
+.copy-command .icon-btn { flex: none; }
+.lp-price { font-size: 28px; font-weight: 650; letter-spacing: var(--tracking-tighter); }
+.lp-plan ul { margin: 0 0 8px; padding: 0; list-style: none; display: grid; gap: 10px; font-size: 14px; color: var(--text-2); }
+.lp-plan li { display: flex; align-items: flex-start; gap: 10px; line-height: 1.5; }
+.lp-plan li svg { width: 16px; height: 16px; margin-top: 2px; flex: none; color: var(--muted); }
+.lp-plan .button { margin-top: auto; }
+.lp-pricing { padding-bottom: 128px; }
+
 /* ---- Facts --------------------------------------------------------------- */
 .lp-facts { max-width: 1200px; margin: 128px auto 0; padding: 0 24px; display: grid; grid-template-columns: repeat(4, 1fr); }
 .lp-facts > div { padding: 28px 28px 28px 0; display: grid; gap: 8px; align-content: start; border-top: 1px solid var(--line); }
@@ -750,6 +776,8 @@ html[data-theme=dark] .brand-logo-dark { display: block; }
   .lp-row.flip { grid-template-columns: 1fr; }
   .lp-row.flip .lp-copy { order: 0; }
   .lp-facts { grid-template-columns: 1fr 1fr; }
+  .lp-install, .lp-pricing { padding-top: 96px; }
+  .lp-install-grid { grid-template-columns: 1fr; }
   .lp-facts > div:nth-child(3) { padding-left: 0; border-left: 0; }
   /* grid-template-rows matters here: with two auto rows and min-height:100vh,
      the default align-content: stretch hands the leftover viewport height to

@@ -8,11 +8,27 @@ Every command that touches your account first checks for a stored session (`envi
 
 ### `envi auth`
 
-Signs in. By default this is the browser device flow: it prints a code, opens your browser, and waits for you to approve it there.
+Signs in. It first asks where: **Envi Cloud**, or **your own instance**, by its API URL. The answer is saved, as with [`envi set-url`](#envi-set-url-api-url), and offered as the default next time. Then comes the browser device flow: it prints a code, opens your browser, and waits for you to approve it there.
 
 ```bash
 envi auth
 ```
+
+```text
+Where do you sign in?
+  1) Envi Cloud           cloud.envisecrets.com
+  2) Your own instance    https://api.envi.example.com
+Choose [2]:
+```
+
+There's no question when the CLI isn't in a terminal (CI, scripts) or `ENVI_API_URL` is set; it signs in to the server in use.
+
+<ParamField query="--cloud" type="boolean">
+  Sign in to Envi Cloud without asking.
+</ParamField>
+<ParamField query="--url" type="string">
+  Sign in to your own instance at this API URL without asking.
+</ParamField>
 
 <ParamField query="--email" type="string">
   Skip the browser and sign in with an emailed one-time code instead. Prompts for the code interactively.
@@ -45,7 +61,7 @@ envi logout
 
 ### `envi set-url <api-url>`
 
-Points the CLI at a self-hosted Envi instead of the hosted one. Use your instance's API URL, not its dashboard URL:
+Points the CLI at a self-hosted Envi instead of Envi Cloud. Use your instance's API URL, not its dashboard URL:
 
 ```bash
 envi set-url https://api.envi.example.com
@@ -58,7 +74,7 @@ Changing server signs you out, because a session belongs to the server that issu
 
 ```bash
 envi set-url            # show the URL in use and where it comes from
-envi set-url --reset    # back to hosted Envi
+envi set-url --reset    # back to Envi Cloud
 ```
 
 The URL is saved in your Envi config folder. `ENVI_API_URL`, when set, takes precedence over it, which is how CI and containers choose a server without a config folder.

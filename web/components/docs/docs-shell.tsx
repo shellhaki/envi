@@ -6,6 +6,7 @@ import { ArrowLeft, ArrowRight, Menu, X } from "lucide-react";
 import Brand from "@/components/docs/brand";
 import ThemeToggle from "@/components/docs/theme-toggle";
 import { SITE_URL, docsNav, findDoc } from "@/lib/docs-nav";
+import { CLOUD_URL } from "@/lib/site";
 
 type Heading = { id: string; text: string };
 
@@ -68,7 +69,7 @@ export default function DocsShell({ children }: { children: React.ReactNode }) {
           <a className="docs-topbar-link" href={SITE_URL}>Home</a>
           <a className="docs-topbar-link" href="https://github.com/shellhaki/envi" target="_blank" rel="noreferrer">GitHub</a>
           <ThemeToggle />
-          <a className="button accent" href={`${SITE_URL}/dashboard`}>Dashboard</a>
+          <a className="button accent" href={`${CLOUD_URL}/dashboard`}>Envi Cloud</a>
         </div>
       </header>
 

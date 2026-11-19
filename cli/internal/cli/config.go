@@ -8,7 +8,7 @@ import (
 
 type Config struct{ APIURL, Token string }
 
-// DefaultAPIURL is the hosted service.
+// DefaultAPIURL is Envi Cloud's API.
 var DefaultAPIURL = "https://api.envisecrets.com"
 
 // DevAPIURL is where a binary built straight from source looks.

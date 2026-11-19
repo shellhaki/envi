@@ -1,6 +1,6 @@
 package cli
 
-// envi set-url: point this CLI at a self-hosted Envi instead of the hosted one.
+// envi set-url: point this CLI at a self-hosted Envi instead of Envi Cloud.
 
 import (
 	"context"
@@ -42,7 +42,7 @@ func apiURLSource(version string) (string, string) {
 	if IsDevBuild(version) {
 		return DevAPIURL, "the default for a development build"
 	}
-	return DefaultAPIURL, "the default (hosted Envi)"
+	return DefaultAPIURL, "the default (Envi Cloud)"
 }
 
 // NormalizeAPIURL checks a URL and returns it without a trailing slash.
@@ -75,11 +75,12 @@ func checkHealth(ctx context.Context, httpClient *http.Client, apiURL string) er
 }
 
 type SetURLOptions struct {
-	URL     string
-	Force   bool // save even if the server doesn't answer
-	Reset   bool // go back to the default
-	Version string
-	HTTP    *http.Client
+	URL       string
+	Force     bool // save even if the server doesn't answer
+	Reset     bool // go back to the default
+	SigningIn bool // called by envi auth, which signs in next
+	Version   string
+	HTTP      *http.Client
 }
 
 // SetAPIURL saves (or with no URL, shows) the API URL. Changing server signs out,
@@ -138,7 +139,11 @@ func SetAPIURL(ctx context.Context, o SetURLOptions, store TokenStore, out io.Wr
 				return fmt.Errorf("saved the URL, but couldn't sign out of %s: %w", current, err)
 			}
 		}
-		ui.Print("Signed out of %s. Sign in to this server with: envi auth", current)
+		if o.SigningIn {
+			ui.Print("Signed out of %s.", current)
+		} else {
+			ui.Print("Signed out of %s. Sign in to this server with: envi auth", current)
+		}
 	}
 	return nil
 }

@@ -3,7 +3,7 @@ import { escapeHtml, hostOf } from "./html";
 
 // The sender name ("Haki from Envi") comes from RESEND_FROM.
 export function welcomeEmail(to: string, webUrl: string, docsUrl: string): Message {
-  const web = (webUrl.trim() || "https://envisecrets.com").replace(/\/+$/, "");
+  const web = (webUrl.trim() || "https://cloud.envisecrets.com").replace(/\/+$/, "");
   const docs = (docsUrl.trim() || "https://docs.envisecrets.com").replace(/\/+$/, "");
   return {
     to,

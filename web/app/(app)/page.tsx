@@ -1,16 +1,15 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, ChevronDown, Clipboard, Clock, Eye, EyeOff, Pencil, Search, Shield, Trash2 } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, Clipboard, Clock, Cloud, Eye, EyeOff, Pencil, Search, Server, Shield, Terminal, Trash2 } from "lucide-react";
 import Brand from "@/components/brand";
 import ThemeToggle from "@/components/theme-toggle";
 import DemoVideo from "@/components/demo-video";
 import HeroHeadline from "@/components/hero-headline";
 import CookieConsent from "@/components/cookie-consent";
+import CopyCommand from "@/components/copy-command";
 import { redirect } from "next/navigation";
-import { account, firstName, instance } from "@/lib/server-api";
-
-const DOCS = "https://docs.envisecrets.com";
-const GITHUB = "https://github.com/shellhaki/envi";
+import { instance } from "@/lib/server-api";
+import { CLOUD_URL, DOCS_URL as DOCS, GITHUB_URL as GITHUB, INSTALL_CLI, INSTALL_CLI_WINDOWS, INSTALL_INSTANCE } from "@/lib/site";
 
 // Sample rows for the product shots below. They use the dashboard's own table
 // and timeline classes, so the page shows what the product actually looks like.
@@ -42,19 +41,16 @@ const EVENT_ICON = { read: Eye, write: Pencil, delete: Trash2 };
 export default async function Home() {
   // A self-hosted instance has no landing page: its home is the dashboard.
   if ((await instance()).sign_in === "password") redirect("/dashboard");
-  const user = await account();
-  const start = user ? "/dashboard" : "/auth";
 
   return <div className="site-page">
     <header className="site-header">
       <div className="site-header-inner">
         <Brand />
-        <nav><a href="#secrets">Product</a><a href="#access">Access</a><a href="#audit">Audit</a><a href="#pricing">Pricing</a><a href={DOCS}>Docs</a><Link href="/changelog">Changelog</Link></nav>
+        <nav><a href="#install">Self-host</a><a href="#secrets">Product</a><a href="#pricing">Pricing</a><a href={DOCS}>Docs</a><Link href="/changelog">Changelog</Link></nav>
         <div className="header-actions">
           <ThemeToggle />
-          {user
-            ? <><span className="welcome">Welcome back, {firstName(user.Email)}</span><Link className="button primary" href="/dashboard">Go to dashboard</Link></>
-            : <><Link className="button ghost" href="/auth">Sign in</Link><Link className="button primary" href="/auth">Get started</Link></>}
+          <a className="button ghost" href={CLOUD_URL}>Envi Cloud</a>
+          <a className="button primary" href="#install">Install</a>
         </div>
       </div>
     </header>
@@ -65,10 +61,10 @@ export default async function Home() {
           <div className="lp-hero-text">
             <HeroHeadline />
             <div className="lp-hero-row">
-              <p>Envi keeps environment variables encrypted, versioned and scoped to the people who need them, from a laptop to production.</p>
+              <p>Envi keeps environment variables encrypted, versioned and scoped to the people who need them, from a laptop to production. Run it on your own server for free, or let us run it on Envi Cloud.</p>
               <div className="lp-hero-actions">
-                <Link className="button accent large" href={start}>{user ? "Go to dashboard" : "Start for free"}<ArrowRight /></Link>
-                <a className="button secondary large" href={DOCS}>Read the docs</a>
+                <a className="button accent large" href="#install">Self-host Envi<ArrowRight /></a>
+                <a className="button secondary large" href={CLOUD_URL}>Try Envi Cloud</a>
               </div>
             </div>
           </div>
@@ -87,6 +83,31 @@ export default async function Home() {
           </div>
         </div>
         <div className="lp-demo"><DemoVideo /></div>
+      </section>
+
+      <section className="lp-install" id="install">
+        <div className="lp-install-head">
+          <span className="kicker">Install</span>
+          <h2>Your server, your secrets.</h2>
+          <p>One command installs the whole of Envi on a Linux server: the dashboard, the API, Postgres and Redis. It asks a few questions, sets up HTTPS, and lists where everything is when it&apos;s done.</p>
+        </div>
+        <div className="lp-install-grid">
+          <div className="lp-install-card">
+            <span className="lp-install-icon"><Server /></span>
+            <h3>Run your own instance</h3>
+            <p>On the server. Docker or pm2, HTTPS with Let&apos;s Encrypt or behind the proxy you already run. Free, with no limit on people or projects.</p>
+            <CopyCommand command={INSTALL_INSTANCE} />
+            <a className="text-link" href={`${DOCS}/self-hosting`}>Self-hosting guide<ArrowRight /></a>
+          </div>
+          <div className="lp-install-card">
+            <span className="lp-install-icon"><Terminal /></span>
+            <h3>Install the CLI</h3>
+            <p>On your laptop or in CI. Then <code>envi auth</code> asks whether you use your own instance or Envi Cloud.</p>
+            <CopyCommand command={INSTALL_CLI} />
+            <CopyCommand command={INSTALL_CLI_WINDOWS} />
+            <a className="text-link" href={`${DOCS}/installation`}>Installation docs<ArrowRight /></a>
+          </div>
+        </div>
       </section>
 
       <section className="lp-row" id="secrets">
@@ -174,23 +195,48 @@ export default async function Home() {
 
       <section className="lp-facts" aria-label="How Envi protects your secrets">
         <div><strong>AES-256-GCM</strong><span>Every value is sealed before it reaches the database, including its history.</span></div>
-        <div><strong>No passwords</strong><span>Sign in with an email code or approve a device. There is nothing to leak.</span></div>
+        <div><strong>Device sign-in</strong><span>Approve the CLI from your browser. No password or key is pasted into a terminal.</span></div>
         <div><strong>Service tokens</strong><span>Scoped credentials for CI and deploys, separate from any person&apos;s session.</span></div>
-        <div><strong>Open source</strong><span>Use Envi Cloud, or run the whole stack on your own servers.</span></div>
+        <div><strong>Open source</strong><span>Read every line, run it on your own servers, or use Envi Cloud.</span></div>
       </section>
 
-      <section className="lp-cta" id="pricing">
-        <h2>Free for personal projects.<br /><span>Upgrade when the team grows.</span></h2>
-        <div className="lp-hero-actions">
-          <Link className="button accent large" href={start}>{user ? "Go to dashboard" : "Get started"}<ArrowRight /></Link>
-          <a className="button secondary large" href={`${DOCS}/self-hosting`}>Self-host Envi</a>
+      <section className="lp-pricing" id="pricing">
+        <div className="lp-install-head">
+          <span className="kicker">Pricing</span>
+          <h2>Free on your server.<br /><span>Or let us run it.</span></h2>
+        </div>
+        <div className="lp-install-grid">
+          <div className="lp-plan">
+            <span className="lp-install-icon"><Server /></span>
+            <h3>Self-hosted</h3>
+            <strong className="lp-price">Free</strong>
+            <ul>
+              <li><Check />Everything Envi does</li>
+              <li><Check />Unlimited people and projects</li>
+              <li><Check />Your data never leaves your server</li>
+              <li><Check />Updates and backups with one command</li>
+            </ul>
+            <a className="button accent large" href="#install">Install it<ArrowRight /></a>
+          </div>
+          <div className="lp-plan">
+            <span className="lp-install-icon"><Cloud /></span>
+            <h3>Envi Cloud</h3>
+            <strong className="lp-price">Free to start</strong>
+            <ul>
+              <li><Check />Nothing to run or update</li>
+              <li><Check />Free for one person</li>
+              <li><Check />Pay as you go, or Team, when you add people</li>
+              <li><Check />Sign in with an email code</li>
+            </ul>
+            <a className="button secondary large" href={`${CLOUD_URL}/auth`}>Start on Envi Cloud</a>
+          </div>
         </div>
       </section>
     </main>
 
     <footer className="lp-footer">
       <div><Brand /><span>Secrets workflow for modern teams.</span></div>
-      <nav><a href={DOCS}>Docs</a><Link href="/changelog">Changelog</Link><a href={GITHUB}>GitHub</a><Link href="/auth">Sign in</Link></nav>
+      <nav><a href={DOCS}>Docs</a><Link href="/changelog">Changelog</Link><a href={GITHUB}>GitHub</a><a href={CLOUD_URL}>Envi Cloud</a></nav>
     </footer>
     <CookieConsent />
   </div>;

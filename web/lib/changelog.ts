@@ -11,8 +11,19 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    date: "2026-11-14",
-    version: "v1.5.1",
+    date: "2026-11-19",
+    version: "v1.6.0",
+    title: "Self-hosted first, with Envi Cloud next to it",
+    summary: "Envi is now made to run on your own server first. The hosted dashboard is Envi Cloud, at cloud.envisecrets.com, and it keeps its free tier and paid plans.",
+    changes: [
+      "envisecrets.com now shows how to install your own instance and the CLI.",
+      "The dashboard moved to cloud.envisecrets.com. Old links, including invitations, take you there. Sign in once more, since sign-ins belong to the old address.",
+      "Nothing changes for the CLI or CI: the API stays at api.envisecrets.com.",
+      "`envi auth` asks whether you sign in to Envi Cloud or your own instance, and remembers the answer. `envi auth --cloud` or `envi auth --url <api-url>` skip the question.",
+    ],
+  },
+  {
+    date: "2026-11-19",
     title: "The shell hook is gone",
     summary: "Loading secrets when you cd into a folder is removed. `envi run -- <command>` does the same job for one command, with nothing left in your shell afterwards.",
     changes: [
@@ -32,7 +43,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Docker keeps the instance to itself on two private networks. Postgres and Redis open no ports on the server. pm2 is there for servers without Docker.",
       "People sign in with an email and password. The admin adds people on the new Users page, gets a password to hand them, and picks which projects each one sees.",
       "A forgotten password is reset by writing a new one into the users file. Nothing is emailed.",
-      "`envi set-url <api-url>` points the CLI at your instance; `envi set-url --reset` points it back at envisecrets.com.",
+      "`envi set-url <api-url>` points the CLI at your instance; `envi set-url --reset` points it back at Envi Cloud.",
       "`envi-instance` looks after the server: status, logs, restart, backups and updates.",
     ],
   },

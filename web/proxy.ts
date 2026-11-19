@@ -1,5 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { accessExpired, readSession, sessionCookie } from "@/lib/web-session";
+import { CLOUD_URL, DOCS_URL } from "@/lib/site";
+
+const SITE_HOSTS = ["envisecrets.com", "www.envisecrets.com"];
+const CLOUD_PATHS = ["/dashboard", "/auth", "/invite", "/device", "/billing", "/settings", "/admin", "/api"];
 
 // Server Components cannot write cookies, so a page render can never rotate an
 // expired session itself — it would just bounce the visitor to /auth while a
@@ -21,10 +25,21 @@ export function proxy(request: NextRequest) {
     return NextResponse.rewrite(url);
   }
   if (pathname === "/docs" || pathname.startsWith("/docs/")) {
-    const url = new URL(`${request.nextUrl.protocol}//docs.${host}`);
+    // On envisecrets.com and Envi Cloud the docs are docs.envisecrets.com; elsewhere, docs. in front of the host.
+    const url = new URL(host.split(":")[0].endsWith("envisecrets.com") ? DOCS_URL : `${request.nextUrl.protocol}//docs.${host}`);
     url.pathname = pathname.slice("/docs".length) || "/";
     url.search = search;
     return NextResponse.redirect(url);
+  }
+
+  // envisecrets.com is the self-hosting site; the hosted dashboard is Envi Cloud. Old links to the
+  // dashboard on the main site, such as invitations in past emails, move there with their path.
+  const bareHost = host.split(":")[0];
+  if (SITE_HOSTS.includes(bareHost) && CLOUD_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
+    return NextResponse.redirect(new URL(pathname + search, CLOUD_URL), 308);
+  }
+  if (bareHost === new URL(CLOUD_URL).hostname && pathname === "/") {
+    return NextResponse.redirect(new URL("/dashboard", CLOUD_URL));
   }
 
   // Route Handlers answer fetch() calls, which must not be answered with a

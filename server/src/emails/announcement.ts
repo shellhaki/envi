@@ -3,7 +3,7 @@ import type { Message } from "../mail";
 import { escapeHtml, hostOf } from "./html";
 
 export function announcementEmail(to: string, subject: string, body: string, webUrl: string): Message {
-  const web = webUrl.trim() || "https://envisecrets.com";
+  const web = webUrl.trim() || "https://cloud.envisecrets.com";
   return {
     to,
     subject,
@@ -15,7 +15,7 @@ export function announcementEmail(to: string, subject: string, body: string, web
 
 // bannerUrl is the image at the top of every announcement. A local dashboard uses the public copy.
 function bannerUrl(web: string) {
-  const base = isLocalUrl(web) ? "https://envisecrets.com" : web;
+  const base = isLocalUrl(web) ? "https://cloud.envisecrets.com" : web;
   return base.replace(/\/+$/, "") + "/email/newsletter-banner.png";
 }
 
