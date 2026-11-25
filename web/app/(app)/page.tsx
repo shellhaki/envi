@@ -1,15 +1,15 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Check, ChevronDown, Clipboard, Clock, Cloud, Eye, EyeOff, Pencil, Search, Server, Shield, Terminal, Trash2 } from "lucide-react";
+import { Activity, ArrowRight, Check, ChevronDown, ChevronRight, Clipboard, Clock, Cloud, Eye, EyeOff, Pencil, Search, Server, Shield, Terminal, Trash2 } from "lucide-react";
 import Brand from "@/components/brand";
 import ThemeToggle from "@/components/theme-toggle";
-import DemoVideo from "@/components/demo-video";
 import HeroHeadline from "@/components/hero-headline";
 import CookieConsent from "@/components/cookie-consent";
-import CopyCommand from "@/components/copy-command";
+import DashboardPreview from "@/components/landing/dashboard-preview";
+import InstallTabs from "@/components/landing/install-tabs";
 import { redirect } from "next/navigation";
 import { instance } from "@/lib/server-api";
-import { CLOUD_URL, DOCS_URL as DOCS, GITHUB_URL as GITHUB, INSTALL_CLI, INSTALL_CLI_WINDOWS, INSTALL_INSTANCE } from "@/lib/site";
+import { CLOUD_URL, DOCS_URL as DOCS, GITHUB_URL as GITHUB } from "@/lib/site";
 
 // Sample rows for the product shots below. They use the dashboard's own table
 // and timeline classes, so the page shows what the product actually looks like.
@@ -38,6 +38,21 @@ const EVENTS: { kind: "read" | "write" | "delete"; label: string; who: string; t
 ];
 const EVENT_ICON = { read: Eye, write: Pencil, delete: Trash2 };
 
+// The CLI card: commands and what the real CLI prints back.
+const LOG: [string, string][] = [
+  ["envi push", "✓ Pushed 12 secrets to development"],
+  ["envi pull", "✓ Wrote 12 secrets from development"],
+  ["envi diff", "+ SENTRY_DSN   ~ STRIPE_SECRET_KEY"],
+  ["envi run -- npm start", "Listening on http://localhost:3000"],
+];
+
+// The audit card: a few entries of the activity feed.
+const TRAIL = [
+  { kind: "write", icon: <Pencil />, status: "Updated", when: "Nov 24 · 09:41", chips: [["by", "diego@northwind.dev"], ["in", "staging"], ["key", "STRIPE_SECRET_KEY"]] },
+  { kind: "read", icon: <Eye />, status: "Read", when: "Nov 24 · 09:38", chips: [["by", "token · deploy"], ["in", "production"]] },
+  { kind: "delete", icon: <Trash2 />, status: "Deleted", when: "Nov 24 · 08:12", chips: [["by", "amara@northwind.dev"], ["in", "production"], ["key", "LEGACY_API_KEY"]] },
+];
+
 export default async function Home() {
   // A self-hosted instance has no landing page: its home is the dashboard.
   if ((await instance()).sign_in === "password") redirect("/dashboard");
@@ -59,6 +74,7 @@ export default async function Home() {
       <section className="lp-hero">
         <div className="lp-hero-top">
           <div className="lp-hero-text">
+            <a className="lp-pill" href="#install"><b>New</b>Self-host Envi with one command<ChevronRight /></a>
             <HeroHeadline />
             <div className="lp-hero-row">
               <p>Envi keeps environment variables encrypted, versioned and scoped to the people who need them, from a laptop to production. Run it on your own server for free, or let us run it on Envi Cloud.</p>
@@ -82,30 +98,42 @@ export default async function Home() {
                    sizes="(min-width: 960px) 520px, 1px" />
           </div>
         </div>
-        <div className="lp-demo"><DemoVideo /></div>
       </section>
 
-      <section className="lp-install" id="install">
-        <div className="lp-install-head">
-          <span className="kicker">Install</span>
-          <h2>Your server, your secrets.</h2>
-          <p>One command installs the whole of Envi on a Linux server: the dashboard, the API, Postgres and Redis. It asks a few questions, sets up HTTPS, and lists where everything is when it&apos;s done.</p>
+      <section className="lp-preview"><DashboardPreview /></section>
+
+      <section className="lp-integrate" id="install">
+        <span className="tile-icon accent"><Terminal /></span>
+        <h2>Running in <span className="lp-gradient">five minutes</span></h2>
+        <p>One command on a server installs the whole of Envi: the dashboard, the API and the database, with HTTPS. One more on your laptop installs the CLI. Start wherever you are.</p>
+        <InstallTabs />
+        <div className="lp-integrate-links">
+          <a href={`${DOCS}/self-hosting`}>Self-hosting guide<ArrowRight /></a>
+          <a href={`${DOCS}/installation`}>Installing the CLI<ArrowRight /></a>
         </div>
-        <div className="lp-install-grid">
-          <div className="lp-install-card">
-            <span className="lp-install-icon"><Server /></span>
-            <h3>Run your own instance</h3>
-            <p>On the server. Docker or pm2, HTTPS with Let&apos;s Encrypt or behind the proxy you already run. Free, with no limit on people or projects.</p>
-            <CopyCommand command={INSTALL_INSTANCE} />
-            <a className="text-link" href={`${DOCS}/self-hosting`}>Self-hosting guide<ArrowRight /></a>
+      </section>
+
+      <section className="lp-dx">
+        <h2>Made for the terminal.<br /><span>Clear to everyone else.</span></h2>
+        <p>The CLI does the work where you already are. The dashboard and the audit trail show your whole team what happened, and who did it.</p>
+        <div className="lp-dx-grid">
+          <div className="lp-card">
+            <div className="lp-card-body lp-log">
+              {LOG.map(([cmd, out], i) => <div key={i}><span className="lp-log-cmd"><b>❯</b> {cmd}</span><span className="lp-log-out">{out}</span></div>)}
+            </div>
+            <div className="lp-card-foot"><Terminal /><span><strong>The CLI</strong>Push, pull, diff and run, in any shell and any CI.</span></div>
           </div>
-          <div className="lp-install-card">
-            <span className="lp-install-icon"><Terminal /></span>
-            <h3>Install the CLI</h3>
-            <p>On your laptop or in CI. Then <code>envi auth</code> asks whether you use your own instance or Envi Cloud.</p>
-            <CopyCommand command={INSTALL_CLI} />
-            <CopyCommand command={INSTALL_CLI_WINDOWS} />
-            <a className="text-link" href={`${DOCS}/installation`}>Installation docs<ArrowRight /></a>
+          <div className="lp-card">
+            <div className="lp-card-body lp-trail">
+              {TRAIL.map((t, i) => <div className="lp-trail-item" key={i}>
+                <span className={`lp-trail-icon ${t.kind}`}>{t.icon}</span>
+                <div>
+                  <div className="lp-trail-top"><span className={`lp-status ${t.kind}`}>{t.status}</span><span className="lp-when"><Clock />{t.when}</span></div>
+                  <div className="lp-chips">{t.chips.map(([k, v]) => <span key={k}>{k} <b>{v}</b></span>)}</div>
+                </div>
+              </div>)}
+            </div>
+            <div className="lp-card-foot"><Activity /><span><strong>The audit trail</strong>Every change, by a person or a token, in the environment it touched.</span></div>
           </div>
         </div>
       </section>
