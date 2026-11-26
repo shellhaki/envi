@@ -107,6 +107,7 @@ The CLI and the dashboard are two clients of the same API — neither one is a s
 | `envi push --clean` | Push, then delete the file |
 | `envi diff` | Show what's changed between local and remote before you push |
 | `envi run -- <command>` | Run a command with the secrets injected, without writing a `.env` |
+| `envi workers push` | Send the origin's secrets to a Cloudflare Worker through your own wrangler (also `status`, `delete`, `dev`, `deploy`) |
 | `envi mod` | Edit this origin's secrets in a terminal editor, nothing written to disk |
 | `envi clean` | Delete the local `.env` once the server already has it |
 | `envi copy` | Copy the whole origin to the clipboard as `.env` text |

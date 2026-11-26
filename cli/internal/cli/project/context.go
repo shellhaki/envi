@@ -14,6 +14,8 @@ type Context struct {
 	Version     int      `toml:"version"`
 	Project     Resource `toml:"project"`
 	Environment Resource `toml:"environment"`
+	// Workers maps an Envi origin to the wrangler environment its secrets go to ("" is the top-level Worker).
+	Workers map[string]string `toml:"workers,omitempty"`
 }
 type Resource struct {
 	ID       string `toml:"id"`

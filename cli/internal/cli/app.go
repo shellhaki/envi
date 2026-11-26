@@ -171,6 +171,8 @@ func (a App) Run(args []string) int {
 			}
 			return nil
 		})
+	case "workers":
+		return a.workers(args[1:])
 	case "run":
 		origin, preserve, argv, e := parseRunArgs(args[1:])
 		if e != nil {
@@ -591,7 +593,7 @@ func (a App) Run(args []string) int {
 	}
 }
 func (a App) help() {
-	fmt.Fprintln(a.Out, "Usage: envi <command> [flags]\n\nCommands:\n  auth       Sign in to Envi Cloud or your own instance (--cloud | --url <api-url>; --email for a code, --key for an API key)\n  logout     Revoke this device's session\n  set-url    Use a self-hosted Envi (set-url <api-url> | set-url --reset | set-url to show it)\n  key        Personal API keys (key create --name <name> | key list | key revoke <id>)\n  project    Create a project (project create <name>)\n  origin     This project's origins (origin list | origin switch <name> | origin create <name>)\n  env        Alias for origin create\n  init       Initialize project context\n  pull       Write remote secrets to .env\n  push       Send .env secrets to Envi (push [file] [origin <name>] [--force] [--clean])\n  diff       Compare local and remote keys\n  mod        Edit this origin's secrets in a terminal editor, nothing written to disk\n  clean      Delete the local .env once the server already has it\n  copy       Copy secrets to the clipboard (copy | copy KEY | copy --single)\n  run        Run a command with the secrets injected, no .env on disk (run -- npm start)\n  activity   Show recent activity for your organization\n  share      Invite a project collaborator\n  invite     Accept an invitation\n  token      Manage service tokens\n  update     Check for or install a new version (update check | update now)\n  uninstall  Remove envi from this machine\n  version    Print version\n  help       Show help")
+	fmt.Fprintln(a.Out, "Usage: envi <command> [flags]\n\nCommands:\n  auth       Sign in to Envi Cloud or your own instance (--cloud | --url <api-url>; --email for a code, --key for an API key)\n  logout     Revoke this device's session\n  set-url    Use a self-hosted Envi (set-url <api-url> | set-url --reset | set-url to show it)\n  key        Personal API keys (key create --name <name> | key list | key revoke <id>)\n  project    Create a project (project create <name>)\n  origin     This project's origins (origin list | origin switch <name> | origin create <name>)\n  env        Alias for origin create\n  init       Initialize project context\n  pull       Write remote secrets to .env\n  push       Send .env secrets to Envi (push [file] [origin <name>] [--force] [--clean])\n  diff       Compare local and remote keys\n  mod        Edit this origin's secrets in a terminal editor, nothing written to disk\n  clean      Delete the local .env once the server already has it\n  copy       Copy secrets to the clipboard (copy | copy KEY | copy --single)\n  run        Run a command with the secrets injected, no .env on disk (run -- npm start)\n  workers    Send secrets to a Cloudflare Worker (workers push | status | delete <key> | dev | deploy)\n  activity   Show recent activity for your organization\n  share      Invite a project collaborator\n  invite     Accept an invitation\n  token      Manage service tokens\n  update     Check for or install a new version (update check | update now)\n  uninstall  Remove envi from this machine\n  version    Print version\n  help       Show help")
 }
 
 // tokenStore resolves the session store, reporting the exit code to use when it cannot be opened.

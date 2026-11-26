@@ -240,6 +240,20 @@ envi run --origin production -- ./migrate.sh
 
 In CI or a container, set `ENVI_TOKEN` to a [service token](/ci-service-tokens) and `envi run` works with no `envi.toml` at all — the token names the environment. `ENVI_PROJECT` and `ENVI_ENVIRONMENT` say which to read when the credential isn't scoped to one. See [Docker](/docker).
 
+### `envi workers`
+
+Sends the origin's secrets to a Cloudflare Worker through your own signed-in wrangler. See [Cloudflare Workers](/cloudflare-workers) for the whole guide.
+
+```bash
+envi workers push                 # set the secrets on the Worker
+envi workers status               # names in Envi against names on the Worker
+envi workers delete OLD_TOKEN     # remove one secret from the Worker
+envi workers dev -- --port 8788   # wrangler dev with the secrets, no .dev.vars
+envi workers deploy               # push, then wrangler deploy
+```
+
+Flags: `--origin`, `--env` (the wrangler environment), `--name`, `-c`, `--only`, `--except`, `--prune`, `--dry-run` and `--yes`. A `[workers]` table in `envi.toml` maps each origin to a wrangler environment.
+
 ### `envi clean`
 
 Deletes the local `.env` once the server already holds exactly what it contains. Use it after a pull and push, when the file has done its job.

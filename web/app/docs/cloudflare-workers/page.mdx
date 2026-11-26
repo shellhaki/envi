@@ -1,0 +1,181 @@
+Send an origin's secrets straight to a Cloudflare Worker, and run `wrangler dev` with them, without a `.dev.vars` file or a secret pasted into the dashboard.
+
+```bash
+envi workers push      # this origin's secrets, set as Worker secrets
+envi workers dev       # wrangler dev, with the secrets in its environment
+envi workers deploy    # push, then wrangler deploy
+```
+
+Envi uses your own wrangler, signed in to your own Cloudflare account. It never sees a Cloudflare credential.
+
+## Before you start
+
+- A Worker project with a `wrangler.toml`, `wrangler.json` or `wrangler.jsonc`. Run the commands in that directory, or pass `-c <path>`.
+- wrangler, signed in. Envi looks for the project's own `node_modules/.bin/wrangler` first (in this directory or any parent, for monorepos), then for `wrangler` on your `PATH`.
+
+```bash
+npm i -D wrangler
+npx wrangler login
+```
+
+- The project linked to Envi with `envi init`, so Envi knows which origin to read.
+
+## Push secrets to the Worker
+
+```bash
+envi workers push
+```
+
+```text
+demo · development  →  api
+  add 2: DATABASE_URL, STRIPE_KEY
+  update 1: API_KEY
+✓ Sent 3 secrets to api
+```
+
+Envi reads the origin you're on, then hands the values to `wrangler secret bulk` on its standard input, never as a file and never as a command-line argument. Large origins go in batches of 100, which is the most wrangler takes at once.
+
+Cloudflare never returns a secret's value, so Envi shows names only: `add` for a name the Worker doesn't have yet, `update` for one it does.
+
+A Worker that doesn't exist yet is created by wrangler when it gets its first secrets.
+
+<Note>
+  Every push creates a new version of the Worker and deploys it, the same as `wrangler secret put`. If the Worker uses gradual deployments, Cloudflare refuses that, so Envi sends the secrets to a new version with `wrangler versions secret bulk` instead and tells you to deploy it with `wrangler versions deploy`.
+</Note>
+
+### Vars and secrets
+
+A Worker can't have a `[vars]` entry and a secret with the same name. Envi reads your wrangler config and skips any name that is already a var, with a warning, so the push doesn't fail halfway.
+
+### Choose what to send
+
+<ParamField query="--only" type="string">
+  Only these keys. Comma separated; `*` matches anything, so `--only "STRIPE_*"` sends every Stripe key.
+</ParamField>
+<ParamField query="--except" type="string">
+  Every key but these. Same format.
+</ParamField>
+<ParamField query="--prune" type="boolean">
+  Also delete the Worker's secrets that aren't in Envi. Off by default: a push never removes anything unless you ask.
+</ParamField>
+<ParamField query="--dry-run" type="boolean">
+  Show what would be added, updated and deleted, then stop. Names only.
+</ParamField>
+
+```bash
+envi workers push --dry-run --prune
+```
+
+## Origins and wrangler environments
+
+Your Envi origins and your wrangler environments usually line up: development, staging, production. Say how in `envi.toml`:
+
+```toml
+[workers]
+development = ""
+staging = "staging"
+production = "production"
+```
+
+The key is the Envi origin, the value the wrangler environment (`""` is the top-level Worker). With that in place, switching origin is all it takes:
+
+```bash
+envi workers push --origin staging       # Envi's staging into wrangler --env staging
+envi workers push --origin production    # asks first: production
+```
+
+An origin with no line in `[workers]` goes to the top-level Worker.
+
+<ParamField query="--origin" type="string">
+  The Envi origin to read. Defaults to the one `envi.toml` is linked to.
+</ParamField>
+<ParamField query="--env" type="string">
+  The wrangler environment to write to, whatever `[workers]` says.
+</ParamField>
+<ParamField query="--name" type="string">
+  The Worker's name, when it isn't the one in the wrangler config.
+</ParamField>
+<ParamField query="-c" type="string">
+  The wrangler config file.
+</ParamField>
+
+### Production
+
+Pushing a production origin asks before it sends anything. Pass `--yes` to skip the question, which CI has to:
+
+```bash
+envi workers push --origin production --yes
+```
+
+## Local development
+
+```bash
+envi workers dev
+envi workers dev -- --port 8788 --remote
+```
+
+This runs `wrangler dev` with the origin's secrets in its process environment and `CLOUDFLARE_INCLUDE_PROCESS_ENV=true`, so the Worker sees them on `env`. No `.dev.vars` or `.env` is written.
+
+With that setting, every variable wrangler is given becomes a binding, so Envi starts it with a short environment: the secrets, plus what node and wrangler need to start (`PATH`, `HOME`, locale, temp directories, `CLOUDFLARE_*`, `NODE_*`). The rest of your shell stays out of the Worker.
+
+Everything after `--` goes to `wrangler dev` untouched.
+
+<Note>
+  If the directory still has a `.dev.vars`, wrangler loads it too and its values win. Envi warns you; delete it once your secrets are in Envi.
+</Note>
+
+## Deploy
+
+```bash
+envi workers deploy
+envi workers deploy --origin production --yes -- --minify
+```
+
+`deploy` pushes first, then runs `wrangler deploy` with whatever comes after `--`. It takes the same flags as `push`, and exits with wrangler's status.
+
+## Check and clean up
+
+```bash
+envi workers status
+```
+
+```text
+demo · development  →  api
+  3 on both
+  missing on the Worker 1: SENTRY_DSN
+  only on the Worker 1: OLD_TOKEN
+```
+
+`status` compares names, since that is all Cloudflare returns. It changes nothing.
+
+```bash
+envi workers delete OLD_TOKEN
+```
+
+`delete` removes one secret from the Worker, after asking (`--yes` skips the question). It doesn't touch Envi, and doesn't need you signed in to Envi.
+
+## CI
+
+In a pipeline, give the job two credentials: an Envi [service token](/ci-service-tokens) and a Cloudflare API token with the **Workers Scripts: Edit** permission. wrangler reads `CLOUDFLARE_API_TOKEN` (and `CLOUDFLARE_ACCOUNT_ID`, if the token reaches more than one account) from the environment, as it always does.
+
+```yaml
+# .github/workflows/deploy.yml
+- run: npm ci
+- run: curl -fsSL https://install.envisecrets.com | sh
+- run: ~/.local/bin/envi workers deploy --yes
+  env:
+    ENVI_TOKEN: ${{ secrets.ENVI_TOKEN }}
+    CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+```
+
+The service token names the origin, so no `envi.toml` is needed; pass `--env` to pick the wrangler environment.
+
+## Commands
+
+| Command | What it does |
+|---|---|
+| `envi workers push` | Set the origin's secrets on the Worker |
+| `envi workers status` | Compare names in Envi with the Worker's secrets |
+| `envi workers delete <key>` | Delete one secret from the Worker |
+| `envi workers dev [-- args]` | Run `wrangler dev` with the secrets, no `.dev.vars` |
+| `envi workers deploy [-- args]` | Push, then `wrangler deploy` |

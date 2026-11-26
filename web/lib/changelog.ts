@@ -11,6 +11,20 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-11-26",
+    version: "v1.7.0",
+    title: "Send secrets to Cloudflare Workers",
+    summary: "`envi workers` puts an origin's secrets on a Cloudflare Worker through your own wrangler, and runs `wrangler dev` with them, so there is no `.dev.vars` to keep in sync.",
+    changes: [
+      "`envi workers push` sets the origin's secrets on the Worker. Values go to wrangler on standard input, never in a file or an argument.",
+      "`envi workers dev` runs `wrangler dev` with the secrets in its environment and nothing written to disk.",
+      "`envi workers deploy` pushes, then runs `wrangler deploy`.",
+      "`envi workers status` compares the names in Envi with the Worker's, and `envi workers delete <key>` removes one.",
+      "A `[workers]` table in `envi.toml` maps each origin to a wrangler environment. Production asks before sending; `--yes` skips the question in CI.",
+      "Names already in `[vars]` are skipped with a warning, `--prune` deletes secrets that aren't in Envi, and `--dry-run` shows the changes without sending anything.",
+    ],
+  },
+  {
     date: "2026-11-19",
     version: "v1.6.0",
     title: "Self-hosted first, with Envi Cloud next to it",
